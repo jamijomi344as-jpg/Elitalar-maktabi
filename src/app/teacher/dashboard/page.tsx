@@ -8,14 +8,17 @@ export default function TeacherDashboard() {
   const currentTeacher = mockUsers.find(u => u.id === "T-1045");
   const TODAY_DATE = "14.05"; // Hozirgi test sanasi
 
-  // 1. YILLIK REJA VA BUGUNGI DARSLAR (Mavzular bilan)
-  const todaysSchedule = [
-    { id: 1, time: "08:00 - 08:45", className: "10-A", subject: "Algebra", room: "302-xona", topic: "Kvadrat tenglamalar grafiklari", type: "lesson" },
-    { id: 2, time: "08:50 - 09:35", className: "10-B", subject: "Geometriya", room: "302-xona", topic: "BSB-1: Uchburchaklar yuzini topish", type: "bsb" },
-    { id: 3, time: "10:05 - 10:50", className: "11-A", subject: "Algebra", room: "305-xona", topic: "CHSB: Yillik test", type: "chsb" },
-  ];
+  // 1. YILLIK REJA VA BUGUNGI DARSLAR (Dinamik qilingan)
+  const [schedule, setSchedule] = useState([
+    { id: 1, date: "14.05", time: "08:00 - 08:45", className: "10-A", subject: "Algebra", room: "302-xona", topic: "Kvadrat tenglamalar grafiklari", type: "lesson" },
+    { id: 2, date: "14.05", time: "08:50 - 09:35", className: "10-B", subject: "Geometriya", room: "302-xona", topic: "BSB-1: Uchburchaklar yuzini topish", type: "bsb" },
+    { id: 3, date: "14.05", time: "10:05 - 10:50", className: "11-A", subject: "Algebra", room: "305-xona", topic: "CHSB: Yillik test", type: "chsb" },
+  ]);
 
-  // 2. KENGAYTIRILGAN O'QUVCHILAR BAZASI (BSB, CHSB, Kunlik 100-ballik tizim)
+  // Faqat bugungi darslarni ajratib olamiz
+  const todaysSchedule = schedule.filter(s => s.date === TODAY_DATE);
+
+  // 2. KENGAYTIRILGAN O'QUVCHILAR BAZASI
   const [allStudents, setAllStudents] = useState([
     { id: "S-8392", class: "10-A", name: "Kiyotaka Ayanokoji", attendance: "present", daily: [{ id: 1, val: 10, date: "10.05" }, { id: 2, val: 9, date: "12.05" }], bsb1: 24, bsb2: null, chsb: null },
     { id: "S-8393", class: "10-A", name: "Suzune Horikita", attendance: "present", daily: [{ id: 3, val: 10, date: "12.05" }], bsb1: 22, bsb2: null, chsb: null },
@@ -38,12 +41,15 @@ export default function TeacherDashboard() {
   const [selectedGradeObj, setSelectedGradeObj] = useState<any>(null);
   const [reason, setReason] = useState("");
 
+  // REJA QO'SHISH MODALI UCHUN HOLAT
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [planData, setPlanData] = useState({ date: TODAY_DATE, time: "", className: "10-A", subject: "Algebra", room: "302-xona", topic: "", type: "lesson" });
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
   const filteredStudents = allStudents.filter(s => s.class === selectedClass?.className && (s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase())));
 
-  // Hisob-kitoblar (100 ballik tizim)
   const getDailyAverage = (daily: any[]) => daily.length === 0 ? 0 : daily.reduce((a, b) => a + b.val, 0) / daily.length;
   const getTotalQuarterScore = (student: any) => Math.round(getDailyAverage(student.daily)) + (student.bsb1 || 0) + (student.bsb2 || 0) + (student.chsb || 0);
 
@@ -53,24 +59,19 @@ export default function TeacherDashboard() {
 
   const handleAddGrade = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Kuniga bitta baho cheklovi
     if (gradeCategory === "daily" && selectedStudent.daily.some((g: any) => g.date === TODAY_DATE)) {
       alert("Bu o'quvchiga bugun kunlik baho qo'yilgan! Uni tahrirlashingiz mumkin.");
       return;
     }
-
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       setSuccessMessage(`${selectedStudent.name} ga baho muvaffaqiyatli saqlandi!`);
-      
       setAllStudents(prev => prev.map(s => {
         if (s.id !== selectedStudent.id) return s;
         if (gradeCategory === "daily") return { ...s, daily: [...s.daily, { id: Date.now(), val: Number(grade), date: TODAY_DATE }] };
         return { ...s, [gradeCategory]: Number(grade) };
       }));
-
       const newLog = { id: Date.now(), text: `${selectedStudent.name} ga ${gradeCategory.toUpperCase()} dan ${grade} qo'yildi`, time: "Hozirgina", type: "grade" };
       setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
       setTimeout(() => { closeModal(); }, 1500);
@@ -83,16 +84,32 @@ export default function TeacherDashboard() {
     setTimeout(() => {
       setIsProcessing(false);
       setSuccessMessage("Baho muvaffaqiyatli o'zgartirildi!");
-      
       setAllStudents(prev => prev.map(s => {
         if (s.id !== selectedStudent.id) return s;
         return { ...s, daily: s.daily.map((g: any) => g.id === selectedGradeObj.id ? { ...g, val: Number(grade) } : g) };
       }));
-
       const newLog = { id: Date.now(), text: `${selectedStudent.name} bahosi ${selectedGradeObj.val} dan ${grade} ga o'zgartirildi. Sabab: ${reason}`, time: "Hozirgina", type: "edit" };
       setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
       setTimeout(() => { closeModal(); }, 2000);
     }, 1000);
+  };
+
+  // YANGI DARS REJASINI SAQLASH FUNKSIYASI
+  const handleAddPlan = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setSchedule(prev => [...prev, { id: Date.now(), ...planData }]);
+      const newLog = { id: Date.now(), text: `${planData.className} sinfiga yangi reja: ${planData.topic}`, time: "Hozirgina", type: "system" };
+      setRecentLogs(prev => [newLog, ...prev].slice(0, 10));
+      setSuccessMessage("Dars rejasi muvaffaqiyatli saqlandi!");
+      setTimeout(() => {
+        setIsPlanModalOpen(false);
+        setSuccessMessage("");
+        setPlanData({ date: TODAY_DATE, time: "", className: "10-A", subject: "Algebra", room: "302-xona", topic: "", type: "lesson" });
+      }, 1500);
+    }, 800);
   };
 
   const closeModal = () => {
@@ -118,9 +135,20 @@ export default function TeacherDashboard() {
       {!selectedClass && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in zoom-in-95 duration-300">
           <div className="xl:col-span-2 space-y-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center mb-2">
-              <Clock className="w-6 h-6 mr-2 text-indigo-500" /> Bugungi Darslar va Mavzular Rejasi
-            </h2>
+            {/* Sarlavha va yangi qoshish tugmasi */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                <Clock className="w-6 h-6 mr-2 text-indigo-500" /> Bugungi Darslar va Mavzular
+              </h2>
+              <button onClick={() => setIsPlanModalOpen(true)} className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20 rounded-xl transition-colors font-bold text-sm flex items-center shadow-sm">
+                <Plus className="w-4 h-4 mr-1" /> Reja kiritish
+              </button>
+            </div>
+
+            {todaysSchedule.length === 0 && (
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center border border-gray-100 dark:border-slate-800 text-gray-500 font-medium">Bugun darslaringiz yo'q yoki reja kiritilmagan.</div>
+            )}
+
             {todaysSchedule.map((cls) => (
               <div key={cls.id} onClick={() => setSelectedClass(cls)} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-800 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all group">
                 <div className="flex items-center gap-5">
@@ -161,7 +189,7 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* JURNAL EKRANI (Yakuniy va mukammal jadval) */}
+      {/* JURNAL EKRANI (Yakuniy va mukammal jadval - O'ZGARIShSIZ) */}
       {selectedClass && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden animate-in slide-in-from-right-8 duration-300">
           
@@ -201,7 +229,6 @@ export default function TeacherDashboard() {
                       <td className="p-4 pl-6 font-bold text-gray-400">{index + 1}</td>
                       <td className="p-4 font-bold text-gray-900 dark:text-white">{student.name}</td>
                       
-                      {/* DAVOMAT */}
                       <td className="p-4 border-x border-gray-100 dark:border-slate-800 text-center">
                         <div className="flex items-center justify-center space-x-1">
                           <button onClick={() => handleAttendanceChange(student.id, "present")} className={`p-1.5 rounded-lg ${student.attendance === 'present' ? 'bg-green-500 text-white' : 'text-gray-300 hover:text-green-500'}`}><Check className="w-4 h-4" /></button>
@@ -210,7 +237,6 @@ export default function TeacherDashboard() {
                         </div>
                       </td>
 
-                      {/* KUNLIK BAHOLAR */}
                       <td className="p-4 py-3">
                         <div className="flex flex-wrap gap-2 items-center">
                           {student.daily.map((g: any) => (
@@ -228,34 +254,20 @@ export default function TeacherDashboard() {
                         </div>
                       </td>
 
-                      {/* O'RTACHA (10) */}
                       <td className="p-4 text-center border-l border-gray-100 dark:border-slate-800 bg-indigo-50/30 dark:bg-indigo-900/5">
                         <span className="font-black text-indigo-700 dark:text-indigo-400">{dailyAvg > 0 ? dailyAvg.toFixed(1) : "-"}</span>
                       </td>
 
-                      {/* BSB 1 (25) */}
-                      <td className="p-4 text-center">
-                        <span className="font-black text-blue-700 dark:text-blue-400 text-lg">{student.bsb1 || "-"}</span>
-                      </td>
-
-                      {/* BSB 2 (25) */}
-                      <td className="p-4 text-center">
-                        <span className="font-black text-blue-700 dark:text-blue-400 text-lg">{student.bsb2 || "-"}</span>
-                      </td>
-
-                      {/* CHSB (40) */}
-                      <td className="p-4 text-center">
-                        <span className="font-black text-purple-700 dark:text-purple-400 text-lg">{student.chsb || "-"}</span>
-                      </td>
-
-                      {/* CHORAK BAHOSI (100) */}
+                      <td className="p-4 text-center"><span className="font-black text-blue-700 dark:text-blue-400 text-lg">{student.bsb1 || "-"}</span></td>
+                      <td className="p-4 text-center"><span className="font-black text-blue-700 dark:text-blue-400 text-lg">{student.bsb2 || "-"}</span></td>
+                      <td className="p-4 text-center"><span className="font-black text-purple-700 dark:text-purple-400 text-lg">{student.chsb || "-"}</span></td>
+                      
                       <td className="p-4 text-center border-l border-gray-200 dark:border-slate-700 bg-green-50/50 dark:bg-green-900/10">
                         <span className={`px-3 py-1.5 rounded-lg border-2 font-black text-lg ${totalQuarter >= 86 ? 'border-green-400 text-green-700 bg-green-100' : totalQuarter >= 71 ? 'border-blue-400 text-blue-700 bg-blue-100' : totalQuarter >= 56 ? 'border-yellow-400 text-yellow-700 bg-yellow-100' : totalQuarter > 0 ? 'border-red-400 text-red-700 bg-red-100' : 'border-gray-200 text-gray-400'}`}>
                           {totalQuarter > 0 ? totalQuarter : "-"}
                         </span>
                       </td>
 
-                      {/* HARAKATLAR */}
                       <td className="p-4 pr-6 flex justify-end space-x-2">
                         <button onClick={() => { setSelectedStudent(student); setActionType("grade"); }} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors flex items-center font-bold text-sm shadow-sm">
                           <Plus className="w-4 h-4 mr-1" /> Baho
@@ -349,6 +361,65 @@ export default function TeacherDashboard() {
                     {isProcessing ? "Saqlanmoqda..." : "O'zgarishni tasdiqlash"}
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. REJA QO'SHISH MODALI */}
+      {isPlanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-800 relative">
+            <button onClick={() => setIsPlanModalOpen(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full z-10"><X className="w-5 h-5" /></button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold dark:text-white mb-1"><Calendar className="w-6 h-6 mr-2 text-indigo-500 inline" /> Dars Rejasini Kiritish</h2>
+              <p className="text-sm text-gray-500 mb-4">Yangi mavzu, BSB yoki CHSB qo'shish</p>
+              
+              {successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              ) : (
+                <form onSubmit={handleAddPlan} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Sana</label>
+                      <input type="text" required placeholder="14.05" value={planData.date} onChange={e => setPlanData({...planData, date: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 outline-none text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Vaqt</label>
+                      <input type="text" required placeholder="08:00 - 08:45" value={planData.time} onChange={e => setPlanData({...planData, time: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 outline-none text-sm" />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Sinf</label>
+                      <input type="text" required placeholder="Masalan: 10-A" value={planData.className} onChange={e => setPlanData({...planData, className: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 outline-none text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Fan</label>
+                      <input type="text" required placeholder="Masalan: Algebra" value={planData.subject} onChange={e => setPlanData({...planData, subject: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 outline-none text-sm" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Dars turi</label>
+                    <select value={planData.type} onChange={e => setPlanData({...planData, type: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 outline-none text-sm font-medium">
+                      <option value="lesson">Oddiy Dars (Mavzu)</option>
+                      <option value="bsb">BSB (Birlik sinov bahosi)</option>
+                      <option value="chsb">CHSB (Chorak sinov bahosi)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Mavzu nomi</label>
+                    <input type="text" required placeholder="Masalan: Logarifmlar..." value={planData.topic} onChange={e => setPlanData({...planData, topic: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-950 outline-none text-sm" />
+                  </div>
+
+                  <button type="submit" disabled={isProcessing} className="w-full mt-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                    {isProcessing ? "Saqlanmoqda..." : "Rejani saqlash"}
+                  </button>
+                </form>
               )}
             </div>
           </div>
