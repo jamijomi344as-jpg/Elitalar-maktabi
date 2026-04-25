@@ -10,22 +10,19 @@ export default function TeacherDashboard() {
   const lessonDates = ["02.09", "04.09", "09.09", "11.09", "16.09", "18.09", "23.09", "25.09", "30.09"];
 
   // ==========================================
-  // OY YAKUNINI TEKSHIRISH MANTIG'I (YANGI)
+  // OY YAKUNINI TEKSHIRISH MANTIG'I
   // ==========================================
   const checkIsLastFiveDays = () => {
     const today = new Date();
     const currentDay = today.getDate();
-    // Shu oyning oxirgi kunini aniqlash (Masalan: Aprel uchun 30, May uchun 31)
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    // Agar bugun oyning oxirgi 5 kuniga kirsa true qaytaradi
     return currentDay > (lastDayOfMonth - 5);
   };
   const isEndOfMonth = checkIsLastFiveDays();
 
-  // EKRANLAR HOLATI: 'dashboard' | 'journal' | 'plan'
   const [activeView, setActiveView] = useState<"dashboard" | "journal" | "plan">("dashboard");
 
-  // 1. ISH REJA BAZASI
+  // 1. ISH REJA BAZASI (Yangi qo'shish imkoniyati bilan)
   const [lessonPlan, setLessonPlan] = useState([
     { id: 1, date: "02.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Jismlarning zaryadlanishi", homework: "Mavzuni o'rganish", type: "lesson" },
     { id: 2, date: "04.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Elektr zaryad", homework: "2-mavzuni o'rganish, 1-mashq", type: "lesson" },
@@ -54,13 +51,17 @@ export default function TeacherDashboard() {
   const [recentLogs, setRecentLogs] = useState([{ id: 1, text: "Tizimga muvaffaqiyatli kirdingiz", time: "Hozirgina", type: "system" }]);
 
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [actionType, setActionType] = useState<"pp" | "grade" | "editGrade" | "bulkPP" | null>(null);
+  const [actionType, setActionType] = useState<"pp" | "grade" | "editGrade" | "bulkPP" | "addPlan" | null>(null);
   const [amount, setAmount] = useState("");
   const [grade, setGrade] = useState("");
   const [gradeCategory, setGradeCategory] = useState<"daily" | "bsb1" | "bsb2" | "chsb">("daily");
   
   const [selectedGradeObj, setSelectedGradeObj] = useState<any>(null);
   const [reason, setReason] = useState("");
+  
+  // Yangi dars rejasi formasi uchun
+  const [newPlan, setNewPlan] = useState({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" });
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -112,6 +113,34 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
+  // YANGI ISH REJASINI SAQLASH
+  const handleAddNewPlan = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      
+      // Yangi rejani bazaga qo'shish
+      const newLesson = {
+        id: Date.now(),
+        date: newPlan.date,
+        time: "08:00 - 08:45",
+        className: newPlan.className,
+        subject: "Fizika",
+        room: "302-xona",
+        topic: newPlan.topic,
+        homework: newPlan.homework,
+        type: newPlan.type
+      };
+      
+      setLessonPlan(prev => [...prev, newLesson].sort((a, b) => a.date.localeCompare(b.date)));
+      setRecentLogs(prev => [{ id: Date.now(), text: `Yangi ish reja qo'shildi: ${newPlan.topic}`, time: "Hozirgina", type: "system" }, ...prev].slice(0, 10));
+      
+      setSuccessMessage("Ish reja muvaffaqiyatli saqlandi!");
+      setTimeout(() => { closeModal(); }, 1000);
+    }, 600);
+  };
+
   const openGradeModal = (student: any) => {
     setSelectedStudent(student);
     const todayLesson = todaysSchedule.find(s => s.className === student.class);
@@ -121,7 +150,7 @@ export default function TeacherDashboard() {
     setActionType("grade");
   };
 
-  const closeModal = () => { setSelectedStudent(null); setActionType(null); setAmount(""); setGrade(""); setReason(""); setSelectedGradeObj(null); setSuccessMessage(""); };
+  const closeModal = () => { setSelectedStudent(null); setActionType(null); setAmount(""); setGrade(""); setReason(""); setSelectedGradeObj(null); setSuccessMessage(""); setNewPlan({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" }); };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
@@ -180,7 +209,7 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* ISH REJA EKRANI */}
+      {/* ISH REJA EKRANI (RASMDAGI DIZAYN) */}
       {activeView === "plan" && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-8">
            <div className="p-4 border-b border-gray-200 flex items-center gap-4 bg-slate-50">
@@ -191,47 +220,56 @@ export default function TeacherDashboard() {
               </div>
             </div>
 
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-4">
+            <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex gap-2">
                 <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 rounded-lg text-sm font-bold bg-blue-50">1 chorak</button>
+                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">2</button>
+                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">3</button>
+                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">4</button>
               </div>
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium shadow-sm flex items-center"><Download className="w-4 h-4 mr-2"/> MMTVdan TMR</button>
+                {/* YANGI: REJA QO'SHISH TUGMASI */}
+                <button onClick={() => setActionType("addPlan")} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg text-sm font-bold shadow-sm flex items-center">
+                  <Plus className="w-4 h-4 mr-2"/> Yangi mavzu
+                </button>
+                <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium shadow-sm flex items-center hidden md:flex"><Download className="w-4 h-4 mr-2"/> MMTVdan TMR</button>
               </div>
             </div>
 
-            <table className="w-full text-left border-collapse border border-gray-200">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-12">№</th>
-                  <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-24">Sana</th>
-                  <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200">Mavzu dars</th>
-                  <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-1/3">Keyingi darsga uy vazifa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lessonPlan.map((plan, i) => (
-                  <tr key={plan.id} className="hover:bg-blue-50/10">
-                    <td className="p-3 text-center text-gray-400 text-sm border border-gray-200">{i + 1}</td>
-                    <td className={`p-3 text-center text-sm border border-gray-200 ${plan.date === TODAY_DATE ? 'text-blue-600 font-bold bg-blue-50/30' : 'text-blue-500'}`}>
-                      {plan.date}.2025
-                      {plan.date === TODAY_DATE && <div className="text-[10px] text-blue-400 mt-1">bugun</div>}
-                    </td>
-                    <td className="p-3 text-sm text-gray-700 border border-gray-200 flex justify-between items-center group cursor-text">
-                      <span className={plan.type !== 'lesson' ? 'text-red-600 font-bold' : ''}>{plan.topic}</span>
-                      <div className="flex items-center text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"><Plus className="w-4 h-4 mr-1"/><UploadCloud className="w-4 h-4"/></div>
-                    </td>
-                    <td className="p-3 text-sm text-gray-600 border border-gray-200 align-top">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 cursor-pointer hover:underline'}>{plan.homework}</span>
-                        {!plan.homework.includes('+') && <div className="flex space-x-2 text-gray-400"><Eye className="w-4 h-4"/><Paperclip className="w-4 h-4"/></div>}
-                      </div>
-                      <div className="flex justify-end mt-2"><button className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50">Onlayn berish</button></div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse border border-gray-200">
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-12">№</th>
+                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-24">Sana</th>
+                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200">Mavzu dars</th>
+                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-1/3">Keyingi darsga uy vazifa</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {lessonPlan.map((plan, i) => (
+                    <tr key={plan.id} className="hover:bg-blue-50/10">
+                      <td className="p-3 text-center text-gray-400 text-sm border border-gray-200">{i + 1}</td>
+                      <td className={`p-3 text-center text-sm border border-gray-200 ${plan.date === TODAY_DATE ? 'text-blue-600 font-bold bg-blue-50/30' : 'text-blue-500'}`}>
+                        {plan.date}.2025
+                        {plan.date === TODAY_DATE && <div className="text-[10px] text-blue-400 mt-1">bugun</div>}
+                      </td>
+                      <td className="p-3 text-sm text-gray-700 border border-gray-200 flex justify-between items-center group cursor-text">
+                        <span className={plan.type !== 'lesson' ? 'text-red-600 font-bold' : ''}>{plan.topic}</span>
+                        <div className="flex items-center text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"><Edit3 className="w-4 h-4 mr-1"/></div>
+                      </td>
+                      <td className="p-3 text-sm text-gray-600 border border-gray-200 align-top">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 cursor-pointer hover:underline'}>{plan.homework}</span>
+                          {!plan.homework.includes('+') && <div className="flex space-x-2 text-gray-400"><Eye className="w-4 h-4"/><Paperclip className="w-4 h-4"/></div>}
+                        </div>
+                        <div className="flex justify-end mt-2"><button className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50">Onlayn berish</button></div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
         </div>
       )}
 
@@ -251,7 +289,6 @@ export default function TeacherDashboard() {
             <div className="flex gap-2">
                <button className="px-4 py-2 border border-blue-400 text-blue-600 rounded-lg text-sm font-medium bg-blue-50 hidden md:block">BSB/CHSB chiqarish</button>
                
-               {/* SINF UCHUN PP TARQATISH TUGMASI (OY OXIRIGA QULFLANGAN) */}
                {isEndOfMonth ? (
                  <button onClick={() => setActionType("bulkPP")} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold shadow-sm flex items-center hover:bg-blue-600">
                    <Award className="w-4 h-4 mr-2"/> Sinfga PP tarqatish
@@ -288,7 +325,7 @@ export default function TeacherDashboard() {
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB 2</th>
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">CHSB</th>
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-gray-100">Chorak</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-16">Amal (PP/Baho)</th>
+                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-16">Amal</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -346,7 +383,60 @@ export default function TeacherDashboard() {
       )}
 
       {/* 4. MODALLAR */}
-      {/* BULK PP MODAL (OY OXIRIDA SINFGA TARQATISH) */}
+      
+      {/* YANGI REJA QO'SHISH MODALI */}
+      {actionType === "addPlan" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center"><FileText className="w-6 h-6 mr-2 text-blue-500" /> Yangi Mavzu Qo'shish</h2>
+              <p className="text-sm text-gray-500 mb-6">Ish rejangizga dars yoki imtihon kiritish.</p>
+              
+              {successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              ) : (
+                <form onSubmit={handleAddNewPlan} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Sana</label>
+                      <input type="text" required placeholder="Masalan: 20.09" value={newPlan.date} onChange={e => setNewPlan({...newPlan, date: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Sinf</label>
+                      <select value={newPlan.className} onChange={e => setNewPlan({...newPlan, className: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm font-medium">
+                        <option value="10-A">10-A</option>
+                        <option value="10-B">10-B</option>
+                        <option value="11-A">11-A</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Dars turi</label>
+                    <select value={newPlan.type} onChange={e => setNewPlan({...newPlan, type: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm font-medium">
+                      <option value="lesson">Oddiy Dars (Mavzu)</option>
+                      <option value="bsb1">BSB (Birlik sinov bahosi)</option>
+                      <option value="chsb">CHSB (Chorak sinov bahosi)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Mavzu nomi</label>
+                    <input type="text" required placeholder="Masalan: Logarifmlar..." value={newPlan.topic} onChange={e => setNewPlan({...newPlan, topic: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm" />
+                  </div>
+
+                  <button type="submit" disabled={isProcessing} className="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                    {isProcessing ? "Saqlanmoqda..." : "Rejani saqlash"}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK PP MODAL (SINFGA TARQATISH) */}
       {actionType === "bulkPP" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
