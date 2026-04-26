@@ -7,23 +7,16 @@ export default function StudentDashboard() {
   const student = {
     id: "S-8392",
     name: "Kiyotaka Ayanokoji",
-    class: "9-B", // Rasmdagi kabi 9-B ga o'zgartirildi
+    class: "9-B",
     balancePP: 12000,
     cp: 150
   };
 
-  // TOP-LEVEL NAVIGATION: Asosiy vs Ta'lim
   const [mainMenu, setMainMenu] = useState<"asosiy" | "talim">("talim");
-  
-  // TA'LIM ICHIDAGI NAVIGATION
   const [activeTab, setActiveTab] = useState<"kundalik" | "jadval" | "vazifa">("kundalik");
+  const [kundalikView, setKundalikView] = useState<"joriy" | "chorak">("chorak"); 
 
-  // KUNDALIK ICHIDAGI NAVIGATION (Joriy hafta vs Choraklar bo'yicha)
-  const [kundalikView, setKundalikView] = useState<"joriy" | "chorak">("chorak"); // Test qilish uchun chorak default qilindi
-
-  // ==========================================
-  // 1. KUNDALIK: CHORAKLAR BO'YICHA BAZA (Rasmdagi kabi)
-  // ==========================================
+  // 1. KUNDALIK: CHORAKLAR BO'YICHA BAZA
   const quarterGrades = [
     { id: 1, subject: "Adabiyot", grades: [], bsb: null, total: "-" },
     { id: 2, subject: "Algebra", grades: [9,9,9,9,9,9,9,9,9], bsb: "23/25", total: "32" },
@@ -36,9 +29,7 @@ export default function StudentDashboard() {
     { id: 9, subject: "Ingliz tili", grades: [10,10], bsb: null, total: "10" },
   ];
 
-  // ==========================================
-  // 2. UY VAZIFALARI BAZASI (Checklist)
-  // ==========================================
+  // 2. UY VAZIFALARI BAZASI
   const [homeworks, setHomeworks] = useState([
     { id: 1, subject: "Algebra", text: "463-464 mashqlar. Kvadrat tenglamalar.", dueDate: "Ertaga, 08:00", completed: false },
     { id: 2, subject: "Geometriya", text: "51.4 mashq. Uchburchak yuzi.", dueDate: "25-apr, 08:00", completed: false },
@@ -50,34 +41,32 @@ export default function StudentDashboard() {
   };
   const sortedHomeworks = [...homeworks].sort((a, b) => Number(a.completed) - Number(b.completed));
 
-  // ==========================================
-  // 3. KUNDALIK (Joriy hafta bazasi)
-  // ==========================================
+  // 3. KUNDALIK (Joriy hafta bazasi - TS Xatosi tuzatildi)
   const weeklyDiary = [
     {
       date: "JUM, 24 apr.",
       isToday: false,
       lessons: [
-        { num: 1, name: "Algebra", time: "8:00 - 8:45", hw: "463-464 mashq", grade: 9 },
-        { num: 2, name: "Kimyo", time: "8:50 - 9:35", hw: "o'qib o'rganib kelish", grade: 8 },
-        { num: 3, name: "Dav/huq as", time: "9:40 - 10:25", hw: "Mavzuni o'qib kelish", grade: 9 },
+        { num: 1, name: "Algebra", time: "8:00 - 8:45", hw: "463-464 mashq", grade: 9, canceled: false },
+        { num: 2, name: "Kimyo", time: "8:50 - 9:35", hw: "o'qib o'rganib kelish", grade: 8, canceled: false },
+        { num: 3, name: "Dav/huq as", time: "9:40 - 10:25", hw: "Mavzuni o'qib kelish", grade: 9, canceled: false },
+        { num: 4, name: "Rus tili", time: "10:35 - 11:20", hw: "повторение", grade: null, canceled: true },
+        { num: 5, name: "Ona tili", time: "11:25 - 12:10", hw: "matn bilan ishlash.", grade: null, canceled: false },
       ]
     },
     {
       date: "SHAN, 25 apr.",
       isToday: false,
       lessons: [
-        { num: 1, name: "Geometriya", time: "8:00 - 8:45", hw: "51.4 mashq", grade: null },
-        { num: 2, name: "Biologiya", time: "8:50 - 9:35", hw: "O'rganib kelish", grade: null },
-        { num: 3, name: "Fizika", time: "9:40 - 10:25", hw: "52 & 148 bet", grade: null },
+        { num: 1, name: "Geometriya", time: "8:00 - 8:45", hw: "51.4 mashq", grade: null, canceled: false },
+        { num: 2, name: "Biologiya", time: "8:50 - 9:35", hw: "O'rganib kelish", grade: null, canceled: false },
+        { num: 3, name: "Fizika", time: "9:40 - 10:25", hw: "52 & 148 bet", grade: null, canceled: false },
       ]
     },
     { date: "YAK, 26 apr., bugun", isToday: true, lessons: [] }
   ];
 
-  // ==========================================
   // 4. DARS JADVALI BAZASI
-  // ==========================================
   const scheduleGrid = [
     {
       time: "1 (08:00 - 08:45)",
@@ -100,7 +89,6 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       
-      {/* TEPADAGI PROFIL VA BALANS (Umumiy) */}
       <div className="bg-gradient-to-br from-blue-900 to-indigo-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10"><User className="w-32 h-32" /></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -124,7 +112,6 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* TOP-LEVEL NAVIGATION: ASOSIY Yoki TA'LIM */}
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 w-fit">
         <button 
           onClick={() => setMainMenu("asosiy")} 
@@ -140,9 +127,6 @@ export default function StudentDashboard() {
         </button>
       </div>
 
-      {/* ======================================================== */}
-      {/* 1. ASOSIY SAHIFA (Dashboard - O'z holiga qaytarilgan) */}
-      {/* ======================================================== */}
       {mainMenu === "asosiy" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-left-4">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
@@ -153,13 +137,9 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* ======================================================== */}
-      {/* 2. TA'LIM SAHIFASI (Dars jadvali o'rnini egallagan) */}
-      {/* ======================================================== */}
       {mainMenu === "talim" && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-right-4 duration-300">
           
-          {/* Ta'lim Ichki Menyulari */}
           <div className="border-b border-gray-200 bg-slate-50 p-3 flex flex-wrap justify-center sm:justify-start gap-2">
             <button 
               onClick={() => setActiveTab("kundalik")} 
@@ -183,17 +163,12 @@ export default function StudentDashboard() {
 
           <div className="p-6 bg-slate-50/30 min-h-[500px]">
             
-            {/* ======================================================== */}
-            {/* TAB: KUNDALIK (Joriy va Chorak) */}
-            {/* ======================================================== */}
             {activeTab === "kundalik" && (
               <div className="animate-in fade-in duration-300">
                 
-                {/* Tepada Joriy va Chorak filtri */}
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm gap-4 md:gap-0">
                   <h2 className="text-xl font-bold text-gray-800">{student.name}</h2>
                   
-                  {/* Markaziy Filtlar (Rasmdagidek) */}
                   <div className="flex gap-1 bg-gray-100 p-1 rounded-xl border border-gray-200">
                     <button 
                       onClick={() => setKundalikView("joriy")}
@@ -217,7 +192,6 @@ export default function StudentDashboard() {
                   </div>
                 </div>
 
-                {/* KUNDALIK: JORIY HAFTA KO'RINISHI */}
                 {kundalikView === "joriy" && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-left-4">
                     {weeklyDiary.map((day, idx) => (
@@ -234,7 +208,9 @@ export default function StudentDashboard() {
                                 <div className="flex justify-between items-start mb-2">
                                   <div>
                                     <span className="text-gray-400 font-bold text-xs mr-2">{lesson.num}.</span>
-                                    <span className={`font-bold text-sm ${lesson.canceled ? 'text-red-500 line-through' : 'text-blue-600'}`}>{lesson.name}</span>
+                                    <span className={`font-bold text-sm ${lesson.canceled ? 'text-red-500 line-through' : 'text-blue-600'}`}>
+                                      {lesson.name} {lesson.canceled && <span className="text-red-500 font-normal text-xs ml-1 no-underline">(bekor qilindi)</span>}
+                                    </span>
                                     <div className="text-[10px] text-gray-400 font-medium ml-4 mt-0.5">{lesson.time}</div>
                                   </div>
                                   {lesson.grade && (
@@ -262,11 +238,8 @@ export default function StudentDashboard() {
                   </div>
                 )}
 
-                {/* KUNDALIK: CHORAKLAR BO'YICHA KO'RINISH (Siz yuborgan 1-rasm!) */}
                 {kundalikView === "chorak" && (
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-in slide-in-from-right-4">
-                    
-                    {/* Chorak Filtrlari */}
                     <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
                       <div className="flex items-center gap-4">
                         <button className="text-blue-500 hover:text-blue-700"><ChevronLeft className="w-6 h-6"/></button>
@@ -290,7 +263,6 @@ export default function StudentDashboard() {
                       </div>
                     </div>
 
-                    {/* Baholar Jadvali */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
@@ -337,15 +309,18 @@ export default function StudentDashboard() {
               </div>
             )}
 
-
-            {/* ======================================================== */}
-            {/* TAB: DARS JADVALI (To'r ko'rinish) */}
-            {/* ======================================================== */}
             {activeTab === "jadval" && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50">
+                <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
                   <div>
                     <h2 className="text-2xl font-light text-gray-600">Dars jadvali <strong className="text-blue-900 font-black">{student.class}</strong> <span className="text-lg text-gray-400">(2025/2026)</span></h2>
+                    <p className="text-sm text-gray-500 mt-1">O'zbek tili</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="px-4 py-2 border border-gray-200 text-gray-600 font-bold text-sm rounded-lg hover:bg-gray-50">1 chorak</button>
+                    <button className="px-4 py-2 border border-gray-200 text-gray-600 font-bold text-sm rounded-lg hover:bg-gray-50">2 chorak</button>
+                    <button className="px-4 py-2 border border-gray-200 text-gray-600 font-bold text-sm rounded-lg hover:bg-gray-50">3 chorak</button>
+                    <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 font-bold text-sm rounded-lg bg-blue-50">4 chorak</button>
                   </div>
                 </div>
 
@@ -370,7 +345,8 @@ export default function StudentDashboard() {
                             <td key={dIdx} className="p-2 border-r border-gray-200 align-top hover:bg-blue-50/30 transition-colors w-1/4">
                               <div className="h-full border border-transparent hover:border-blue-200 rounded p-1.5 cursor-pointer">
                                 <div className="font-bold text-sm text-blue-600 mb-0.5 leading-tight">{day.subject}</div>
-                                <div className="text-[10px] text-gray-500 uppercase font-bold leading-tight mb-1 truncate">{day.teacher}</div>
+                                <div className="text-[10px] text-gray-500 uppercase font-bold leading-tight mb-1 truncate" title={day.teacher}>{day.teacher}</div>
+                                <div className="text-[10px] text-gray-400">Kabinet yo'q</div>
                               </div>
                             </td>
                           ))}
@@ -382,10 +358,6 @@ export default function StudentDashboard() {
               </div>
             )}
 
-
-            {/* ======================================================== */}
-            {/* TAB: UY VAZIFASI (Checklist) */}
-            {/* ======================================================== */}
             {activeTab === "vazifa" && (
               <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg mb-8">
@@ -441,7 +413,6 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
