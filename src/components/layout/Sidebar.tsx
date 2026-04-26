@@ -7,7 +7,7 @@ import { LayoutDashboard, Wallet, Calendar, Trophy, LogOut } from "lucide-react"
 const navItems = [
   { name: "Asosiy", href: "/student/dashboard", icon: LayoutDashboard },
   { name: "Hamyon (PP)", href: "/student/wallet", icon: Wallet },
-  { name: "Dars Jadvali", href: "/student/timetable", icon: Calendar },
+  { name: "Dars Jadvali", href: "/student/ta'lim", icon: Calendar },
   { name: "Sinf Reytingi", href: "/student/rankings", icon: Trophy },
 ];
 
