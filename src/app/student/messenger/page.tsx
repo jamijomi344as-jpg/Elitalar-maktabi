@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, MoreVertical, Paperclip, Send, Smile, Phone, Video, Hash, Users, Check, CheckCheck, Menu, Pin, Bookmark, User, Megaphone, Settings, Moon, ChevronDown, X, PlusCircle, Edit3, Type, Image as ImageIcon } from "lucide-react";
+import { Search, MoreVertical, Paperclip, Send, Smile, Phone, Video, Users, Check, CheckCheck, Menu, Pin, Bookmark, User, Megaphone, Settings, Moon, ChevronDown, X, PlusCircle, Edit3, Type, Image as ImageIcon, Bell, Lock, MessageCircle, Folder, Sliders, Volume2, Battery, Languages, ArrowLeft } from "lucide-react";
 
 export default function MessengerPage() {
   // ==========================================
@@ -11,16 +11,15 @@ export default function MessengerPage() {
   const [messageInput, setMessageInput] = useState("");
   const [isDark, setIsDark] = useState(true);
 
-  // Modallar va Stiker uchun State'lar
+  // Modallar va Stiker
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [showNewChannelModal, setShowNewChannelModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsView, setSettingsView] = useState("main"); // main, account, chat, language
   const [showContactsModal, setShowContactsModal] = useState(false);
-  const [showStickerPicker, setShowStickerPicker] = useState(false); // STIKER UCHUN
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
 
-  // Input State'lar
   const [newChatName, setNewChatName] = useState("");
   const [newContactName, setNewContactName] = useState("");
   const [newContactId, setNewContactId] = useState("");
@@ -28,13 +27,14 @@ export default function MessengerPage() {
   // ==========================================
   // BAZALAR
   // ==========================================
-  const [settings, setSettings] = useState({ textSize: "medium", enterToSend: true });
+  const [settings, setSettings] = useState({ textSize: "medium", enterToSend: true, language: "English" });
   
   const [profile, setProfile] = useState({
     name: "Kiyotaka Ayanokoji",
     id: "S-8392",
+    phone: "+998 90 123 45 67",
     bio: "IELTS 8.0 target 🎯",
-    avatarUrl: "" // PROFIL RASMI UCHUN
+    avatarUrl: ""
   });
 
   const [contacts, setContacts] = useState([
@@ -55,12 +55,10 @@ export default function MessengerPage() {
       { id: 1, sender: "Ozodbek's IELTS", text: "Чудесная целительница Цзю 2 Shenyi Jiu Xiaojie.", time: "4:39 PM", isMe: false, avatar: "O" },
       { id: 2, sender: "3D Anime Dunxua", text: "Аниме ПУТЬ СВЯТОГО 4K", time: "6:43 PM", isMe: false, avatar: "3", isVideo: true },
       { id: 3, sender: "Siz", text: "Rahmat, bugun albatta ko'raman! 🚀", time: "6:45 PM", isMe: true },
-      { id: 4, sender: "Siz", text: "🔥", time: "6:45 PM", isMe: true, isSticker: true }, // STIKER MISOLI
     ]
   });
 
-  // Stikerlar to'plami (Telegram style katta emojilar)
-  const stickers = ["👍", "😂", "❤️", "🔥", "🎉", "😢", "👀", "🚀", "😎", "💯", "🙏", "💡"];
+  const stickers = ["👍", "😂", "❤️", "🔥", "🎉", "😢", "👀", "🚀", "😎", "💯"];
 
   // ==========================================
   // FUNKSIYALAR
@@ -81,76 +79,37 @@ export default function MessengerPage() {
     }
   };
 
-  // Oddiy xabar yuborish
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!messageInput.trim()) return;
-    
-    const newMessage = {
-      id: Date.now(),
-      sender: "Siz",
-      text: messageInput,
-      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-      isMe: true
-    };
-
+    const newMessage = { id: Date.now(), sender: "Siz", text: messageInput, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), isMe: true };
     setChatMessages((prev: any) => ({ ...prev, [activeChat]: [...(prev[activeChat] || []), newMessage] }));
     setMessageInput("");
   };
 
-  // Stiker yuborish
   const handleSendSticker = (sticker: string) => {
-    const newStickerMsg = {
-      id: Date.now(),
-      sender: "Siz",
-      text: sticker,
-      time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-      isMe: true,
-      isSticker: true // Maxsus stiker flagi
-    };
-
+    const newStickerMsg = { id: Date.now(), sender: "Siz", text: sticker, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), isMe: true, isSticker: true };
     setChatMessages((prev: any) => ({ ...prev, [activeChat]: [...(prev[activeChat] || []), newStickerMsg] }));
-    setShowStickerPicker(false); // Jo'natgach yopish
+    setShowStickerPicker(false);
   };
 
   const handleCreateChat = (type: "group" | "channel") => {
     if (!newChatName.trim()) return;
-    const newChat = {
-      id: Date.now(),
-      name: newChatName,
-      type: type,
-      avatar: newChatName.charAt(0).toUpperCase(),
-      lastMsg: `${type === 'group' ? 'Guruh' : 'Kanal'} yaratildi`,
-      time: "Now",
-      unread: 0,
-      isOnline: true,
-      color: type === 'group' ? 'bg-purple-500' : 'bg-amber-500'
-    };
-    setChats([newChat, ...chats]);
-    setActiveChat(newChat.id);
-    setShowNewGroupModal(false);
-    setShowNewChannelModal(false);
-    setNewChatName("");
-  };
-
-  const handleAddContact = () => {
-    if (!newContactName.trim() || !newContactId.trim()) return;
-    setContacts([...contacts, { id: newContactId, name: newContactName, status: "Yangi kontakt" }]);
-    setNewContactName("");
-    setNewContactId("");
+    const newChat = { id: Date.now(), name: newChatName, type: type, avatar: newChatName.charAt(0).toUpperCase(), lastMsg: `${type === 'group' ? 'Guruh' : 'Kanal'} yaratildi`, time: "Now", unread: 0, isOnline: true, color: type === 'group' ? 'bg-purple-500' : 'bg-amber-500' };
+    setChats([newChat, ...chats]); setActiveChat(newChat.id); setShowNewGroupModal(false); setShowNewChannelModal(false); setNewChatName("");
   };
 
   const activeChatData = chats.find(c => c.id === activeChat);
   const currentMessages = chatMessages[activeChat] || [];
   const textSizeClass = settings.textSize === "small" ? "text-[13px]" : settings.textSize === "large" ? "text-[17px]" : "text-[15px]";
 
-  // Profil rasmini chiqaruvchi komponent
   const ProfileAvatar = ({ className, charSize }: { className: string, charSize: string }) => {
-    if (profile.avatarUrl) {
-      return <img src={profile.avatarUrl} alt="Profile" className={`object-cover ${className}`} />;
-    }
+    if (profile.avatarUrl) return <img src={profile.avatarUrl} alt="Profile" className={`object-cover ${className}`} />;
     return <div className={`flex items-center justify-center font-bold text-white bg-blue-500 ${className} ${charSize}`}>{profile.name.charAt(0)}</div>;
   };
+
+  // Ayrim sozlamalar ustiga bosganda "Tez kunda" alerti
+  const showComingSoon = () => alert("Supabase ulangach ishlaydi!");
 
   return (
     <div className="w-full h-[calc(100vh-80px)] bg-[#9bb3c8] dark:bg-[#0e1621] text-gray-900 dark:text-white flex overflow-hidden relative transition-colors duration-300">
@@ -158,12 +117,9 @@ export default function MessengerPage() {
       {/* ========================================================== */}
       {/* TELEGRAM DRAWER (YON MENYU) */}
       {/* ========================================================== */}
-      {isDrawerOpen && (
-        <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsDrawerOpen(false)}></div>
-      )}
+      {isDrawerOpen && <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsDrawerOpen(false)}></div>}
       
       <div className={`absolute top-0 left-0 h-full w-[280px] bg-white dark:bg-[#17212b] z-50 transform transition-transform duration-300 flex flex-col shadow-2xl ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* Drawer Header (Profil) */}
         <div className="p-4 bg-blue-500 text-white shadow-sm relative">
            <ProfileAvatar className="w-14 h-14 rounded-full mb-3 border border-white/30 shadow-lg" charSize="text-2xl" />
            <div className="flex justify-between items-center cursor-pointer">
@@ -175,9 +131,9 @@ export default function MessengerPage() {
            </div>
         </div>
         
-        {/* Menyular */}
         <div className="flex-1 overflow-y-auto py-2 text-gray-700 dark:text-[#708499]">
-           <div onClick={() => {setShowProfileModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors">
+           {/* Mening Profilim endi Settings -> Account ga yo'naltiradi */}
+           <div onClick={() => {setSettingsView("account"); setShowSettingsModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors">
               <User className="w-5 h-5" /> <span className="font-medium text-[15px]">Mening Profilim</span>
            </div>
            <div className="h-[1px] bg-gray-200 dark:bg-[#0e1621] my-1 mx-2"></div>
@@ -190,20 +146,14 @@ export default function MessengerPage() {
            <div onClick={() => {setShowContactsModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors">
               <User className="w-5 h-5" /> <span className="font-medium text-[15px]">Kontaktlar</span>
            </div>
-           
            <div onClick={() => {setActiveChat(0); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors">
               <Bookmark className="w-5 h-5" /> <span className="font-medium text-[15px]">Saqlangan Xabarlar</span>
            </div>
-           
-           <div onClick={() => {setShowSettingsModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors">
+           <div onClick={() => {setSettingsView("main"); setShowSettingsModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors">
               <Settings className="w-5 h-5" /> <span className="font-medium text-[15px]">Sozlamalar</span>
            </div>
-           
-           {/* Night Mode Oq-Qora fon Toggle */}
            <div onClick={toggleNightMode} className="flex items-center justify-between px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer hover:text-blue-500 dark:hover:text-white transition-colors mt-4 border-t border-gray-200 dark:border-[#0e1621]">
-              <div className="flex items-center gap-4">
-                <Moon className="w-5 h-5" /> <span className="font-medium text-[15px]">Tungi Rejim</span>
-              </div>
+              <div className="flex items-center gap-4"><Moon className="w-5 h-5" /> <span className="font-medium text-[15px]">Tungi Rejim</span></div>
               <div className={`w-9 h-5 rounded-full relative transition-colors ${isDark ? 'bg-blue-500' : 'bg-gray-300'}`}>
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${isDark ? 'right-0.5' : 'left-0.5'}`}></div>
               </div>
@@ -227,13 +177,10 @@ export default function MessengerPage() {
           {chats.map(chat => {
             if(chat.id === 0 && activeChat !== 0) return null;
             const isActive = activeChat === chat.id;
-            
             return (
               <div key={chat.id} onClick={() => setActiveChat(chat.id)} className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors ${isActive ? 'bg-blue-500 text-white dark:bg-[#2b5278]' : 'hover:bg-gray-100 dark:hover:bg-[#202b36]'}`}>
                 <div className="relative flex-shrink-0">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white ${chat.color}`}>
-                    {chat.avatar}
-                  </div>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white ${chat.color}`}>{chat.avatar}</div>
                   {chat.isOnline && <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-[#17212b] rounded-full"></div>}
                 </div>
                 <div className={`flex-1 min-w-0 border-b pb-2 ${isActive ? 'border-transparent' : 'border-gray-100 dark:border-[#0e1621]'}`}>
@@ -270,7 +217,6 @@ export default function MessengerPage() {
           </div>
         </div>
 
-        {/* Chat Xabarlari */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 relative z-10 flex flex-col scrollbar-thin">
           <div className="text-center my-2">
             <span className="text-xs font-bold bg-white/50 dark:bg-[#17212b]/50 text-gray-500 dark:text-[#708499] px-3 py-1 rounded-full shadow-sm">Bugun</span>
@@ -278,7 +224,6 @@ export default function MessengerPage() {
 
           {currentMessages.map((msg: any) => (
             <div key={msg.id} className={`flex max-w-xl ${msg.isMe ? 'self-end' : 'self-start'} group`}>
-              {/* O'zingiz bo'lmasangiz boshqaning avatari chiqadi, o'zingiz bo'lsangiz yashiringan (Telegram uslubi) */}
               {!msg.isMe && (
                 <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-sm text-white font-bold mt-auto mr-3 flex-shrink-0 shadow-sm">
                   {msg.avatar}
@@ -288,7 +233,6 @@ export default function MessengerPage() {
               <div className={`flex flex-col`}>
                 {!msg.isMe && <span className="text-[13px] font-bold text-blue-600 dark:text-[#4a8ebf] mb-1 ml-1">{msg.sender}</span>}
                 
-                {/* Agar stiker bo'lsa fondan ajralib turadi (fonsiz, katta hajm) */}
                 {msg.isSticker ? (
                   <div className="text-6xl animate-in zoom-in-90 mb-1 drop-shadow-xl">{msg.text}</div>
                 ) : (
@@ -315,22 +259,13 @@ export default function MessengerPage() {
           ))}
         </div>
 
-        {/* Xabar yozish qismi */}
         <div className="px-4 pb-4 pt-2 bg-transparent z-10 relative">
-          
-          {/* STIKER PANEL (Smile bosilganda chiqadi) */}
           {showStickerPicker && (
             <div className="absolute bottom-20 right-4 w-72 bg-white dark:bg-[#17212b] border border-gray-200 dark:border-[#0e1621] shadow-2xl rounded-2xl p-4 z-50 animate-in slide-in-from-bottom-2">
                <p className="text-xs font-bold text-gray-400 dark:text-[#708499] mb-3 uppercase tracking-wider">Stikerlar</p>
                <div className="grid grid-cols-4 gap-3">
                   {stickers.map(st => (
-                    <button 
-                      key={st} 
-                      onClick={() => handleSendSticker(st)}
-                      className="text-4xl hover:scale-110 transition-transform active:scale-95 text-center flex justify-center drop-shadow-md"
-                    >
-                      {st}
-                    </button>
+                    <button key={st} onClick={() => handleSendSticker(st)} className="text-4xl hover:scale-110 transition-transform active:scale-95 text-center flex justify-center drop-shadow-md">{st}</button>
                   ))}
                </div>
             </div>
@@ -339,25 +274,9 @@ export default function MessengerPage() {
           <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-white dark:bg-[#17212b] rounded-xl px-2 py-1 shadow-sm border border-gray-200 dark:border-transparent transition-colors">
             <button type="button" className="p-3 text-gray-400 dark:text-[#708499] hover:text-blue-500 transition-colors rounded-full"><Paperclip className="w-6 h-6" /></button>
             <div className="flex-1">
-              <input 
-                type="text" 
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Xabar yozing..." 
-                className="w-full bg-transparent border-none py-3 outline-none text-gray-900 dark:text-white text-[15px] placeholder-gray-400 dark:placeholder-[#708499]"
-                onKeyDown={(e) => { if(e.key === 'Enter' && settings.enterToSend) handleSendMessage(e) }}
-              />
+              <input type="text" value={messageInput} onChange={(e) => setMessageInput(e.target.value)} placeholder="Xabar yozing..." className="w-full bg-transparent border-none py-3 outline-none text-gray-900 dark:text-white text-[15px] placeholder-gray-400 dark:placeholder-[#708499]" onKeyDown={(e) => { if(e.key === 'Enter' && settings.enterToSend) handleSendMessage(e) }} />
             </div>
-            
-            {/* SMILE TUGMASI - Stikerlarni ochadi */}
-            <button 
-              type="button" 
-              onClick={() => setShowStickerPicker(!showStickerPicker)} 
-              className={`p-3 transition-colors rounded-full ${showStickerPicker ? 'text-blue-500 bg-blue-50 dark:bg-[#2b5278]/30' : 'text-gray-400 dark:text-[#708499] hover:text-blue-500'}`}
-            >
-              <Smile className="w-6 h-6" />
-            </button>
-            
+            <button type="button" onClick={() => setShowStickerPicker(!showStickerPicker)} className={`p-3 transition-colors rounded-full ${showStickerPicker ? 'text-blue-500 bg-blue-50 dark:bg-[#2b5278]/30' : 'text-gray-400 dark:text-[#708499] hover:text-blue-500'}`}><Smile className="w-6 h-6" /></button>
             {messageInput.trim() ? (
               <button type="submit" className="p-3 text-blue-500 dark:text-[#4a8ebf] hover:text-blue-600 dark:hover:text-white transition-colors rounded-full"><Send className="w-6 h-6" /></button>
             ) : (
@@ -368,53 +287,144 @@ export default function MessengerPage() {
       </div>
 
       {/* ========================================================== */}
-      {/* ISHLAYDIGAN MODALLAR (Profil rasmi bilan) */}
+      {/* TELEGRAM SETTINGS MODAL (MUKAMMAL) */}
       {/* ========================================================== */}
-
-      {/* 1. PROFIL SOZLAMALARI (Rasm kiritish imkoni) */}
-      {showProfileModal && (
+      {showSettingsModal && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#17212b] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95">
-             <div className="p-4 border-b border-gray-200 dark:border-[#0e1621] flex justify-between items-center bg-gray-50 dark:bg-transparent">
-                <h3 className="font-bold text-[17px] text-gray-900 dark:text-white">Mening Profilim</h3>
-                <button onClick={() => setShowProfileModal(false)} className="text-gray-500 dark:text-[#708499]"><X className="w-5 h-5"/></button>
+          <div className="bg-white dark:bg-[#17212b] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 h-[80vh] flex flex-col border border-gray-200 dark:border-[#0e1621]">
+             
+             {/* Header */}
+             <div className="h-[60px] px-4 flex items-center justify-between border-b border-gray-200 dark:border-[#0e1621] bg-gray-50 dark:bg-[#17212b]">
+               <div className="flex items-center gap-4">
+                 {settingsView !== "main" && (
+                   <button onClick={() => setSettingsView("main")} className="text-gray-500 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white"><ArrowLeft className="w-5 h-5"/></button>
+                 )}
+                 <h3 className="font-bold text-[17px] text-gray-900 dark:text-white">
+                   {settingsView === "main" ? "Settings" : settingsView === "account" ? "My Account" : settingsView === "chat" ? "Chat Settings" : "Language"}
+                 </h3>
+               </div>
+               <div className="flex items-center gap-4 text-gray-500 dark:text-[#708499]">
+                 {settingsView === "main" && <Search className="w-5 h-5 cursor-pointer hover:text-white" />}
+                 {settingsView === "main" && <MoreVertical className="w-5 h-5 cursor-pointer hover:text-white" />}
+                 <button onClick={() => setShowSettingsModal(false)} className="hover:text-gray-900 dark:hover:text-white"><X className="w-5 h-5"/></button>
+               </div>
              </div>
-             <div className="p-6 space-y-4">
-                <div className="flex justify-center mb-6">
-                  {/* Profil Rasmi Ko'rinishi */}
-                  <div className="relative group cursor-pointer">
-                    <ProfileAvatar className="w-28 h-28 rounded-full shadow-lg border-2 border-transparent group-hover:border-blue-500 transition-colors" charSize="text-4xl" />
-                    <div className="absolute bottom-0 right-0 bg-white dark:bg-[#17212b] rounded-full p-2 shadow-md border border-gray-100 dark:border-transparent">
-                      <ImageIcon className="w-5 h-5 text-blue-500" />
+
+             {/* Boshqaruv Ekranlari */}
+             <div className="flex-1 overflow-y-auto scrollbar-thin">
+                
+                {/* 1. ASOSIY EKRAN (MAIN VIEW - Rasmdagidek) */}
+                {settingsView === "main" && (
+                  <div>
+                    {/* Prompt Box */}
+                    <div className="p-4 bg-gray-50 dark:bg-[#182533] border-b border-gray-200 dark:border-[#0e1621]">
+                      <p className="text-[#4a8ebf] font-bold text-sm mb-2">Is {profile.phone} still your number?</p>
+                      <p className="text-[13px] text-gray-600 dark:text-[#708499] leading-snug mb-3">Keep your number up to date to ensure you can always log into Messenger. <span className="text-[#4a8ebf] cursor-pointer">Learn More</span></p>
+                      <div className="flex gap-3">
+                        <button className="flex-1 bg-blue-500 dark:bg-[#2b5278] hover:bg-blue-600 dark:hover:bg-[#3d7ca8] text-white font-bold py-2 rounded-lg text-sm transition-colors">Yes</button>
+                        <button className="flex-1 bg-blue-500 dark:bg-[#2b5278] hover:bg-blue-600 dark:hover:bg-[#3d7ca8] text-white font-bold py-2 rounded-lg text-sm transition-colors">No</button>
+                      </div>
+                    </div>
+                    
+                    {/* Settings List */}
+                    <div className="py-2">
+                      <div onClick={() => setSettingsView("account")} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <User className="w-5 h-5" /> <span className="font-medium text-[15px]">My Account</span>
+                      </div>
+                      <div onClick={showComingSoon} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <Bell className="w-5 h-5" /> <span className="font-medium text-[15px]">Notifications and Sounds</span>
+                      </div>
+                      <div onClick={showComingSoon} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <Lock className="w-5 h-5" /> <span className="font-medium text-[15px]">Privacy and Security</span>
+                      </div>
+                      <div onClick={() => setSettingsView("chat")} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <MessageCircle className="w-5 h-5" /> <span className="font-medium text-[15px]">Chat Settings</span>
+                      </div>
+                      <div onClick={showComingSoon} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <Folder className="w-5 h-5" /> <span className="font-medium text-[15px]">Folders</span>
+                      </div>
+                      <div onClick={showComingSoon} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <Sliders className="w-5 h-5" /> <span className="font-medium text-[15px]">Advanced</span>
+                      </div>
+                      <div onClick={showComingSoon} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <Volume2 className="w-5 h-5" /> <span className="font-medium text-[15px]">Speakers and Camera</span>
+                      </div>
+                      <div onClick={showComingSoon} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <Battery className="w-5 h-5" /> <span className="font-medium text-[15px]">Battery and Animations</span>
+                      </div>
+                      <div onClick={() => setSettingsView("language")} className="flex items-center justify-between px-5 py-3 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer text-gray-600 dark:text-[#708499] hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <div className="flex items-center gap-4"><Languages className="w-5 h-5" /> <span className="font-medium text-[15px]">Language</span></div>
+                        <span className="text-sm text-[#4a8ebf]">{settings.language}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                {/* Rasm URL manzili uchun Input */}
-                <div>
-                  <label className="text-xs font-bold text-gray-500 dark:text-[#708499] uppercase">Profil rasmi URL manzili (silka)</label>
-                  <input type="text" value={profile.avatarUrl} onChange={e=>setProfile({...profile, avatarUrl: e.target.value})} placeholder="https://rasm-silkasi.com/rasm.jpg" className="w-full bg-gray-100 dark:bg-[#0e1621] rounded-lg p-3 outline-none text-sm text-gray-900 dark:text-white border border-transparent focus:border-blue-500 mt-1" />
-                </div>
+                )}
 
-                <div>
-                  <label className="text-xs font-bold text-gray-500 dark:text-[#708499] uppercase">Ism-Sharif</label>
-                  <input type="text" value={profile.name} onChange={e=>setProfile({...profile, name: e.target.value})} className="w-full bg-gray-100 dark:bg-[#0e1621] rounded-lg p-3 outline-none text-gray-900 dark:text-white font-bold border border-transparent focus:border-blue-500 mt-1" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 dark:text-[#708499] uppercase">Bio (O'zingiz haqingizda)</label>
-                  <input type="text" value={profile.bio} onChange={e=>setProfile({...profile, bio: e.target.value})} className="w-full bg-gray-100 dark:bg-[#0e1621] rounded-lg p-3 outline-none text-gray-900 dark:text-white border border-transparent focus:border-blue-500 mt-1" />
-                </div>
-             </div>
-             <div className="p-4 border-t border-gray-200 dark:border-[#0e1621] bg-gray-50 dark:bg-transparent">
-                <button onClick={() => setShowProfileModal(false)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg shadow-md transition-colors">Saqlash</button>
+                {/* 2. ACCOUNT VIEW (Eski Profil Modali shu yerga ko'chdi) */}
+                {settingsView === "account" && (
+                  <div className="p-6 space-y-4">
+                    <div className="flex justify-center mb-6">
+                      <div className="relative group cursor-pointer">
+                        <ProfileAvatar className="w-28 h-28 rounded-full shadow-lg border-2 border-transparent group-hover:border-blue-500 transition-colors" charSize="text-4xl" />
+                        <div className="absolute bottom-0 right-0 bg-white dark:bg-[#17212b] rounded-full p-2 shadow-md border border-gray-100 dark:border-transparent">
+                          <ImageIcon className="w-5 h-5 text-blue-500 dark:text-[#4a8ebf]" />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-gray-500 dark:text-[#708499] uppercase">Profil rasmi URL manzili (silka)</label>
+                      <input type="text" value={profile.avatarUrl} onChange={e=>setProfile({...profile, avatarUrl: e.target.value})} placeholder="https://rasm-silkasi.com/rasm.jpg" className="w-full bg-gray-100 dark:bg-[#242f3d] rounded-lg p-3 outline-none text-sm text-gray-900 dark:text-white border border-transparent focus:border-blue-500 mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-gray-500 dark:text-[#708499] uppercase">Ism-Sharif</label>
+                      <input type="text" value={profile.name} onChange={e=>setProfile({...profile, name: e.target.value})} className="w-full bg-gray-100 dark:bg-[#242f3d] rounded-lg p-3 outline-none text-gray-900 dark:text-white font-bold border border-transparent focus:border-blue-500 mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-gray-500 dark:text-[#708499] uppercase">Bio (O'zingiz haqingizda)</label>
+                      <input type="text" value={profile.bio} onChange={e=>setProfile({...profile, bio: e.target.value})} className="w-full bg-gray-100 dark:bg-[#242f3d] rounded-lg p-3 outline-none text-gray-900 dark:text-white border border-transparent focus:border-blue-500 mt-1" />
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. CHAT SETTINGS VIEW */}
+                {settingsView === "chat" && (
+                  <div className="p-6 space-y-6">
+                    <div>
+                      <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center"><Type className="w-4 h-4 mr-2"/> Xabarlar hajmi</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setSettings({...settings, textSize: 'small'})} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${settings.textSize === 'small' ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-[#242f3d] text-gray-600 dark:text-[#708499]'}`}>Kichik</button>
+                        <button onClick={() => setSettings({...settings, textSize: 'medium'})} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${settings.textSize === 'medium' ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-[#242f3d] text-gray-600 dark:text-[#708499]'}`}>O'rta</button>
+                        <button onClick={() => setSettings({...settings, textSize: 'large'})} className={`flex-1 py-2 rounded-lg font-bold text-sm transition-colors ${settings.textSize === 'large' ? 'bg-blue-500 text-white shadow-md' : 'bg-gray-100 dark:bg-[#242f3d] text-gray-600 dark:text-[#708499]'}`}>Katta</button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-gray-200 dark:border-[#0e1621] pt-6">
+                      <div>
+                        <p className="font-bold text-gray-800 dark:text-gray-200 text-sm">Enter bilan yuborish</p>
+                        <p className="text-xs text-gray-500 dark:text-[#708499]">Enter bosilganda xabar jo'natiladi</p>
+                      </div>
+                      <div onClick={() => setSettings({...settings, enterToSend: !settings.enterToSend})} className={`w-10 h-6 rounded-full cursor-pointer relative transition-colors ${settings.enterToSend ? 'bg-blue-500' : 'bg-gray-300 dark:bg-[#0e1621]'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${settings.enterToSend ? 'right-1' : 'left-1'}`}></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. LANGUAGE VIEW */}
+                {settingsView === "language" && (
+                  <div className="py-2">
+                    {["English", "O'zbek", "Русский"].map(lang => (
+                       <div key={lang} onClick={() => setSettings({...settings, language: lang})} className="flex items-center justify-between px-5 py-4 hover:bg-gray-100 dark:hover:bg-[#202b36] cursor-pointer transition-colors">
+                         <span className="font-medium text-[15px] text-gray-900 dark:text-white">{lang}</span>
+                         {settings.language === lang && <Check className="w-5 h-5 text-blue-500" />}
+                       </div>
+                    ))}
+                  </div>
+                )}
              </div>
           </div>
         </div>
       )}
-
-      {/* Yaratish va Boshqa modallar qisqartirildi (Dizayni oldingisi bilan bir xil, hajmi oshmasligi uchun yashirildi) */}
-      {/* ... [Yangi guruh, Kontakt, Settings modallari o'z o'rnida ishlaydi] ... */}
-
+      
     </div>
   );
 }
