@@ -5,7 +5,7 @@ import { mockUsers } from "@/lib/mockData";
 import { Users, GraduationCap, Award, ShieldAlert, Search, Plus, Minus, CheckCircle2, X, Calendar, Clock, MapPin, History, Check, UserMinus, Stethoscope, ArrowLeft, BookOpen, Edit3, AlertCircle, FileText, Download, UploadCloud, Eye, Paperclip, ChevronRight, Lock } from "lucide-react";
 
 // ==========================================
-// TYPESCRIPT PASPORTLARI (Qattiq himoya)
+// TYPESCRIPT PASPORTLARI
 // ==========================================
 export type DailyGrade = {
   id: number;
@@ -30,9 +30,6 @@ export default function TeacherDashboard() {
   const TODAY_DATE = "18.09"; 
   const lessonDates = ["02.09", "04.09", "09.09", "11.09", "16.09", "18.09", "23.09", "25.09", "30.09"];
 
-  // ==========================================
-  // OY YAKUNINI TEKSHIRISH
-  // ==========================================
   const checkIsLastFiveDays = () => {
     const today = new Date();
     const currentDay = today.getDate();
@@ -56,7 +53,7 @@ export default function TeacherDashboard() {
 
   const todaysSchedule = lessonPlan.filter(s => s.date === TODAY_DATE);
 
-  // 2. O'QUVCHILAR BAZASI (Qat'iy tur bilan)
+  // 2. O'QUVCHILAR BAZASI
   const [allStudents, setAllStudents] = useState<Student[]>([
     { id: "S-8392", class: "10-A", name: "Asadova Parizod", daily: [{ id: 1, val: 8, hwVal: 9, attendance: "present", date: "04.09" }], bsb1: null, bsb2: null, chsb: null },
     { id: "S-8393", class: "10-A", name: "Azimov Kamron", daily: [{ id: 3, val: 7, hwVal: null, attendance: "present", date: "04.09" }], bsb1: null, bsb2: null, chsb: null },
@@ -85,9 +82,7 @@ export default function TeacherDashboard() {
   
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
   const [homeworkText, setHomeworkText] = useState("");
-
   const [newPlan, setNewPlan] = useState({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" });
-
   const [selectedGradeObj, setSelectedGradeObj] = useState<DailyGrade | null>(null);
   const [reason, setReason] = useState("");
 
@@ -106,32 +101,24 @@ export default function TeacherDashboard() {
     setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, attendance: status } : s));
   };
 
-  const handleAddGrade = (e: React.FormEvent) => {
+  // PP QO'SHISH FUNKSIYASI (XATO TOZALANDI)
+  const handleAddPP = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
-      setSuccessMessage(`${selectedStudent ? selectedStudent.name : 'Sinf'} ga muvaffaqiyatli saqlandi!`);
+      setSuccessMessage(`Muvaffaqiyatli amalga oshirildi!`);
       
       if (actionType === "bulkPP") {
-        setRecentLogs(prev => [{ id: Date.now(), text: `Oy yakuni: Butun sinfga ${amount} PP tarqatildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
+        setRecentLogs(prev => [{ id: Date.now(), text: `Oy yakuni: Sinfga ${amount} PP tarqatildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
       } else if (actionType === "pp") {
-         setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent?.name} hisobi o'zgartirildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
-      } else if (selectedStudent) {
-        setAllStudents(prev => prev.map(s => {
-          if (s.id !== selectedStudent.id) return s;
-          if (gradeCategory === "daily") {
-            const newEntry: DailyGrade = { id: Date.now(), val: Number(grade), hwVal: null, attendance: "present", date: TODAY_DATE };
-            return { ...s, daily: [...s.daily, newEntry] };
-          }
-          return { ...s, [gradeCategory]: Number(grade) };
-        }));
-        setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} ga ${grade} qo'yildi`, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
+         setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent?.name} hisobiga PP o'tkazildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
       }
       setTimeout(() => { closeModal(); }, 1000);
     }, 500);
   };
 
+  // BAHOLASH VA DAVOMAT SAQLASH
   const handleSaveGradeAndAttendance = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
@@ -167,7 +154,7 @@ export default function TeacherDashboard() {
       }));
 
       const logText = attendanceStatus !== "present" 
-        ? `${selectedStudent.name} ${activeDate} kuni ${attendanceStatus === 'absent' ? 'kelmadi (MQ)' : 'kasal (S)'} belgilandi.` 
+        ? `${selectedStudent.name} ${activeDate} kuni ${attendanceStatus === 'absent' ? 'kelmadi' : 'kasal'} deb belgilandi.` 
         : `${selectedStudent.name} ga baho saqlandi.`;
         
       setRecentLogs(prev => [{ id: Date.now(), text: logText, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
@@ -176,6 +163,7 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
+  // BAHONI TAHRIRLASH (XATO TOZALANDI)
   const handleEditGrade = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent || !selectedGradeObj) return;
@@ -189,7 +177,7 @@ export default function TeacherDashboard() {
         if (s.id !== selectedStudent.id) return s;
         return { 
           ...s, 
-          daily: s.daily.map(g => g.id === selectedGradeObj.id ? { ...g, val: Number(grade) } : g) 
+          daily: s.daily.map(g => g.id === selectedGradeObj.id ? { ...g, val: Number(lessonGrade) } : g) 
         };
       }));
       setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} bahosi o'zgardi. Sabab: ${reason}`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
@@ -367,16 +355,18 @@ export default function TeacherDashboard() {
                         {plan.date}.2025
                         {plan.date === TODAY_DATE && <div className="text-[10px] text-blue-400 mt-1">bugun</div>}
                       </td>
-                      <td className="p-3 text-sm text-gray-700 border border-gray-200 flex justify-between items-center group cursor-text">
+                      <td className="p-3 text-sm text-gray-700 border border-gray-200">
                         <span className={plan.type !== 'lesson' ? 'text-red-600 font-bold' : ''}>{plan.topic}</span>
-                        <div className="flex items-center text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"><Edit3 className="w-4 h-4 mr-1"/></div>
                       </td>
                       <td className="p-3 text-sm text-gray-600 border border-gray-200 align-top">
                         <div className="flex justify-between items-start mb-2">
-                          <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 cursor-pointer hover:underline'}>{plan.homework}</span>
-                          {!plan.homework.includes('+') && <div className="flex space-x-2 text-gray-400"><Eye className="w-4 h-4"/><Paperclip className="w-4 h-4"/></div>}
+                          <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 font-medium'}>{plan.homework}</span>
                         </div>
-                        <div className="flex justify-end mt-2"><button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50">Onlayn berish</button></div>
+                        <div className="flex justify-end mt-2">
+                          <button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50 transition-colors">
+                            Onlayn berish
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -661,7 +651,7 @@ export default function TeacherDashboard() {
               ) : (
                 <div className="space-y-4">
                   <input type="number" placeholder="Miqdor" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full text-center px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-xl font-black text-blue-600" />
-                  <button onClick={(e) => handleAddGrade(e)} disabled={!amount || isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                  <button onClick={handleAddPP} disabled={!amount || isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
                     Barchasiga qo'shish
                   </button>
                 </div>
@@ -685,8 +675,8 @@ export default function TeacherDashboard() {
                 <div className="space-y-4">
                   <input type="number" placeholder="Summa (PP)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-lg font-mono" />
                   <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button onClick={(e) => handleAddGrade(e)} disabled={!amount || isProcessing} className="py-3 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center"><Minus className="w-5 h-5 mr-1" /> Jarima</button>
-                    <button onClick={(e) => handleAddGrade(e)} disabled={!amount || isProcessing} className="py-3 bg-green-50 text-green-600 rounded-xl font-bold flex items-center justify-center"><Plus className="w-5 h-5 mr-1" /> Mukofot</button>
+                    <button onClick={handleAddPP} disabled={!amount || isProcessing} className="py-3 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center"><Minus className="w-5 h-5 mr-1" /> Jarima</button>
+                    <button onClick={handleAddPP} disabled={!amount || isProcessing} className="py-3 bg-green-50 text-green-600 rounded-xl font-bold flex items-center justify-center"><Plus className="w-5 h-5 mr-1" /> Mukofot</button>
                   </div>
                 </div>
               )}
@@ -713,7 +703,7 @@ export default function TeacherDashboard() {
                     <label className="block text-sm font-bold text-gray-700 mb-2">Yangi baho (1-10)</label>
                     <div className="grid grid-cols-5 gap-2">
                       {[1,2,3,4,5,6,7,8,9,10].map(g => (
-                        <button key={g} onClick={() => setGrade(g.toString())} className={`py-2 rounded-lg font-black text-lg border ${grade === g.toString() ? "bg-orange-600 text-white border-orange-600" : "bg-white text-gray-600 border-gray-200"}`}>{g}</button>
+                        <button key={g} onClick={() => setLessonGrade(g.toString())} className={`py-2 rounded-lg font-black text-lg border ${lessonGrade === g.toString() ? "bg-orange-600 text-white border-orange-600" : "bg-white text-gray-600 border-gray-200"}`}>{g}</button>
                       ))}
                     </div>
                   </div>
@@ -721,7 +711,7 @@ export default function TeacherDashboard() {
                     <label className="block text-sm font-bold text-gray-700 mb-2">Sabab</label>
                     <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Masalan: Uy vazifasi xatosini to'g'riladi..." className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none resize-none h-24" />
                   </div>
-                  <button onClick={handleEditGrade} disabled={!grade || !reason || isProcessing} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                  <button onClick={handleEditGrade} disabled={!lessonGrade || !reason || isProcessing} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
                     {isProcessing ? "Saqlanmoqda..." : "O'zgarishni tasdiqlash"}
                   </button>
                 </div>
