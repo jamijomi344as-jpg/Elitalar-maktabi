@@ -4,13 +4,7 @@ import { useState } from "react";
 import { BookOpen, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, Square, User, Award, TrendingUp, CheckCircle2 } from "lucide-react";
 
 export default function EducationPage() {
-  const student = {
-    id: "S-8392",
-    name: "Kiyotaka Ayanokoji",
-    class: "9-B",
-    balancePP: 12000,
-    cp: 150
-  };
+  const student = { id: "S-8392", name: "Kiyotaka Ayanokoji", class: "9-B", balancePP: 12000, cp: 150 };
 
   const [activeTab, setActiveTab] = useState<"kundalik" | "jadval" | "vazifa">("kundalik");
   const [kundalikView, setKundalikView] = useState<"joriy" | "chorak">("chorak"); 
@@ -33,11 +27,10 @@ export default function EducationPage() {
     { id: 3, subject: "Fizika", text: "52 va 148-betlardagi masalalar.", dueDate: "25-apr, 09:40", completed: true },
   ]);
 
-  const toggleHomework = (id: number) => {
-    setHomeworks(prev => prev.map(hw => hw.id === id ? { ...hw, completed: !hw.completed } : hw));
-  };
+  const toggleHomework = (id: number) => setHomeworks(prev => prev.map(hw => hw.id === id ? { ...hw, completed: !hw.completed } : hw));
   const sortedHomeworks = [...homeworks].sort((a, b) => Number(a.completed) - Number(b.completed));
 
+  // 6 SOATLIK DARS QO'SHILDI
   const weeklyDiary = [
     {
       date: "JUM, 24 apr.",
@@ -48,6 +41,7 @@ export default function EducationPage() {
         { num: 3, name: "Dav/huq as", time: "9:40 - 10:25", hw: "Mavzuni o'qib kelish", grade: 9, canceled: false },
         { num: 4, name: "Rus tili", time: "10:35 - 11:20", hw: "повторение", grade: null, canceled: true },
         { num: 5, name: "Ona tili", time: "11:25 - 12:10", hw: "matn bilan ishlash.", grade: null, canceled: false },
+        { num: 6, name: "Tarbiyaviy soat", time: "12:15 - 13:00", hw: "", grade: null, canceled: false },
       ]
     },
     {
@@ -57,52 +51,28 @@ export default function EducationPage() {
         { num: 1, name: "Geometriya", time: "8:00 - 8:45", hw: "51.4 mashq", grade: null, canceled: false },
         { num: 2, name: "Biologiya", time: "8:50 - 9:35", hw: "O'rganib kelish", grade: null, canceled: false },
         { num: 3, name: "Fizika", time: "9:40 - 10:25", hw: "52 & 148 bet", grade: null, canceled: false },
+        { num: 4, name: "Adabiyot", time: "10:35 - 11:20", hw: "she'r yod olish.", grade: null, canceled: false },
+        { num: 5, name: "Informatika", time: "11:25 - 12:10", hw: "Amaliyot", grade: null, canceled: false },
+        { num: 6, name: "Jismoniy tarbiya", time: "12:15 - 13:00", hw: "Sport kiyimi", grade: null, canceled: false },
       ]
     },
     { date: "YAK, 26 apr., bugun", isToday: true, lessons: [] }
   ];
 
   const scheduleGrid = [
-    {
-      time: "1 (08:00 - 08:45)",
-      days: [
-        { day: "Dush", subject: "Kelajak soati", teacher: "ABDURAZZAQOV D." },
-        { day: "Sesh", subject: "Informatika", teacher: "Boltaboyeva N.B." },
-        { day: "Chor", subject: "Algebra", teacher: "Abduraximov V.M." },
-        { day: "Pay", subject: "Jahon tarixi", teacher: "ABDURAZZAQOV D." },
-        { day: "Jum", subject: "Algebra", teacher: "Abduraximov V.M." },
-        { day: "Shan", subject: "Geometriya", teacher: "Abduraximov V.M." },
-      ]
-    },
-    {
-      time: "2 (08:50 - 09:35)",
-      days: [
-        { day: "Dush", subject: "Ona tili", teacher: "Omondillayeva B." },
-        { day: "Sesh", subject: "Algebra", teacher: "Abduraximov V.M." },
-        { day: "Chor", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA S." },
-        { day: "Pay", subject: "O'zbekiston tarixi", teacher: "ABDURAZZAQOV D." },
-        { day: "Jum", subject: "Kimyo", teacher: "G'aniyeva D.B." },
-        { day: "Shan", subject: "Biologiya", teacher: "USUBBAYEVA D.A." },
-      ]
-    },
-    {
-      time: "3 (09:40 - 10:25)",
-      days: [
-        { day: "Dush", subject: "Algebra", teacher: "Abduraximov V.M." },
-        { day: "Sesh", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA S." },
-        { day: "Chor", subject: "Ona tili", teacher: "Omondillayeva B." },
-        { day: "Pay", subject: "Jismoniy madaniyat", teacher: "Qahharov H.Z." },
-        { day: "Jum", subject: "Dav/huq as", teacher: "Adashaliyev A.K." },
-        { day: "Shan", subject: "Fizika", teacher: "G'ULOMOVA G.R." },
-      ]
-    }
+    { time: "1 (08:00 - 08:45)", days: [{ day: "Dush", subject: "Kelajak soati", teacher: "ABDURAZZAQOV" }, { day: "Sesh", subject: "Informatika", teacher: "Boltaboyeva" }, { day: "Chor", subject: "Algebra", teacher: "Abduraximov" }, { day: "Pay", subject: "Jahon tarixi", teacher: "ABDURAZZAQOV" }, { day: "Jum", subject: "Algebra", teacher: "Abduraximov" }, { day: "Shan", subject: "Geometriya", teacher: "Abduraximov" }] },
+    { time: "2 (08:50 - 09:35)", days: [{ day: "Dush", subject: "Ona tili", teacher: "Omondillayeva" }, { day: "Sesh", subject: "Algebra", teacher: "Abduraximov" }, { day: "Chor", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA" }, { day: "Pay", subject: "O'zbekiston tarixi", teacher: "ABDURAZZAQOV" }, { day: "Jum", subject: "Kimyo", teacher: "G'aniyeva" }, { day: "Shan", subject: "Biologiya", teacher: "USUBBAYEVA" }] },
+    { time: "3 (09:40 - 10:25)", days: [{ day: "Dush", subject: "Algebra", teacher: "Abduraximov" }, { day: "Sesh", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA" }, { day: "Chor", subject: "Ona tili", teacher: "Omondillayeva" }, { day: "Pay", subject: "Jismoniy tarbiya", teacher: "Qahharov" }, { day: "Jum", subject: "Dav/huq as", teacher: "Adashaliyev" }, { day: "Shan", subject: "Fizika", teacher: "G'ULOMOVA" }] },
+    { time: "4 (10:35 - 11:20)", days: [{ day: "Dush", subject: "Fizika", teacher: "G'ULOMOVA" }, { day: "Sesh", subject: "O'zbekiston tarixi", teacher: "ABDURAZZAQOV" }, { day: "Chor", subject: "Rus tili", teacher: "Mavlonova" }, { day: "Pay", subject: "Geometriya", teacher: "Abduraximov" }, { day: "Jum", subject: "Rus tili", teacher: "Mavlonova" }, { day: "Shan", subject: "Adabiyot", teacher: "Omondillayeva" }] },
+    { time: "5 (11:25 - 12:10)", days: [{ day: "Dush", subject: "Biologiya", teacher: "USUBBAYEVA" }, { day: "Sesh", subject: "Tarbiya", teacher: "Adashaliyev" }, { day: "Chor", subject: "Adabiyot", teacher: "Omondillayeva" }, { day: "Pay", subject: "Informatika", teacher: "Boltaboyeva" }, { day: "Jum", subject: "Ona tili", teacher: "Omondillayeva" }, { day: "Shan", subject: "Informatika", teacher: "Boltaboyeva" }] },
+    { time: "6 (12:15 - 13:00)", days: [{ day: "Dush", subject: "Geografiya", teacher: "Sodiqov" }, { day: "Sesh", subject: "Chizmachilik", teacher: "Rahmonov" }, { day: "Chor", subject: "Informatika", teacher: "Boltaboyeva" }, { day: "Pay", subject: "-", teacher: "-" }, { day: "Jum", subject: "Tarbiyaviy soat", teacher: "Rahbar" }, { day: "Shan", subject: "Jismoniy tarbiya", teacher: "Qahharov" }] },
   ];
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
+    // BO'ShLIQ MUAMMOSI HAL QILINDI: max-w-6xl o'rniga w-full ishlatildi.
+    <div className="w-full space-y-6 animate-in fade-in duration-500 pb-10">
       
-      {/* TEPADAGI PROFIL VA BALANS */}
-      <div className="bg-gradient-to-br from-blue-900 to-indigo-900 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-500 w-full border border-transparent dark:border-slate-800">
+      <div className="bg-gradient-to-br from-blue-900 to-indigo-900 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-500 border border-transparent dark:border-slate-800 w-full">
         <div className="absolute top-0 right-0 p-8 opacity-10"><User className="w-32 h-32" /></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 w-full">
           <div>
@@ -125,9 +95,8 @@ export default function EducationPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden w-full">
-        
-        <div className="border-b border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-wrap justify-center sm:justify-start gap-2">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden w-full animate-in slide-in-from-bottom-4 duration-300">
+        <div className="border-b border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-wrap justify-center sm:justify-start gap-2 w-full">
           <button onClick={() => setActiveTab("kundalik")} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center ${activeTab === 'kundalik' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 shadow-sm border border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'}`}>
             <BookOpen className="w-4 h-4 mr-2" /> Kundalik
           </button>
@@ -140,7 +109,6 @@ export default function EducationPage() {
         </div>
 
         <div className="p-6 bg-slate-50/30 dark:bg-slate-900/50 min-h-[500px] w-full">
-          
           {activeTab === "kundalik" && (
             <div className="animate-in fade-in duration-300 w-full">
               <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm gap-4 md:gap-0 w-full">
@@ -149,21 +117,13 @@ export default function EducationPage() {
                   <button onClick={() => setKundalikView("joriy")} className={`px-6 py-2 font-bold text-sm rounded-lg transition-all ${kundalikView === 'joriy' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-800'}`}>Joriy</button>
                   <button onClick={() => setKundalikView("chorak")} className={`px-6 py-2 font-bold text-sm rounded-lg transition-all ${kundalikView === 'chorak' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-800'}`}>Choraklar bo'yicha</button>
                 </div>
-                <div className="hidden md:flex gap-2">
-                  <button className="px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-blue-600 dark:text-blue-400 font-bold text-sm rounded-lg flex items-center shadow-sm hover:bg-gray-50 dark:hover:bg-slate-600">
-                    <Award className="w-4 h-4 mr-2"/> O'zlashTah
-                  </button>
-                  <button className="px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-500 dark:text-gray-300 font-bold text-sm rounded-lg shadow-sm">100%</button>
-                </div>
               </div>
 
               {kundalikView === "joriy" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-left-4 w-full">
                   {weeklyDiary.map((day, idx) => (
                     <div key={idx} className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full border ${day.isToday ? 'border-blue-300 dark:border-blue-500 ring-2 ring-blue-500/20' : 'border-gray-200 dark:border-slate-700'}`}>
-                      <div className={`p-3 font-bold text-sm text-center ${day.isToday ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200' : 'bg-blue-400 dark:bg-slate-700 text-white'}`}>
-                        {day.date}
-                      </div>
+                      <div className={`p-3 font-bold text-sm text-center ${day.isToday ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200' : 'bg-blue-400 dark:bg-slate-700 text-white'}`}>{day.date}</div>
                       <div className="p-2 flex-1 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-900/20">
                         {day.lessons.length === 0 ? (
                           <div className="flex-1 flex items-center justify-center text-gray-400 font-medium py-10">Dam olish kuni</div>
@@ -176,9 +136,7 @@ export default function EducationPage() {
                                   <span className={`font-bold text-sm ${lesson.canceled ? 'text-red-500 line-through' : 'text-blue-600 dark:text-blue-400'}`}>{lesson.name}</span>
                                   <div className="text-[10px] text-gray-400 font-medium ml-4 mt-0.5">{lesson.time}</div>
                                 </div>
-                                {lesson.grade && (
-                                  <div className="w-6 h-6 bg-green-500 dark:bg-green-600 rounded text-white font-black text-sm flex items-center justify-center shadow-sm">{lesson.grade}</div>
-                                )}
+                                {lesson.grade && <div className="w-6 h-6 bg-green-500 dark:bg-green-600 rounded text-white font-black text-sm flex items-center justify-center shadow-sm">{lesson.grade}</div>}
                               </div>
                               <div className="ml-4 mt-1">
                                 {lesson.hw ? (
@@ -201,23 +159,6 @@ export default function EducationPage() {
 
               {kundalikView === "chorak" && (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden animate-in slide-in-from-right-4 w-full">
-                  <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/50">
-                    <div className="flex items-center gap-4">
-                      <button className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"><ChevronLeft className="w-6 h-6"/></button>
-                      <h3 className="text-2xl font-black text-blue-900 dark:text-white flex items-center">
-                        2025/2026 <span className="text-lg font-medium text-gray-500 dark:text-gray-400 ml-2">({student.class})</span>
-                      </h3>
-                      <button className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"><ChevronRight className="w-6 h-6"/></button>
-                    </div>
-                    <div className="flex gap-1 items-center">
-                      <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">1</button>
-                      <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">2</button>
-                      <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">3</button>
-                      <button className="px-5 py-2 font-bold text-sm text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 border-2 border-blue-400 dark:border-blue-500 rounded-xl shadow-sm">4 chorak</button>
-                      <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">xulosa</button>
-                    </div>
-                  </div>
-
                   <div className="overflow-x-auto w-full">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -236,12 +177,8 @@ export default function EducationPage() {
                                 <div className="text-center text-sm font-medium text-gray-400">Qo'yilmagan baholar mavjud emas.</div>
                               ) : (
                                 <div className="flex flex-wrap items-center justify-start gap-1">
-                                  {q.grades.map((grade, i) => (
-                                    <div key={i} className="w-6 h-6 bg-[#4caf50] text-white flex items-center justify-center rounded-sm text-xs font-black shadow-sm">{grade}</div>
-                                  ))}
-                                  {q.bsb && (
-                                    <div className="px-2 py-0.5 bg-[#43a047] text-white flex items-center justify-center rounded-sm text-xs font-black shadow-sm ml-2 tracking-wide">{q.bsb}</div>
-                                  )}
+                                  {q.grades.map((grade, i) => (<div key={i} className="w-6 h-6 bg-[#4caf50] text-white flex items-center justify-center rounded-sm text-xs font-black shadow-sm">{grade}</div>))}
+                                  {q.bsb && <div className="px-2 py-0.5 bg-[#43a047] text-white flex items-center justify-center rounded-sm text-xs font-black shadow-sm ml-2 tracking-wide">{q.bsb}</div>}
                                 </div>
                               )}
                             </td>
@@ -256,22 +193,8 @@ export default function EducationPage() {
             </div>
           )}
 
-
           {activeTab === "jadval" && (
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 w-full">
-              <div className="p-5 border-b border-gray-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900/50 w-full">
-                <div>
-                  <h2 className="text-2xl font-light text-gray-600 dark:text-gray-300">Dars jadvali <strong className="text-blue-900 dark:text-white font-black">{student.class}</strong> <span className="text-lg text-gray-400">(2025/2026)</span></h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">O'zbek tili</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="px-4 py-2 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800">1 chorak</button>
-                  <button className="px-4 py-2 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800">2 chorak</button>
-                  <button className="px-4 py-2 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800">3 chorak</button>
-                  <button className="px-4 py-2 border-2 border-blue-400 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-bold text-sm rounded-lg bg-blue-50 dark:bg-blue-900/30">4 chorak</button>
-                </div>
-              </div>
-
               <div className="overflow-x-auto p-4 w-full">
                 <table className="w-full text-left border-collapse border border-gray-200 dark:border-slate-700 min-w-[800px]">
                   <thead>
@@ -297,7 +220,6 @@ export default function EducationPage() {
                             <div className="h-full border border-transparent hover:border-blue-200 dark:hover:border-blue-700 rounded p-1.5 cursor-pointer">
                               <div className="font-bold text-sm text-blue-600 dark:text-blue-400 mb-0.5 leading-tight">{day.subject}</div>
                               <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-bold leading-tight mb-1 truncate" title={day.teacher}>{day.teacher}</div>
-                              <div className="text-[10px] text-gray-400 dark:text-gray-500">Kabinet yo'q</div>
                             </div>
                           </td>
                         ))}
@@ -317,27 +239,14 @@ export default function EducationPage() {
               </div>
 
               {sortedHomeworks.map((hw) => (
-                <div 
-                  key={hw.id} 
-                  className={`flex items-start gap-4 p-5 rounded-2xl border transition-all duration-300 w-full ${
-                    hw.completed 
-                      ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 opacity-60' 
-                      : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-600 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500'
-                  }`}
-                >
+                <div key={hw.id} className={`flex items-start gap-4 p-5 rounded-2xl border transition-all duration-300 w-full ${hw.completed ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 opacity-60' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-600 shadow-sm'}`}>
                   <button onClick={() => toggleHomework(hw.id)} className={`mt-1 flex-shrink-0 transition-colors ${hw.completed ? 'text-green-500' : 'text-gray-300 dark:text-gray-500 hover:text-blue-500'}`}>
                     {hw.completed ? <CheckSquare className="w-7 h-7" /> : <Square className="w-7 h-7" />}
                   </button>
                   <div className="flex-1">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-1 gap-2">
                       <h3 className={`font-bold text-lg ${hw.completed ? 'text-gray-500 dark:text-gray-400 line-through decoration-2' : 'text-blue-900 dark:text-blue-300'}`}>{hw.subject}</h3>
-                      <span className={`text-xs font-bold px-3 py-1 rounded-full w-fit border ${
-                        hw.completed 
-                          ? 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-600' 
-                          : hw.dueDate.includes('Ertaga') 
-                            ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-100 dark:border-red-800' 
-                            : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800'
-                      }`}>
+                      <span className={`text-xs font-bold px-3 py-1 rounded-full w-fit border ${hw.completed ? 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400' : hw.dueDate.includes('Ertaga') ? 'bg-red-50 dark:bg-red-900/30 text-red-600' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600'}`}>
                         <Clock className="w-3 h-3 inline mr-1" /> Muddat: {hw.dueDate}
                       </span>
                     </div>
@@ -345,20 +254,11 @@ export default function EducationPage() {
                   </div>
                 </div>
               ))}
-
-              {homeworks.every(hw => hw.completed) && (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-6 rounded-2xl flex flex-col items-center justify-center text-center mt-8 animate-in zoom-in-95 w-full">
-                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white mb-4 shadow-lg shadow-green-500/30 dark:shadow-none"><CheckCircle2 className="w-8 h-8" /></div>
-                  <h3 className="text-xl font-black text-green-700 dark:text-green-400 mb-1">Qoyilmaqom!</h3>
-                  <p className="text-green-600 dark:text-green-500 font-medium">Barcha uy vazifalari bajarildi. Siz bugun o'z ustingizda ajoyib ishladingiz!</p>
-                </div>
-              )}
             </div>
           )}
 
         </div>
       </div>
-
     </div>
   );
 }
