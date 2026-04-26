@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
-  Clock, ShieldCheck, Key, CheckCircle, LogOut, Settings 
+  Clock, ShieldCheck, Key, CheckCircle, LogOut, Settings, Eye, EyeOff 
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -12,10 +12,11 @@ export default function TeacherDashboard() {
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "grading" | "homeroom" | "settings">("boshqaruv");
   const [isLoading, setIsLoading] = useState(false);
 
-  // LOGIN FORMA
+  // LOGIN FORMA VA KO'ZCHA (PAROLNI KO'RSATISH)
   const [loginForm, setLoginForm] = useState({ id: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false); // KO'ZCHA UCHUN STATE
   
-  // BAZADAN KELADIGAN HAQIQIY MA'LUMOTLAR
+  // BAZADAN KELADIGAN MA'LUMOTLAR
   const [myStudents, setMyStudents] = useState<any[]>([]); 
   const [myTimetable, setMyTimetable] = useState<any[]>([]); 
   const [allClasses, setAllClasses] = useState<any[]>([]); 
@@ -35,7 +36,7 @@ export default function TeacherDashboard() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Bazadan aynan shu ID va Parolni qidiramiz
+    // BAZADAN QIDIRISH
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -45,9 +46,10 @@ export default function TeacherDashboard() {
       .single();
 
     if (data) {
-      setCurrentTeacher(data); // Topilsa, tizimga kiritamiz
+      setCurrentTeacher(data); // Topilsa, kiradi
     } else {
-      alert("ID yoki Parol xato! Direktor bergan ma'lumotlarni to'g'ri kiriting.");
+      // ESKI YOG'OCH ALERTNI O'CHIRDIK. YANGI, TOZA ALERT:
+      alert("ID yoki Parol xato! Direktor bergan ma'lumotni to'g'ri kiriting.");
     }
     setIsLoading(false);
   };
@@ -64,20 +66,15 @@ export default function TeacherDashboard() {
   const loadTeacherData = async () => {
     setIsLoading(true);
     try {
-      // Sinf rahbari bo'lsa, o'z o'quvchilarini tortib keladi
       if (currentTeacher.homeroom) {
         const { data: students } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', currentTeacher.homeroom).order('full_name');
         setMyStudents(students || []);
       }
-
-      // O'qituvchining dars jadvalini tortib keladi
       const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', currentTeacher.id);
       setMyTimetable(schedule || []);
 
-      // Baholash uchun maktabdagi barcha sinflarni olib keladi
       const { data: classesData } = await supabase.from('classes').select('*').order('name');
       setAllClasses(classesData || []);
-
     } catch (error) {
       console.error(error);
     } finally {
@@ -86,7 +83,7 @@ export default function TeacherDashboard() {
   };
 
   // ==========================================
-  // 3. BAHOLASH (PUL VA REYTING BERISH)
+  // 3. BAHOLASH
   // ==========================================
   const handleSelectClassToGrade = async (className: string) => {
     setGradeForm({ ...gradeForm, classId: className, studentId: "" });
@@ -100,7 +97,6 @@ export default function TeacherDashboard() {
     const student = studentsToGrade.find(s => s.id === gradeForm.studentId);
     if(!student) return;
 
-    // Hozirgi PP va CP qiymatlari (Sizning iqtisodiy qoidalaringiz bo'yicha)
     const numericGrade = parseInt(gradeForm.grade);
     let addedCP = 0; let addedPP = 0;
 
@@ -119,7 +115,7 @@ export default function TeacherDashboard() {
     } else {
       alert(`Baho qo'yildi! O'quvchi hamyoniga ${addedPP} PP o'tkazildi.`);
       setGradeForm({ ...gradeForm, studentId: "", grade: "" });
-      handleSelectClassToGrade(gradeForm.classId); // O'quvchilar ro'yxatini yangilash
+      handleSelectClassToGrade(gradeForm.classId); 
     }
   };
 
@@ -159,16 +155,28 @@ export default function TeacherDashboard() {
           <form onSubmit={handleLogin} className="space-y-4">
             <input 
               type="text" 
-              placeholder="Sizning ID (T-XXXX)" 
-              className="w-full p-5 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-black text-center text-lg"
+              placeholder="Sizning ID (Masalan: T-1234)" 
+              className="w-full p-5 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-black text-center text-lg uppercase"
               onChange={(e) => setLoginForm({...loginForm, id: e.target.value.toUpperCase()})}
             />
-            <input 
-              type="password" 
-              placeholder="Maxfiy Parol" 
-              className="w-full p-5 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-black text-center text-lg"
-              onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-            />
+            
+            {/* KO'ZCHALI PAROL INPUTI */}
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Maxfiy Parol" 
+                className="w-full p-5 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-black text-center text-lg pr-14"
+                onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors p-2"
+              >
+                {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+              </button>
+            </div>
+
             <button disabled={isLoading} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all text-lg disabled:opacity-50">
               {isLoading ? "TEKSHIRILMOQDA..." : "KIRISH"}
             </button>
@@ -247,7 +255,7 @@ export default function TeacherDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col justify-center">
                   <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6"><Calendar className="w-8 h-8"/></div>
-                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Haftalik Darslar (Baza bo'yicha)</h3>
+                  <h3 className="font-bold text-slate-400 uppercase text-xs tracking-widest">Haftalik Darslar</h3>
                   <p className="text-5xl font-black text-slate-900 mt-2">{myTimetable.length} <span className="text-2xl font-bold text-slate-300">soat</span></p>
                 </div>
                 {currentTeacher.homeroom && (
@@ -266,7 +274,7 @@ export default function TeacherDashboard() {
                 <h2 className="text-2xl font-black text-slate-900 mb-8 flex items-center"><Clock className="w-6 h-6 mr-3 text-indigo-600"/> Dars Jadvalim</h2>
                 {myTimetable.length === 0 ? (
                   <div className="text-center p-12 bg-slate-50 rounded-3xl text-slate-400 font-bold border-2 border-dashed border-slate-200">
-                    Direktor tomonidan sizga hali hech qanday dars biriktirilmagan.
+                    Sizga hali hech qanday dars biriktirilmagan.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -299,10 +307,8 @@ export default function TeacherDashboard() {
             {/* 3. BAHOLASH */}
             {activeMenu === "grading" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
-                {/* Chap panel: O'quvchini tanlash */}
                 <div className="w-full md:w-1/3 bg-slate-50 border-r border-slate-100 p-8 flex flex-col">
                   <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center"><Award className="w-5 h-5 mr-2 text-indigo-600"/> Baholash Jurnali</h3>
-                  
                   <select value={gradeForm.classId} onChange={(e) => handleSelectClassToGrade(e.target.value)} className="w-full p-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 font-bold mb-6 text-slate-700 shadow-sm">
                     <option value="">Sinfni Tanlang</option>
                     {allClasses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -323,7 +329,6 @@ export default function TeacherDashboard() {
                   )}
                 </div>
 
-                {/* O'ng panel: Baho qo'yish pulti */}
                 <div className="flex-1 p-10 flex flex-col justify-center items-center relative">
                   {!gradeForm.studentId ? (
                     <div className="text-center text-slate-300">
@@ -338,18 +343,11 @@ export default function TeacherDashboard() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 mb-8">
-                        <button onClick={() => setGradeForm({...gradeForm, grade: "5"})} className={`p-6 rounded-[2rem] border-4 font-black text-4xl transition-all ${gradeForm.grade === "5" ? 'bg-emerald-500 border-emerald-600 text-white shadow-xl scale-105' : 'bg-white border-slate-100 text-emerald-500 hover:border-emerald-200'}`}>
-                          5 <span className="block text-[10px] font-black opacity-80 mt-2 uppercase tracking-widest">+100 PP | +10 CP</span>
-                        </button>
-                        <button onClick={() => setGradeForm({...gradeForm, grade: "4"})} className={`p-6 rounded-[2rem] border-4 font-black text-4xl transition-all ${gradeForm.grade === "4" ? 'bg-blue-500 border-blue-600 text-white shadow-xl scale-105' : 'bg-white border-slate-100 text-blue-500 hover:border-blue-200'}`}>
-                          4 <span className="block text-[10px] font-black opacity-80 mt-2 uppercase tracking-widest">+50 PP | +5 CP</span>
-                        </button>
-                        <button onClick={() => setGradeForm({...gradeForm, grade: "3"})} className={`p-6 rounded-[2rem] border-4 font-black text-4xl transition-all ${gradeForm.grade === "3" ? 'bg-amber-500 border-amber-600 text-white shadow-xl scale-105' : 'bg-white border-slate-100 text-amber-500 hover:border-amber-200'}`}>
-                          3 <span className="block text-[10px] font-black opacity-80 mt-2 uppercase tracking-widest">+10 PP | 0 CP</span>
-                        </button>
-                        <button onClick={() => setGradeForm({...gradeForm, grade: "2"})} className={`p-6 rounded-[2rem] border-4 font-black text-4xl transition-all ${gradeForm.grade === "2" ? 'bg-red-500 border-red-600 text-white shadow-xl scale-105' : 'bg-white border-slate-100 text-red-500 hover:border-red-200'}`}>
-                          2 <span className="block text-[10px] font-black opacity-80 mt-2 uppercase tracking-widest">0 PP | -5 CP</span>
-                        </button>
+                        {["5", "4", "3", "2"].map((grade) => (
+                           <button key={grade} onClick={() => setGradeForm({...gradeForm, grade})} className={`p-6 rounded-[2rem] border-4 font-black text-4xl transition-all ${gradeForm.grade === grade ? (grade === "5" ? 'bg-emerald-500 border-emerald-600 text-white' : grade === "4" ? 'bg-blue-500 border-blue-600 text-white' : grade === "3" ? 'bg-amber-500 border-amber-600 text-white' : 'bg-red-500 border-red-600 text-white') + ' shadow-xl scale-105' : `bg-white border-slate-100 ${grade === "5" ? 'text-emerald-500 hover:border-emerald-200' : grade === "4" ? 'text-blue-500 hover:border-blue-200' : grade === "3" ? 'text-amber-500 hover:border-amber-200' : 'text-red-500 hover:border-red-200'}`}`}>
+                             {grade} <span className="block text-[10px] font-black opacity-80 mt-2 uppercase tracking-widest">{grade === "5" ? "+100 PP | +10 CP" : grade === "4" ? "+50 PP | +5 CP" : grade === "3" ? "+10 PP | 0 CP" : "0 PP | -5 CP"}</span>
+                           </button>
+                        ))}
                       </div>
                       <button onClick={handleGiveGrade} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center text-lg tracking-wide">
                         <CheckCircle className="w-6 h-6 mr-3"/> TASDIQLASH
@@ -360,37 +358,31 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            {/* 4. MENING SINFIM (Sirlar xonasi - faqat rahbar uchun) */}
+            {/* 4. MENING SINFIM */}
             {activeMenu === "homeroom" && currentTeacher.homeroom && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-8 border-b border-amber-100 bg-amber-50 flex justify-between items-center">
                   <div>
                     <h2 className="text-2xl font-black text-amber-900 flex items-center"><ShieldCheck className="w-6 h-6 mr-3 text-amber-600"/> Mening Sinfim ({currentTeacher.homeroom})</h2>
-                    <p className="text-sm font-bold text-amber-700/70 mt-1 uppercase tracking-widest">O'quvchilarning maxfiy login va parollari</p>
                   </div>
                 </div>
                 <div className="overflow-x-auto p-4">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50">
-                        <th className="p-4">O'quvchi ID</th>
-                        <th className="p-4">Maxfiy Parol</th>
-                        <th className="p-4">F.I.SH</th>
-                        <th className="p-4 text-right">Balans (PP)</th>
+                        <th className="p-4">O'quvchi ID</th><th className="p-4">Maxfiy Parol</th><th className="p-4">F.I.SH</th><th className="p-4 text-right">Balans (PP)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {myStudents.length === 0 ? (
-                        <tr><td colSpan={4} className="text-center p-12 text-slate-400 font-bold text-lg border-2 border-dashed border-slate-100 m-4 rounded-3xl">Sinfingizda hali o'quvchi yo'q.</td></tr>
+                        <tr><td colSpan={4} className="text-center p-12 text-slate-400 font-bold text-lg">Sinfingizda hali o'quvchi yo'q.</td></tr>
                       ) : (
                         myStudents.map(s => (
-                          <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                          <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50">
                             <td className="p-4 font-black text-indigo-600">{s.id}</td>
                             <td className="p-4"><span className="text-xs font-mono font-black text-red-500 bg-red-50 px-3 py-1.5 rounded-lg flex items-center w-fit"><Key className="w-3 h-3 mr-2"/> {s.password}</span></td>
                             <td className="p-4 font-bold text-slate-900">{s.full_name}</td>
-                            <td className="p-4 text-right">
-                              <span className="font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">{s.pp_balance || 0} PP</span>
-                            </td>
+                            <td className="p-4 text-right"><span className="font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">{s.pp_balance || 0} PP</span></td>
                           </tr>
                         ))
                       )}
@@ -400,25 +392,14 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            {/* 5. SOZLAMALAR (Parol O'zgartirish) */}
+            {/* 5. SOZLAMALAR */}
             {activeMenu === "settings" && (
-              <div className="max-w-xl bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 animate-in zoom-in-95 mx-auto mt-10">
+              <div className="max-w-xl bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 mx-auto mt-10">
                 <div className="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mb-6"><Settings className="w-8 h-8"/></div>
                 <h2 className="text-3xl font-black text-slate-900 mb-2">Xavfsizlik</h2>
                 <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-8">Shaxsiy parolingizni o'zgartiring</p>
-                
-                <input 
-                  type="text" 
-                  value={newPassword} 
-                  onChange={e => setNewPassword(e.target.value)} 
-                  placeholder="Yangi parol yozing..." 
-                  className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl mb-6 font-black text-lg outline-none text-center"
-                />
-                <button 
-                  onClick={handleChangePassword}
-                  disabled={isChanging}
-                  className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center text-lg disabled:opacity-50"
-                >
+                <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Yangi parol yozing..." className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl mb-6 font-black text-lg outline-none text-center" />
+                <button onClick={handleChangePassword} disabled={isChanging} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center text-lg disabled:opacity-50">
                   {isChanging ? "SAQLANMOQDA..." : "PAROLNI SAQLASH"}
                 </button>
               </div>
