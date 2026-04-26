@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, Square, User, Award, TrendingUp, CheckCircle2, Home, BookA, Info } from "lucide-react";
+import { BookOpen, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, Square, User, Award, TrendingUp, CheckCircle2, Home, BookA, Wallet, Trophy } from "lucide-react";
 
 export default function StudentDashboard() {
   const student = {
@@ -12,11 +12,16 @@ export default function StudentDashboard() {
     cp: 150
   };
 
-  const [mainMenu, setMainMenu] = useState<"asosiy" | "talim">("talim");
+  // ASOSIY MENYULAR: "asosiy" | "talim" | "reyting" | "hamyon"
+  const [mainMenu, setMainMenu] = useState<"asosiy" | "talim" | "reyting" | "hamyon">("talim");
+  
+  // TA'LIM ICHIDAGI NAVIGATION
   const [activeTab, setActiveTab] = useState<"kundalik" | "jadval" | "vazifa">("kundalik");
   const [kundalikView, setKundalikView] = useState<"joriy" | "chorak">("chorak"); 
 
+  // ==========================================
   // 1. KUNDALIK: CHORAKLAR BO'YICHA BAZA
+  // ==========================================
   const quarterGrades = [
     { id: 1, subject: "Adabiyot", grades: [], bsb: null, total: "-" },
     { id: 2, subject: "Algebra", grades: [9,9,9,9,9,9,9,9,9], bsb: "23/25", total: "32" },
@@ -29,7 +34,9 @@ export default function StudentDashboard() {
     { id: 9, subject: "Ingliz tili", grades: [10,10], bsb: null, total: "10" },
   ];
 
+  // ==========================================
   // 2. UY VAZIFALARI BAZASI
+  // ==========================================
   const [homeworks, setHomeworks] = useState([
     { id: 1, subject: "Algebra", text: "463-464 mashqlar. Kvadrat tenglamalar.", dueDate: "Ertaga, 08:00", completed: false },
     { id: 2, subject: "Geometriya", text: "51.4 mashq. Uchburchak yuzi.", dueDate: "25-apr, 08:00", completed: false },
@@ -41,7 +48,9 @@ export default function StudentDashboard() {
   };
   const sortedHomeworks = [...homeworks].sort((a, b) => Number(a.completed) - Number(b.completed));
 
-  // 3. KUNDALIK (Joriy hafta bazasi - TS Xatosi tuzatildi)
+  // ==========================================
+  // 3. KUNDALIK (Joriy hafta bazasi)
+  // ==========================================
   const weeklyDiary = [
     {
       date: "JUM, 24 apr.",
@@ -66,7 +75,9 @@ export default function StudentDashboard() {
     { date: "YAK, 26 apr., bugun", isToday: true, lessons: [] }
   ];
 
+  // ==========================================
   // 4. DARS JADVALI BAZASI
+  // ==========================================
   const scheduleGrid = [
     {
       time: "1 (08:00 - 08:45)",
@@ -74,6 +85,9 @@ export default function StudentDashboard() {
         { day: "Dush", subject: "Kelajak soati", teacher: "ABDURAZZAQOV D." },
         { day: "Sesh", subject: "Informatika", teacher: "Boltaboyeva N.B." },
         { day: "Chor", subject: "Algebra", teacher: "Abduraximov V.M." },
+        { day: "Pay", subject: "Jahon tarixi", teacher: "ABDURAZZAQOV D." },
+        { day: "Jum", subject: "Algebra", teacher: "Abduraximov V.M." },
+        { day: "Shan", subject: "Geometriya", teacher: "Abduraximov V.M." },
       ]
     },
     {
@@ -82,6 +96,20 @@ export default function StudentDashboard() {
         { day: "Dush", subject: "Ona tili", teacher: "Omondillayeva B." },
         { day: "Sesh", subject: "Algebra", teacher: "Abduraximov V.M." },
         { day: "Chor", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA S." },
+        { day: "Pay", subject: "O'zbekiston tarixi", teacher: "ABDURAZZAQOV D." },
+        { day: "Jum", subject: "Kimyo", teacher: "G'aniyeva D.B." },
+        { day: "Shan", subject: "Biologiya", teacher: "USUBBAYEVA D.A." },
+      ]
+    },
+    {
+      time: "3 (09:40 - 10:25)",
+      days: [
+        { day: "Dush", subject: "Algebra", teacher: "Abduraximov V.M." },
+        { day: "Sesh", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA S." },
+        { day: "Chor", subject: "Ona tili", teacher: "Omondillayeva B." },
+        { day: "Pay", subject: "Jismoniy madaniyat", teacher: "Qahharov H.Z." },
+        { day: "Jum", subject: "Dav/huq as", teacher: "Adashaliyev A.K." },
+        { day: "Shan", subject: "Fizika", teacher: "G'ULOMOVA G.R." },
       ]
     }
   ];
@@ -89,6 +117,7 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       
+      {/* TEPADAGI PROFIL VA BALANS */}
       <div className="bg-gradient-to-br from-blue-900 to-indigo-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10"><User className="w-32 h-32" /></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -112,31 +141,82 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 w-fit">
+      {/* TOP-LEVEL NAVIGATION: ASOSIY MENYULAR */}
+      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 w-fit overflow-x-auto max-w-full">
         <button 
           onClick={() => setMainMenu("asosiy")} 
-          className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center ${mainMenu === 'asosiy' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center whitespace-nowrap ${mainMenu === 'asosiy' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
         >
-          <Home className="w-4 h-4 mr-2"/> Asosiy (Dashboard)
+          <Home className="w-4 h-4 mr-2"/> Asosiy
         </button>
         <button 
           onClick={() => setMainMenu("talim")} 
-          className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center ${mainMenu === 'talim' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center whitespace-nowrap ${mainMenu === 'talim' ? 'bg-blue-500 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
         >
           <BookA className="w-4 h-4 mr-2"/> Ta'lim
         </button>
+        <button 
+          onClick={() => setMainMenu("reyting")} 
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center whitespace-nowrap ${mainMenu === 'reyting' ? 'bg-emerald-50 text-emerald-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Trophy className="w-4 h-4 mr-2"/> Reyting
+        </button>
+        <button 
+          onClick={() => setMainMenu("hamyon")} 
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center whitespace-nowrap ${mainMenu === 'hamyon' ? 'bg-amber-50 text-amber-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Wallet className="w-4 h-4 mr-2"/> Hamyon
+        </button>
       </div>
 
+      {/* ======================================================== */}
+      {/* 1. ASOSIY SAHIFA */}
+      {/* ======================================================== */}
       {mainMenu === "asosiy" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-left-4">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><Info className="w-5 h-5 mr-2 text-indigo-500"/> Xush kelibsiz!</h2>
-            <p className="text-gray-500">Bu yerda sizning umumiy reytinglaringiz, yutuqlaringiz va maktab yangiliklari chiqadi.</p>
-            <p className="text-sm text-gray-400 mt-4 italic">Dars jadvallari va baholarni ko'rish uchun "Ta'lim" bo'limiga o'ting.</p>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center min-h-[300px]">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-4">
+              <Home className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Maktab yangiliklari</h2>
+            <p className="text-gray-500 text-sm">Hozircha hech qanday e'lon yoki yangilik yo'q.</p>
           </div>
         </div>
       )}
 
+      {/* ======================================================== */}
+      {/* 2. REYTING SAHIFASI (Tezkor ko'rinish) */}
+      {/* ======================================================== */}
+      {mainMenu === "reyting" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-left-4">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center min-h-[300px]">
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+              <Trophy className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Reyting jadvali</h2>
+            <p className="text-gray-500 text-sm">Sinf va maktab bo'yicha reyting jadvali tez orada qo'shiladi.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. HAMYON SAHIFASI (Tezkor ko'rinish) */}
+      {/* ======================================================== */}
+      {mainMenu === "hamyon" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-left-4">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center min-h-[300px]">
+            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-4">
+              <Wallet className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Hamyon va Do'kon</h2>
+            <p className="text-gray-500 text-sm">O'z PP ballaringizni maktab do'konida xaridlar uchun ishlating. Do'kon ochilishini kuting!</p>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 4. TA'LIM SAHIFASI (Kundalik, Jadval, Vazifalar) */}
+      {/* ======================================================== */}
       {mainMenu === "talim" && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-right-4 duration-300">
           
@@ -332,6 +412,9 @@ export default function StudentDashboard() {
                         <th className="p-3 text-center text-sm font-bold text-gray-600 border-l border-gray-200">Dush, 20 Apr</th>
                         <th className="p-3 text-center text-sm font-bold text-gray-600 border-l border-gray-200">Sesh, 21 Apr</th>
                         <th className="p-3 text-center text-sm font-bold text-gray-600 border-l border-gray-200">Chor, 22 Apr</th>
+                        <th className="p-3 text-center text-sm font-bold text-gray-600 border-l border-gray-200">Pay, 23 Apr</th>
+                        <th className="p-3 text-center text-sm font-bold text-gray-600 border-l border-gray-200">Jum, 24 Apr</th>
+                        <th className="p-3 text-center text-sm font-bold text-red-500 border-l border-gray-200">Shan, 25 Apr</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -342,7 +425,7 @@ export default function StudentDashboard() {
                             <div className="text-[10px] text-gray-400 font-medium text-center">{row.time.split(' ')[1]}</div>
                           </td>
                           {row.days.map((day, dIdx) => (
-                            <td key={dIdx} className="p-2 border-r border-gray-200 align-top hover:bg-blue-50/30 transition-colors w-1/4">
+                            <td key={dIdx} className="p-2 border-r border-gray-200 align-top hover:bg-blue-50/30 transition-colors w-1/6">
                               <div className="h-full border border-transparent hover:border-blue-200 rounded p-1.5 cursor-pointer">
                                 <div className="font-bold text-sm text-blue-600 mb-0.5 leading-tight">{day.subject}</div>
                                 <div className="text-[10px] text-gray-500 uppercase font-bold leading-tight mb-1 truncate" title={day.teacher}>{day.teacher}</div>
@@ -413,6 +496,7 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
