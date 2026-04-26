@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, UserPlus, Shield, Table, Calendar, Calculator, Building, Crown, LayoutDashboard, CheckCircle2, Lock, X, PlusCircle, Clock, Save, BarChart3, Receipt, ArrowRightLeft } from "lucide-react";
-// DIQQAT: Supabase Client ni chaqirib oldik!
+import { Users, UserPlus, Shield, Table, Calendar, Calculator, Building, Crown, LayoutDashboard, CheckCircle2, X, PlusCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 
 export default function DirectorDashboard() {
@@ -15,24 +14,17 @@ export default function DirectorDashboard() {
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // KONSTRUKTOR STATE'LARI
-  const [selectedClassForTimetable, setSelectedClassForTimetable] = useState<string | null>(null);
-  const [showLessonModal, setShowLessonModal] = useState(false);
-  const [currentCell, setCurrentCell] = useState<{ day: string, lesson: number } | null>(null);
-
   // ==========================================
-  // HAQIQIY BAZA STATE'LARI (Supabase'dan keladi)
+  // HAQIQIY BAZA STATE'LARI (Bo'shdan boshlanadi)
   // ==========================================
   const [teachers, setTeachers] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
-  const [studentsCountByClass, setStudentsCountByClass] = useState<any>({}); // Qaysi sinfda necha o'quvchi borligi
+  const [studentsCountByClass, setStudentsCountByClass] = useState<any>({});
   
   // Yangi odam qo'shish uchun Input State'lar
   const [newPerson, setNewPerson] = useState({ fullName: "", subject: "", gender: "", className: "", phone: "" });
 
   const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika"];
-  const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-  const lessonNumbers = [1, 2, 3, 4, 5, 6, 7];
 
   // ==========================================
   // SUPABASE'DAN MA'LUMOT O'QISH (Fetch)
@@ -44,7 +36,7 @@ export default function DirectorDashboard() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 1. O'qituvchilarni olib kelamiz (role = 'teacher')
+      // 1. O'qituvchilarni olib kelish
       const { data: teachersData, error: tError } = await supabase
         .from('profiles')
         .select('*')
@@ -54,7 +46,7 @@ export default function DirectorDashboard() {
       if (tError) throw tError;
       setTeachers(teachersData || []);
 
-      // 2. Sinflarni olib kelamiz
+      // 2. Sinflarni olib kelish
       const { data: classesData, error: cError } = await supabase
         .from('classes')
         .select('*')
@@ -63,7 +55,7 @@ export default function DirectorDashboard() {
       if (cError) throw cError;
       setClasses(classesData || []);
 
-      // 3. O'quvchilar sonini sinflar bo'yicha hisoblaymiz
+      // 3. O'quvchilar sonini sinflar bo'yicha hisoblash
       const { data: studentsData, error: sError } = await supabase
         .from('profiles')
         .select('class_name')
@@ -72,15 +64,14 @@ export default function DirectorDashboard() {
       if (sError) throw sError;
 
       const counts: any = {};
-      classesData?.forEach(c => counts[c.name] = 0); // Boshida hamma sinf 0
+      classesData?.forEach(c => counts[c.name] = 0);
       studentsData?.forEach(student => {
         if(student.class_name) counts[student.class_name] = (counts[student.class_name] || 0) + 1;
       });
       setStudentsCountByClass(counts);
 
     } catch (error) {
-      console.error("Ma'lumotlarni tortishda xatolik:", error);
-      alert("Bazaga ulanishda xatolik! Kalitlarni tekshiring.");
+      console.error("Xatolik:", error);
     } finally {
       setIsLoading(false);
     }
@@ -89,21 +80,13 @@ export default function DirectorDashboard() {
   // ==========================================
   // SUPABASE'GA MA'LUMOT YOZISH (Insert)
   // ==========================================
-  
-  // O'QITUVCHI QO'SHISH
   const handleAddTeacher = async () => {
     if(!newPerson.fullName || !newPerson.subject) return alert("Hamma joyni to'ldiring!");
     
-    // Noyob ID yaratamiz (Masalan: T-1234)
     const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const { error } = await supabase.from('profiles').insert([
-      { 
-        id: uniqueId, 
-        role: 'teacher', 
-        full_name: newPerson.fullName, 
-        bio: newPerson.subject // Fanni bio ga vaqtincha saqlab turamiz
-      }
+      { id: uniqueId, role: 'teacher', full_name: newPerson.fullName, bio: newPerson.subject }
     ]);
 
     if (error) {
@@ -111,29 +94,21 @@ export default function DirectorDashboard() {
     } else {
       setShowTeacherModal(false);
       setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" });
-      fetchData(); // Jadvalni yangilash
+      fetchData();
     }
   };
 
-  // O'QUVCHI QO'SHISH
   const handleAddStudent = async () => {
     if(!newPerson.fullName || !newPerson.className) return alert("Hamma joyni to'ldiring!");
     
-    // Limit tekshiruvi
     const limit = classes.find(c => c.name === newPerson.className)?.max_limit || 24;
     const currentCount = studentsCountByClass[newPerson.className] || 0;
     if(currentCount >= limit) return alert("Kechirasiz, bu sinfda joy qolmagan!");
 
-    // Noyob ID yaratamiz (Masalan: S-8392)
     const uniqueId = `S-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const { error } = await supabase.from('profiles').insert([
-      { 
-        id: uniqueId, 
-        role: 'student', 
-        full_name: newPerson.fullName, 
-        class_name: newPerson.className 
-      }
+      { id: uniqueId, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className }
     ]);
 
     if (error) {
@@ -141,7 +116,7 @@ export default function DirectorDashboard() {
     } else {
       setShowStudentModal(false);
       setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" });
-      fetchData(); // Jadvalni yangilash
+      fetchData();
     }
   };
 
@@ -168,10 +143,10 @@ export default function DirectorDashboard() {
             <Users className="w-5 h-5 mr-3" /> O'quvchilar & Limit
           </button>
           <button onClick={() => setActiveMenu("timetable")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'timetable' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvali Konstruktori
+            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvali
           </button>
           <button onClick={() => setActiveMenu("algorithm")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'algorithm' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <Calculator className="w-5 h-5 mr-3" /> Moliya & Algoritm
+            <Calculator className="w-5 h-5 mr-3" /> Algoritm
           </button>
         </div>
       </div>
@@ -195,7 +170,6 @@ export default function DirectorDashboard() {
             </div>
           </div>
 
-          {/* Yuklanmoqda yozuvi */}
           {isLoading ? (
             <div className="flex justify-center py-20 text-purple-600 font-bold animate-pulse">Bazadan ma'lumotlar yuklanmoqda... (Kuting)</div>
           ) : (
@@ -237,7 +211,7 @@ export default function DirectorDashboard() {
                       </thead>
                       <tbody>
                         {teachers.length === 0 ? (
-                          <tr><td colSpan={4} className="text-center p-8 text-gray-400">Hali hech qanday o'qituvchi yo'q. Yangi qo'shing.</td></tr>
+                          <tr><td colSpan={4} className="text-center p-8 text-gray-400">Hali hech qanday o'qituvchi qo'shilmagan.</td></tr>
                         ) : (
                           teachers.map(t => (
                             <tr key={t.id} className="border-b border-gray-50 hover:bg-slate-50 transition-colors">
@@ -261,7 +235,7 @@ export default function DirectorDashboard() {
                   <p className="text-gray-500 text-sm mb-6 max-w-2xl">O'quv sifatini tushirmaslik uchun har bir sinfda jami 24 tadan ortiq o'quvchi bo'lishiga ruxsat berilmaydi.</p>
                   
                   {classes.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400">Hali hech qanday sinf yo'q. (Avval bazaga sinf qo'shish kerak)</div>
+                    <div className="p-8 text-center text-gray-400 font-bold border-2 border-dashed rounded-2xl">Hali hech qanday sinf yo'q. (Supabase'dan qoshing)</div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(cls => {
@@ -293,7 +267,7 @@ export default function DirectorDashboard() {
                 </div>
               )}
 
-              {/* TIMETABLE VA ALGORITM VIZUAL QISMLARI OLDINGIDEK QOLDI (Keyingi qadamda bularni ham ulaymiz) */}
+              {/* TIMETABLE VA ALGORITM (Hozircha faqat yozuv) */}
               {activeMenu === "timetable" && (
                 <div className="p-20 text-center text-gray-500 font-bold bg-white rounded-3xl shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
                   Bu bo'lim keyingi qadamda API ga ulanadi...
@@ -304,16 +278,14 @@ export default function DirectorDashboard() {
                   Bu bo'lim oy oxirida API orqali ishlaydi...
                 </div>
               )}
-
             </>
           )}
         </div>
       </div>
 
       {/* ======================================================== */}
-      {/* MODALLAR (HAQIQIY BAZAGA YOZADIGAN) */}
+      {/* MODALLAR */}
       {/* ======================================================== */}
-
       {showTeacherModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowTeacherModal(false)}>
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
