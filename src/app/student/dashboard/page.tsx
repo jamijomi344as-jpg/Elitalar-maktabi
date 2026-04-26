@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, Square, User, Award, TrendingUp, CheckCircle2, Home, BookA, Wallet, Trophy } from "lucide-react";
+import { BookOpen, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, Square, User, Award, TrendingUp, CheckCircle2, Home, BookA, Wallet, Trophy, Info } from "lucide-react";
 
 export default function StudentDashboard() {
   const student = {
@@ -20,7 +20,7 @@ export default function StudentDashboard() {
   const [kundalikView, setKundalikView] = useState<"joriy" | "chorak">("chorak"); 
 
   // ==========================================
-  // 1. KUNDALIK: CHORAKLAR BO'YICHA BAZA
+  // 1. KUNDALIK: CHORAKLAR BO'YICHA BAZA (1-rasmdagi dizayn)
   // ==========================================
   const quarterGrades = [
     { id: 1, subject: "Adabiyot", grades: [], bsb: null, total: "-" },
@@ -76,7 +76,7 @@ export default function StudentDashboard() {
   ];
 
   // ==========================================
-  // 4. DARS JADVALI BAZASI
+  // 4. DARS JADVALI BAZASI (2-rasm)
   // ==========================================
   const scheduleGrid = [
     {
@@ -141,7 +141,7 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* TOP-LEVEL NAVIGATION: ASOSIY MENYULAR */}
+      {/* TOP-LEVEL NAVIGATION: ASOSIY Yoki TA'LIM */}
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 w-fit overflow-x-auto max-w-full">
         <button 
           onClick={() => setMainMenu("asosiy")} 
@@ -185,7 +185,7 @@ export default function StudentDashboard() {
       )}
 
       {/* ======================================================== */}
-      {/* 2. REYTING SAHIFASI (Tezkor ko'rinish) */}
+      {/* 2. REYTING SAHIFASI */}
       {/* ======================================================== */}
       {mainMenu === "reyting" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-left-4">
@@ -193,14 +193,14 @@ export default function StudentDashboard() {
             <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4">
               <Trophy className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Reyting jadvali</h2>
-            <p className="text-gray-500 text-sm">Sinf va maktab bo'yicha reyting jadvali tez orada qo'shiladi.</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Sinf va Maktab Reytingi</h2>
+            <p className="text-gray-500 text-sm">Sizning CP (Class Points) ballaringiz bu yerda reytingda qatnashadi.</p>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 3. HAMYON SAHIFASI (Tezkor ko'rinish) */}
+      {/* 3. HAMYON SAHIFASI */}
       {/* ======================================================== */}
       {mainMenu === "hamyon" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-left-4">
@@ -208,18 +208,19 @@ export default function StudentDashboard() {
             <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-4">
               <Wallet className="w-8 h-8" />
             </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">Hamyon va Do'kon</h2>
-            <p className="text-gray-500 text-sm">O'z PP ballaringizni maktab do'konida xaridlar uchun ishlating. Do'kon ochilishini kuting!</p>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">O'quvchilar Do'koni (PP)</h2>
+            <p className="text-gray-500 text-sm">Maktabda topgan PP ballaringiz evaziga shu yerdan imtiyozlar sotib olishingiz mumkin.</p>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 4. TA'LIM SAHIFASI (Kundalik, Jadval, Vazifalar) */}
+      {/* 4. TA'LIM SAHIFASI */}
       {/* ======================================================== */}
       {mainMenu === "talim" && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-right-4 duration-300">
           
+          {/* Ta'lim Ichki Menyulari */}
           <div className="border-b border-gray-200 bg-slate-50 p-3 flex flex-wrap justify-center sm:justify-start gap-2">
             <button 
               onClick={() => setActiveTab("kundalik")} 
@@ -243,6 +244,9 @@ export default function StudentDashboard() {
 
           <div className="p-6 bg-slate-50/30 min-h-[500px]">
             
+            {/* ======================================================== */}
+            {/* TAB: KUNDALIK (Joriy va Chorak) */}
+            {/* ======================================================== */}
             {activeTab === "kundalik" && (
               <div className="animate-in fade-in duration-300">
                 
@@ -272,6 +276,7 @@ export default function StudentDashboard() {
                   </div>
                 </div>
 
+                {/* JORIY HAFTA KO'RINISHI */}
                 {kundalikView === "joriy" && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-left-4">
                     {weeklyDiary.map((day, idx) => (
@@ -288,9 +293,7 @@ export default function StudentDashboard() {
                                 <div className="flex justify-between items-start mb-2">
                                   <div>
                                     <span className="text-gray-400 font-bold text-xs mr-2">{lesson.num}.</span>
-                                    <span className={`font-bold text-sm ${lesson.canceled ? 'text-red-500 line-through' : 'text-blue-600'}`}>
-                                      {lesson.name} {lesson.canceled && <span className="text-red-500 font-normal text-xs ml-1 no-underline">(bekor qilindi)</span>}
-                                    </span>
+                                    <span className={`font-bold text-sm ${lesson.canceled ? 'text-red-500 line-through' : 'text-blue-600'}`}>{lesson.name}</span>
                                     <div className="text-[10px] text-gray-400 font-medium ml-4 mt-0.5">{lesson.time}</div>
                                   </div>
                                   {lesson.grade && (
@@ -318,6 +321,7 @@ export default function StudentDashboard() {
                   </div>
                 )}
 
+                {/* CHORAKLAR BO'YICHA KO'RINISH (Sizning rasmingiz) */}
                 {kundalikView === "chorak" && (
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-in slide-in-from-right-4">
                     <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50">
@@ -356,7 +360,6 @@ export default function StudentDashboard() {
                           {quarterGrades.map((q, idx) => (
                             <tr key={q.id} className={`border-b border-gray-100 hover:bg-blue-50/20 transition-colors ${idx % 2 !== 0 ? 'bg-slate-50/30' : 'bg-white'}`}>
                               <td className="p-4 font-bold text-sm text-blue-900">{q.subject}</td>
-                              
                               <td className="p-4">
                                 {q.grades.length === 0 ? (
                                   <div className="text-center text-sm font-medium text-gray-500">Qo'yilmagan baholar mavjud emas.</div>
@@ -375,10 +378,7 @@ export default function StudentDashboard() {
                                   </div>
                                 )}
                               </td>
-
-                              <td className="p-4 text-center font-black text-sm text-blue-600">
-                                {q.total}
-                              </td>
+                              <td className="p-4 text-center font-black text-sm text-blue-600">{q.total}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -389,12 +389,15 @@ export default function StudentDashboard() {
               </div>
             )}
 
+
+            {/* ======================================================== */}
+            {/* TAB: DARS JADVALI (To'r ko'rinish) */}
+            {/* ======================================================== */}
             {activeTab === "jadval" && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50">
                   <div>
                     <h2 className="text-2xl font-light text-gray-600">Dars jadvali <strong className="text-blue-900 font-black">{student.class}</strong> <span className="text-lg text-gray-400">(2025/2026)</span></h2>
-                    <p className="text-sm text-gray-500 mt-1">O'zbek tili</p>
                   </div>
                   <div className="flex gap-2">
                     <button className="px-4 py-2 border border-gray-200 text-gray-600 font-bold text-sm rounded-lg hover:bg-gray-50">1 chorak</button>
@@ -428,7 +431,7 @@ export default function StudentDashboard() {
                             <td key={dIdx} className="p-2 border-r border-gray-200 align-top hover:bg-blue-50/30 transition-colors w-1/6">
                               <div className="h-full border border-transparent hover:border-blue-200 rounded p-1.5 cursor-pointer">
                                 <div className="font-bold text-sm text-blue-600 mb-0.5 leading-tight">{day.subject}</div>
-                                <div className="text-[10px] text-gray-500 uppercase font-bold leading-tight mb-1 truncate" title={day.teacher}>{day.teacher}</div>
+                                <div className="text-[10px] text-gray-500 uppercase font-bold leading-tight mb-1 truncate">{day.teacher}</div>
                                 <div className="text-[10px] text-gray-400">Kabinet yo'q</div>
                               </div>
                             </td>
@@ -441,6 +444,10 @@ export default function StudentDashboard() {
               </div>
             )}
 
+
+            {/* ======================================================== */}
+            {/* TAB: UY VAZIFASI */}
+            {/* ======================================================== */}
             {activeTab === "vazifa" && (
               <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg mb-8">
