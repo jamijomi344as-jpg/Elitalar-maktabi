@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { User, GraduationCap, Award, TrendingUp, BellRing, Calendar, Activity, Sun, Moon, Bell, CheckCircle2, MessageSquare } from "lucide-react";
+import { User, GraduationCap, Award, TrendingUp, BellRing, Calendar, Activity } from "lucide-react";
 
 export default function DashboardPage() {
   const student = {
@@ -12,112 +11,11 @@ export default function DashboardPage() {
     cp: 150
   };
 
-  // ==========================================
-  // STATE'LAR
-  // ==========================================
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false); // Bildirishnoma oynasi uchun
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: "Yangi Baho!", message: "Algebra fanidan (Abduraximov) 5 baho oldingiz. +10 CP qo'shildi.", time: "2 daqiqa oldin", read: false, type: "grade" },
-    { id: 2, title: "Uy Vazifasi", message: "Ona tilidan yangi vazifa yuklandi. Muddati: Ertaga.", time: "1 soat oldin", read: false, type: "task" },
-    { id: 3, title: "Direktor xabari", message: "Ertaga shanba kuni maktabda shanbalik! Oq ko'ylak shart emas.", time: "Kecha, 14:30", read: true, type: "system" }
-  ]);
-
-  // Dark Mode Mantiqi
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [isDarkMode]);
-
-  // O'qilmagan xabarlarni sanash
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const markAsRead = (id: number) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
   return (
-    <div className="w-full max-w-6xl mx-auto flex flex-col items-center space-y-6 animate-in fade-in duration-500 pb-10 relative">
-      
-      {/* TEPADAGI ASOSIY HEADER */}
-      <div className="w-full flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 transition-colors duration-300 relative z-40">
-        <h2 className="font-black text-xl text-blue-900 dark:text-blue-400">O'quvchi Paneli</h2>
-        
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)} 
-            className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-            title="Fonni o'zgartirish"
-          >
-            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+    // DIQQAT: Bu yerdan faqat "TEPADAGI ASOSIY HEADER" (ikkilangan qism) olib tashlandi
+    <div className="w-full max-w-6xl mx-auto flex flex-col items-center space-y-6 animate-in fade-in duration-500 pb-10">
 
-          {/* BILDIRISHNOMA TUGMASI VA DROPDOWN */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={`p-2.5 rounded-full transition-all relative ${showNotifications ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-white dark:border-slate-900 rounded-full animate-pulse"></span>
-              )}
-            </button>
-
-            {/* Bildirishnoma Oynasi (Dropdown) */}
-            {showNotifications && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)}></div>
-                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-700 z-50 animate-in slide-in-from-top-4 overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-                    <h3 className="font-bold text-gray-800 dark:text-white">Bildirishnomalar</h3>
-                    <span className="text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-lg">{unreadCount} yangi</span>
-                  </div>
-                  <div className="max-h-[400px] overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-gray-400">Yangi xabarlar yo'q</div>
-                    ) : (
-                      notifications.map(note => (
-                        <div 
-                          key={note.id} 
-                          onClick={() => markAsRead(note.id)}
-                          className={`p-4 border-b border-gray-50 dark:border-slate-700/50 cursor-pointer transition-colors ${note.read ? 'opacity-60 hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-50 dark:hover:bg-blue-900/40'}`}
-                        >
-                          <div className="flex gap-3">
-                            <div className={`mt-1 flex-shrink-0 ${note.type === 'grade' ? 'text-emerald-500' : note.type === 'task' ? 'text-blue-500' : 'text-purple-500'}`}>
-                              {note.type === 'grade' ? <TrendingUp className="w-5 h-5"/> : note.type === 'task' ? <MessageSquare className="w-5 h-5"/> : <BellRing className="w-5 h-5"/>}
-                            </div>
-                            <div>
-                              <div className="flex justify-between items-start mb-1">
-                                <h4 className={`text-sm font-bold ${note.read ? 'text-gray-700 dark:text-gray-300' : 'text-blue-900 dark:text-blue-300'}`}>{note.title}</h4>
-                                <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">{note.time}</span>
-                              </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{note.message}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="p-3 text-center border-t border-gray-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                    <button className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">Barchasini o'qilgan deb belgilash</button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80 transition-opacity">
-             <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">K</div>
-             <span className="font-bold text-sm text-slate-700 dark:text-slate-200 hidden sm:block">Kiyotaka A.</span>
-          </div>
-        </div>
-      </div>
-
-      {/* TEPADAGI PROFIL VA BALANS */}
+      {/* TEPADAGI PROFIL VA BALANS (Ko'k Karta) */}
       <div className="w-full bg-gradient-to-br from-blue-900 to-indigo-900 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-500 border border-transparent dark:border-slate-700 transition-colors duration-300">
         <div className="absolute top-0 right-0 p-8 opacity-10"><User className="w-32 h-32" /></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
