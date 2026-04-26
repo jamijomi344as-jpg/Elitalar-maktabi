@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { mockUsers } from "@/lib/mockData";
-import { Users, GraduationCap, Award, ShieldAlert, Search, Plus, Minus, CheckCircle2, X, Calendar, Clock, MapPin, History, Check, UserMinus, Stethoscope, ArrowLeft, BookOpen, Edit3, AlertCircle, FileText, Download, UploadCloud, Eye, Paperclip, ChevronRight, Lock, AlertTriangle, TrendingUp } from "lucide-react";
+import { Users, GraduationCap, Award, ShieldAlert, Search, Plus, Minus, CheckCircle2, X, Calendar, Clock, MapPin, History, Check, UserMinus, Stethoscope, ArrowLeft, BookOpen, Edit3, AlertCircle, FileText, Download, UploadCloud, Eye, Paperclip, ChevronRight, Lock, AlertTriangle, TrendingUp, Loader2 } from "lucide-react";
 
 // ==========================================
 // TYPESCRIPT PASPORTLARI
@@ -77,6 +77,7 @@ export default function TeacherDashboard() {
   
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isWaitingApproval, setIsWaitingApproval] = useState(false); // YANGI: O'quvchi tasdig'ini kutish state'i
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState(""); 
 
@@ -119,6 +120,7 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
+  // RETRO (O'tgan kun) VA NORMAL BAHO SAQLASH
   const handleSaveGradeAndAttendance = (e: React.FormEvent, isRetro: boolean = false) => {
     e.preventDefault();
     if (!selectedStudent) return;
@@ -129,17 +131,28 @@ export default function TeacherDashboard() {
         setErrorMessage(`O'quvchi balansida yetarli PP yo'q! (Kerak: ${RETRO_COST} PP)`);
         return;
       }
+      
+      // O'quvchi tasdig'ini kutish simulyatsiyasi (2.5 soniya)
+      setIsWaitingApproval(true);
+      setTimeout(() => {
+        setIsWaitingApproval(false);
+        executeSaveGrade(true, RETRO_COST);
+      }, 2500);
+    } else {
+      executeSaveGrade(false, 0); // Normal baho darhol saqlanadi
     }
+  };
 
+  const executeSaveGrade = (isRetro: boolean, cost: number) => {
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       
       setAllStudents(prev => prev.map(s => {
-        if (s.id !== selectedStudent.id) return s;
+        if (s.id !== selectedStudent?.id) return s;
         
         let newBalance = s.balancePP;
-        if (isRetro) newBalance -= RETRO_COST; 
+        if (isRetro) newBalance -= cost; 
         
         if (gradeCategory !== "daily") {
           return { ...s, [gradeCategory]: Number(lessonGrade), balancePP: newBalance };
@@ -162,15 +175,16 @@ export default function TeacherDashboard() {
       }));
 
       const logText = isRetro 
-        ? `${selectedStudent.name} dan 500 PP yechilib, o'tib ketgan kunga (${activeDate}) baho saqlandi.` 
-        : `${selectedStudent.name} ga baho saqlandi.`;
+        ? `Tasdiqlandi! ${selectedStudent?.name} dan 500 PP yechilib, o'tib ketgan kunga (${activeDate}) baho saqlandi.` 
+        : `${selectedStudent?.name} ga baho saqlandi.`;
         
       setRecentLogs(prev => [{ id: Date.now(), text: logText, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
-      setSuccessMessage("Muvaffaqiyatli saqlandi!");
-      setTimeout(() => { closeModal(); }, 1000);
+      setSuccessMessage(isRetro ? "O'quvchi tasdiqladi! Muvaffaqiyatli saqlandi!" : "Muvaffaqiyatli saqlandi!");
+      setTimeout(() => { closeModal(); }, 1500);
     }, 500);
-  };
+  }
 
+  // IMTIHON NATIJASINI OSHIRISH (BOOST)
   const handleBoostExam = (boostAmount: number, cost: number) => {
     if (!selectedStudent || !gradeCategory) return;
     if (selectedStudent.balancePP < cost) {
@@ -186,22 +200,28 @@ export default function TeacherDashboard() {
       return;
     }
 
-    setIsProcessing(true);
+    // O'quvchi tasdig'ini kutish simulyatsiyasi
+    setIsWaitingApproval(true);
     setTimeout(() => {
-      setIsProcessing(false);
-      setAllStudents(prev => prev.map(s => {
-        if (s.id !== selectedStudent.id) return s;
-        return { 
-          ...s, 
-          [gradeCategory]: currentScore + boostAmount,
-          balancePP: s.balancePP - cost
-        };
-      }));
+      setIsWaitingApproval(false);
+      
+      setIsProcessing(true);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setAllStudents(prev => prev.map(s => {
+          if (s.id !== selectedStudent.id) return s;
+          return { 
+            ...s, 
+            [gradeCategory]: currentScore + boostAmount,
+            balancePP: s.balancePP - cost
+          };
+        }));
 
-      setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} ning ${gradeCategory.toUpperCase()} natijasiga +${boostAmount} ball qo'shildi (${cost} PP yechildi).`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
-      setSuccessMessage(`Muvaffaqiyatli +${boostAmount} ball qo'shildi!`);
-      setTimeout(() => { closeModal(); }, 1500);
-    }, 500);
+        setRecentLogs(prev => [{ id: Date.now(), text: `Tasdiqlandi: ${selectedStudent.name} ning ${gradeCategory.toUpperCase()} natijasiga +${boostAmount} ball qo'shildi (${cost} PP yechildi).`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
+        setSuccessMessage(`O'quvchi tasdiqladi! +${boostAmount} ball qo'shildi!`);
+        setTimeout(() => { closeModal(); }, 1500);
+      }, 500);
+    }, 2500);
   };
 
   const handleEditGrade = (e: React.FormEvent) => {
@@ -290,7 +310,7 @@ export default function TeacherDashboard() {
   };
 
   const closeModal = () => { 
-    setSelectedStudent(null); setActionType(null); setAmount(""); setLessonGrade(""); setHomeworkGrade(""); setAttendanceStatus("present"); setSuccessMessage(""); setErrorMessage("");
+    setSelectedStudent(null); setActionType(null); setAmount(""); setLessonGrade(""); setHomeworkGrade(""); setAttendanceStatus("present"); setSuccessMessage(""); setErrorMessage(""); setIsWaitingApproval(false);
     setNewPlan({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" });
   };
 
@@ -466,8 +486,7 @@ export default function TeacherDashboard() {
             <table className="w-full text-left border-collapse border border-gray-200">
               <thead>
                 <tr className="bg-slate-50">
-                  <th className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-8">Nº</th>
-                  <th className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-56">To'liq Ism</th>
+                  <th colSpan={2} className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-64">To'liq Ism</th>
                   
                   {lessonDates.map(date => (
                     <th key={date} className={`p-2 text-center border border-gray-200 w-14 align-bottom ${date === TODAY_DATE ? 'border-x-2 border-x-blue-400 bg-blue-50/50' : ''}`}>
@@ -476,11 +495,10 @@ export default function TeacherDashboard() {
                   ))}
                   
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-gray-50">O'rt</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB 1</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB 2</th>
+                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB</th>
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">CHSB</th>
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-green-50">Chorak</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-16">Puli (PP)</th>
+                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">Puli (PP)</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -490,14 +508,16 @@ export default function TeacherDashboard() {
                   
                   return (
                     <tr key={student.id} className="hover:bg-blue-50/20 transition-colors">
-                      <td className="p-2 text-center text-gray-500 text-sm border border-gray-200">{index + 1}</td>
+                      <td className="p-2 text-center text-gray-500 text-sm border border-gray-200 w-8">{index + 1}</td>
                       <td className="p-2 font-medium text-xs md:text-sm text-gray-700 border border-gray-200 cursor-pointer hover:text-blue-600">{student.name}</td>
 
+                      {/* KATAKCHALAR: BUGUN, KELAJAK VA O'TGAN KUNLAR MANTIG'I */}
                       {lessonDates.map(date => {
                         const todayIdx = lessonDates.indexOf(TODAY_DATE);
                         const dateIdx = lessonDates.indexOf(date);
                         const g = student.daily.find((d:any) => d.date === date);
                         
+                        // Kelajakdagi kun
                         if (dateIdx > todayIdx) {
                            return (
                              <td key={date} className="p-1 border border-gray-200 text-center h-12 align-middle bg-gray-50/50">
@@ -506,6 +526,7 @@ export default function TeacherDashboard() {
                            )
                         }
 
+                        // Bugun yoki O'tgan kun
                         return (
                           <td key={date} className={`p-1 border border-gray-200 text-center h-12 align-middle ${date === TODAY_DATE ? 'border-x-2 border-x-blue-400 bg-blue-50/10' : ''}`}>
                             <div 
@@ -527,6 +548,7 @@ export default function TeacherDashboard() {
                                   </div>
                                 )
                               ) : (
+                                // Agar o'tgan kun bo'lsa (Pullik indikator), Bugun bo'lsa (+)
                                 dateIdx < todayIdx 
                                   ? <span className="opacity-0 group-hover:opacity-100 text-orange-400 text-xs font-bold absolute">500<br/>PP</span>
                                   : <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-lg absolute">+</span>
@@ -538,11 +560,9 @@ export default function TeacherDashboard() {
 
                       <td className="p-2 text-center border border-gray-200 font-bold text-sm text-gray-600 bg-gray-50">{dailyAvg > 0 ? dailyAvg.toFixed(1) : ""}</td>
                       
+                      {/* IMTIHON BAHOLARINI OSHIRISH (BOOST) */}
                       <td onClick={() => { if(student.bsb1) openBoostModal(student, "bsb1"); }} className={`p-2 text-center border border-gray-200 font-bold text-sm text-blue-600 bg-blue-50/30 ${student.bsb1 ? 'cursor-pointer hover:bg-blue-100' : ''}`} title={student.bsb1 ? "Imtihon natijasini oshirish (PP)" : ""}>
                         {student.bsb1 || ""}
-                      </td>
-                      <td onClick={() => { if(student.bsb2) openBoostModal(student, "bsb2"); }} className={`p-2 text-center border border-gray-200 font-bold text-sm text-blue-600 bg-blue-50/30 ${student.bsb2 ? 'cursor-pointer hover:bg-blue-100' : ''}`} title={student.bsb2 ? "Imtihon natijasini oshirish (PP)" : ""}>
-                        {student.bsb2 || ""}
                       </td>
                       <td onClick={() => { if(student.chsb) openBoostModal(student, "chsb"); }} className={`p-2 text-center border border-gray-200 font-bold text-sm text-purple-600 bg-purple-50/30 ${student.chsb ? 'cursor-pointer hover:bg-purple-100' : ''}`} title={student.chsb ? "Imtihon natijasini oshirish (PP)" : ""}>
                         {student.chsb || ""}
@@ -567,7 +587,7 @@ export default function TeacherDashboard() {
 
       {/* MODALLAR */}
 
-      {/* 1. RETRO BAHO QO'YISH MODALI */}
+      {/* 1. RETRO BAHO QO'YISH MODALI (O'tib ketgan kun uchun pul yechish va tasdiq kutish) */}
       {selectedStudent && actionType === "retroGrade" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-orange-200 relative">
@@ -580,14 +600,21 @@ export default function TeacherDashboard() {
                 <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" /> 
                 <div>
                   <p className="font-bold mb-1">Diqqat! Pullik xizmat.</p>
-                  <p>Bu kun o'tib ketgan. Baho yoki davomat kiritish uchun o'quvchining balansidan <strong>500 PP</strong> yechib olinadi.</p>
+                  <p>Bu kun o'tib ketgan. Baho kiritish uchun o'quvchining balansidan <strong>500 PP</strong> yechiladi va undan tasdiq olinadi.</p>
                   <p className="mt-2 font-black text-orange-600">O'quvchi balansi: {selectedStudent.balancePP} PP</p>
                 </div>
               </div>
 
               {errorMessage && <div className="text-red-500 font-bold text-sm text-center mb-4">{errorMessage}</div>}
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              
+              {isWaitingApproval ? (
+                <div className="bg-blue-50 text-blue-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-blue-100 text-center">
+                  <Loader2 className="w-12 h-12 mb-3 animate-spin" />
+                  <h3 className="text-lg font-bold mb-1">So'rov yuborildi...</h3>
+                  <p className="text-sm text-blue-500">O'quvchi o'z ilovasidan tasdiqlashi kutilmoqda</p>
+                </div>
+              ) : successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100 text-center"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
               ) : (
                 <div className="space-y-4">
                   <div>
@@ -610,8 +637,8 @@ export default function TeacherDashboard() {
                     </div>
                   )}
 
-                  <button onClick={(e) => handleSaveGradeAndAttendance(e, true)} disabled={isProcessing} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors">
-                    {isProcessing ? "Saqlanmoqda..." : "500 PP yechish va Saqlash"}
+                  <button onClick={(e) => handleSaveGradeAndAttendance(e, true)} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors shadow-md shadow-orange-500/20">
+                    O'quvchiga so'rov yuborish (500 PP)
                   </button>
                 </div>
               )}
@@ -638,15 +665,21 @@ export default function TeacherDashboard() {
 
               {errorMessage && <div className="text-red-500 font-bold text-sm text-center mb-4">{errorMessage}</div>}
               
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              {isWaitingApproval ? (
+                <div className="bg-blue-50 text-blue-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-blue-100 text-center">
+                  <Loader2 className="w-12 h-12 mb-3 animate-spin" />
+                  <h3 className="text-lg font-bold mb-1">So'rov yuborildi...</h3>
+                  <p className="text-sm text-blue-500">O'quvchi ilovadan tasdiqlashi kutilmoqda</p>
+                </div>
+              ) : successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100 text-center"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
               ) : (
                 <div className="space-y-3">
-                  <button onClick={() => handleBoostExam(1, 1000)} disabled={isProcessing} className="w-full py-4 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl font-black transition-colors flex justify-between px-6 items-center">
-                    <span>+1 Ball qo'shish</span> <span className="bg-white px-3 py-1 rounded-lg text-sm text-orange-500 border border-blue-100">1000 PP</span>
+                  <button onClick={() => handleBoostExam(1, 1000)} className="w-full py-4 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl font-black transition-colors flex justify-between px-6 items-center">
+                    <span>+1 Ball so'rash</span> <span className="bg-white px-3 py-1 rounded-lg text-sm text-orange-500 border border-blue-100">1000 PP</span>
                   </button>
-                  <button onClick={() => handleBoostExam(2, 2000)} disabled={isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-colors shadow-md shadow-blue-500/30 flex justify-between px-6 items-center">
-                    <span>+2 Ball qo'shish</span> <span className="bg-blue-800 px-3 py-1 rounded-lg text-sm text-orange-300">2000 PP</span>
+                  <button onClick={() => handleBoostExam(2, 2000)} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-colors shadow-md shadow-blue-500/30 flex justify-between px-6 items-center">
+                    <span>+2 Ball so'rash</span> <span className="bg-blue-800 px-3 py-1 rounded-lg text-sm text-orange-300">2000 PP</span>
                   </button>
                 </div>
               )}
@@ -832,54 +865,6 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* BULK PP MODAL */}
-      {actionType === "bulkPP" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4"><Award className="w-8 h-8" /></div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Oy yakuni: Sinfga PP</h2>
-              <p className="text-sm text-gray-500 mb-6">Butun sinf o'quvchilariga oylik stipendiya ajratish.</p>
-              
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-4">
-                  <input type="number" placeholder="Miqdor" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full text-center px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-xl font-black text-blue-600" />
-                  <button onClick={handleAddPP} disabled={!amount || isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
-                    Barchasiga qo'shish
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SHAXSIY PP MODAL */}
-      {selectedStudent && actionType === "pp" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full"><X className="w-5 h-5" /></button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-1 flex items-center"><Award className="w-6 h-6 mr-2 text-orange-500" /> PP Boshqaruvi</h2>
-              <p className="text-sm text-gray-500 mb-6">O'quvchi: <strong>{selectedStudent.name}</strong></p>
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-4">
-                  <input type="number" placeholder="Summa (PP)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-lg font-mono" />
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button onClick={handleAddPP} disabled={!amount || isProcessing} className="py-3 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center"><Minus className="w-5 h-5 mr-1" /> Jarima</button>
-                    <button onClick={handleAddPP} disabled={!amount || isProcessing} className="py-3 bg-green-50 text-green-600 rounded-xl font-bold flex items-center justify-center"><Plus className="w-5 h-5 mr-1" /> Mukofot</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
