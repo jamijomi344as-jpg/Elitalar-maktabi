@@ -40,8 +40,11 @@ export default function TeacherDashboard() {
 
   const [activeView, setActiveView] = useState<"dashboard" | "journal" | "plan">("dashboard");
 
-  // 1. ISH REJA BAZASI
+  // ==========================================
+  // 1. ISH REJA BAZASI (Yangi sinflar bilan)
+  // ==========================================
   const [lessonPlan, setLessonPlan] = useState([
+    // 10-A sinfi uchun
     { id: 1, date: "02.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Jismlarning zaryadlanishi", homework: "Mavzuni o'rganish", type: "lesson" },
     { id: 2, date: "04.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Elektr zaryad", homework: "2-mavzuni o'rganish, 1-mashq", type: "lesson" },
     { id: 3, date: "09.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Zaryadlarning o'zaro ta'siri. Kulon qonuni", homework: "+ Keyingi darsga UV", type: "lesson" },
@@ -49,9 +52,20 @@ export default function TeacherDashboard() {
     { id: 5, date: "16.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Elektr maydon", homework: "+ Keyingi darsga UV", type: "lesson" },
     { id: 6, date: "18.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "O'tkazgichlarda elektr zaryadlarining taqsimlanishi", homework: "+ Keyingi darsga UV", type: "lesson" },
     { id: 7, date: "23.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "BSB-1: Elektr maydon kuchlanganligi", homework: "Takrorlash", type: "bsb1" },
+    
+    // 10-B sinfi uchun
+    { id: 8, date: "02.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "Fizika va Koinot", homework: "Mavzuni o'qish", type: "lesson" },
+    { id: 9, date: "04.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "Mexanika qonunlari", homework: "Masalalar yechish", type: "lesson" },
+    { id: 10, date: "18.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "BSB-1: Mexanika", homework: "Tayyorgarlik", type: "bsb1" },
   ]);
 
   const todaysSchedule = lessonPlan.filter(s => s.date === TODAY_DATE);
+
+  // ISH REJA UCHUN SINF FILTRI (Yangi holat)
+  const [planClassFilter, setPlanClassFilter] = useState("10-A");
+  
+  // Faqat tanlangan sinfning ish rejasini ajratib olamiz
+  const filteredLessonPlan = lessonPlan.filter(plan => plan.className === planClassFilter);
 
   // 2. O'QUVCHILAR BAZASI
   const [allStudents, setAllStudents] = useState<Student[]>([
@@ -101,14 +115,12 @@ export default function TeacherDashboard() {
     setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, attendance: status } : s));
   };
 
-  // PP QO'SHISH FUNKSIYASI (XATO TOZALANDI)
   const handleAddPP = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       setSuccessMessage(`Muvaffaqiyatli amalga oshirildi!`);
-      
       if (actionType === "bulkPP") {
         setRecentLogs(prev => [{ id: Date.now(), text: `Oy yakuni: Sinfga ${amount} PP tarqatildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
       } else if (actionType === "pp") {
@@ -118,22 +130,17 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
-  // BAHOLASH VA DAVOMAT SAQLASH
   const handleSaveGradeAndAttendance = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
-
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
-      
       setAllStudents(prev => prev.map(s => {
         if (s.id !== selectedStudent.id) return s;
-        
         if (gradeCategory !== "daily") {
           return { ...s, [gradeCategory]: Number(lessonGrade) };
         }
-
         const existingDailyIndex = s.daily.findIndex(d => d.date === activeDate);
         const newDailyEntry: DailyGrade = {
           id: existingDailyIndex >= 0 ? s.daily[existingDailyIndex].id : Date.now(),
@@ -142,54 +149,43 @@ export default function TeacherDashboard() {
           val: attendanceStatus === "present" && lessonGrade ? Number(lessonGrade) : null,
           hwVal: attendanceStatus === "present" && homeworkGrade ? Number(homeworkGrade) : null
         };
-
         let newDailyArray = [...s.daily];
-        if (existingDailyIndex >= 0) {
-          newDailyArray[existingDailyIndex] = newDailyEntry;
-        } else {
-          newDailyArray.push(newDailyEntry);
-        }
-
+        if (existingDailyIndex >= 0) newDailyArray[existingDailyIndex] = newDailyEntry;
+        else newDailyArray.push(newDailyEntry);
         return { ...s, daily: newDailyArray };
       }));
-
       const logText = attendanceStatus !== "present" 
         ? `${selectedStudent.name} ${activeDate} kuni ${attendanceStatus === 'absent' ? 'kelmadi' : 'kasal'} deb belgilandi.` 
         : `${selectedStudent.name} ga baho saqlandi.`;
-        
       setRecentLogs(prev => [{ id: Date.now(), text: logText, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
       setSuccessMessage("Muvaffaqiyatli saqlandi!");
       setTimeout(() => { closeModal(); }, 1000);
     }, 500);
   };
 
-  // BAHONI TAHRIRLASH (XATO TOZALANDI)
   const handleEditGrade = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent || !selectedGradeObj) return;
-
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
       setSuccessMessage("Baho o'zgartirildi!");
-      
       setAllStudents(prev => prev.map(s => {
         if (s.id !== selectedStudent.id) return s;
-        return { 
-          ...s, 
-          daily: s.daily.map(g => g.id === selectedGradeObj.id ? { ...g, val: Number(lessonGrade) } : g) 
-        };
+        return { ...s, daily: s.daily.map(g => g.id === selectedGradeObj.id ? { ...g, val: Number(lessonGrade) } : g) };
       }));
       setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} bahosi o'zgardi. Sabab: ${reason}`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
       setTimeout(() => { closeModal(); }, 1000);
     }, 500);
   };
 
+  // UY VAZIFASINI SAQLASH VA JADVALNI YANGILASH
   const handleAssignHomework = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
+      // LessonPlan massivini yangilaymiz
       setLessonPlan(prev => prev.map(p => p.id === selectedPlanId ? { ...p, homework: homeworkText } : p));
       setRecentLogs(prev => [{ id: Date.now(), text: `Yangi uy vazifa saqlandi.`, time: "Hozirgina", type: "system" }, ...prev].slice(0, 10));
       setSuccessMessage("Uy vazifasi muvaffaqiyatli yuborildi!");
@@ -214,6 +210,8 @@ export default function TeacherDashboard() {
         type: newPlan.type
       };
       setLessonPlan(prev => [...prev, newLesson].sort((a, b) => a.date.localeCompare(b.date)));
+      // Yangi qo'shilgan rejaning sinfiga avtomatik o'tkazib qo'yamiz
+      setPlanClassFilter(newPlan.className);
       setRecentLogs(prev => [{ id: Date.now(), text: `Yangi ish reja qo'shildi: ${newPlan.topic}`, time: "Hozirgina", type: "system" }, ...prev].slice(0, 10));
       setSuccessMessage("Ish reja muvaffaqiyatli saqlandi!");
       setTimeout(() => { closeModal(); }, 1000);
@@ -223,12 +221,10 @@ export default function TeacherDashboard() {
   const openGradeModal = (student: Student, date: string) => {
     setSelectedStudent(student);
     setActiveDate(date);
-    
     const todayLesson = lessonPlan.find(s => s.className === student.class && s.date === date);
     if (todayLesson?.type === "bsb1") setGradeCategory("bsb1");
     else if (todayLesson?.type === "chsb") setGradeCategory("chsb");
     else setGradeCategory("daily");
-
     const existingEntry = student.daily.find(d => d.date === date);
     if (existingEntry) {
       setAttendanceStatus(existingEntry.attendance as any);
@@ -239,7 +235,6 @@ export default function TeacherDashboard() {
       setLessonGrade("");
       setHomeworkGrade("");
     }
-    
     setActionType("grade");
   };
 
@@ -295,6 +290,9 @@ export default function TeacherDashboard() {
                 </div>
               </div>
             ))}
+            {todaysSchedule.length === 0 && (
+              <div className="bg-white rounded-2xl p-8 text-center text-gray-500 border border-gray-100">Bugun darslar mavjud emas.</div>
+            )}
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 h-fit">
@@ -314,11 +312,26 @@ export default function TeacherDashboard() {
       {/* ISH REJA EKRANI */}
       {activeView === "plan" && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-8">
-           <div className="p-4 border-b border-gray-200 flex items-center gap-4 bg-slate-50">
-              <button onClick={() => setActiveView("dashboard")} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
-              <div>
-                <h2 className="text-xl font-black text-blue-600 flex items-center">Ish Reja va Mavzular <span className="text-gray-400 mx-2">|</span> Fizika</h2>
-                <p className="text-xs text-gray-500 mt-1">2025/2026 o'quv yili • {currentTeacher?.name}</p>
+           <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setActiveView("dashboard")} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
+                <div>
+                  <h2 className="text-xl font-black text-blue-600 flex items-center">Ish Reja va Mavzular</h2>
+                  <p className="text-xs text-gray-500 mt-1">2025/2026 o'quv yili • {currentTeacher?.name}</p>
+                </div>
+              </div>
+              
+              {/* SINF TANLASH UCHUN FILTR */}
+              <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
+                {["10-A", "10-B", "11-A"].map(cls => (
+                  <button 
+                    key={cls} 
+                    onClick={() => setPlanClassFilter(cls)} 
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planClassFilter === cls ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
+                  >
+                    {cls}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -343,13 +356,16 @@ export default function TeacherDashboard() {
                   <tr className="bg-slate-50">
                     <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-12">№</th>
                     <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-24">Sana</th>
-                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200">Mavzu dars</th>
+                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200">Mavzu dars ({planClassFilter})</th>
                     <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-1/3">Keyingi darsga uy vazifa</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lessonPlan.map((plan, i) => (
-                    <tr key={plan.id} className="hover:bg-blue-50/10">
+                  {filteredLessonPlan.length === 0 && (
+                    <tr><td colSpan={4} className="p-8 text-center text-gray-500 font-medium">Ushbu sinf uchun reja kiritilmagan.</td></tr>
+                  )}
+                  {filteredLessonPlan.map((plan, i) => (
+                    <tr key={plan.id} className="hover:bg-blue-50/10 transition-colors">
                       <td className="p-3 text-center text-gray-400 text-sm border border-gray-200">{i + 1}</td>
                       <td className={`p-3 text-center text-sm border border-gray-200 ${plan.date === TODAY_DATE ? 'text-blue-600 font-bold bg-blue-50/30' : 'text-blue-500'}`}>
                         {plan.date}.2025
@@ -360,11 +376,12 @@ export default function TeacherDashboard() {
                       </td>
                       <td className="p-3 text-sm text-gray-600 border border-gray-200 align-top">
                         <div className="flex justify-between items-start mb-2">
-                          <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 font-medium'}>{plan.homework}</span>
+                          <span className={!plan.homework.includes('+') ? 'text-gray-700 font-medium' : 'text-blue-500 cursor-pointer hover:underline'} onClick={() => { if(plan.homework.includes('+')) openHomeworkModal(plan.id, plan.homework) }}>{plan.homework}</span>
+                          {!plan.homework.includes('+') && <div className="flex space-x-2 text-gray-400"><Eye className="w-4 h-4"/><Paperclip className="w-4 h-4"/></div>}
                         </div>
                         <div className="flex justify-end mt-2">
-                          <button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50 transition-colors">
-                            Onlayn berish
+                          <button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm bg-white">
+                            {plan.homework.includes('+') ? 'Onlayn berish' : 'Tahrirlash'}
                           </button>
                         </div>
                       </td>
@@ -557,7 +574,7 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* 2. UY VAZIFASI BERISH MODALI */}
+      {/* 2. UY VAZIFASI BERISH MODALI (YANGILANDI) */}
       {actionType === "assignHW" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
