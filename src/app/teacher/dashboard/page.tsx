@@ -1,870 +1,402 @@
 "use client";
 
-import { useState } from "react";
-import { mockUsers } from "@/lib/mockData";
-import { Users, GraduationCap, Award, ShieldAlert, Search, Plus, Minus, CheckCircle2, X, Calendar, Clock, MapPin, History, Check, UserMinus, Stethoscope, ArrowLeft, BookOpen, Edit3, AlertCircle, FileText, Download, UploadCloud, Eye, Paperclip, ChevronRight, Lock, AlertTriangle, TrendingUp, Loader2 } from "lucide-react";
-
-// ==========================================
-// TYPESCRIPT PASPORTLARI
-// ==========================================
-export type DailyGrade = {
-  id: number;
-  val: number | null;
-  hwVal: number | null;
-  attendance: string;
-  date: string;
-};
-
-export type Student = {
-  id: string;
-  class: string;
-  name: string;
-  balancePP: number;
-  bsb1: number | null;
-  bsb2: number | null;
-  chsb: number | null;
-  daily: DailyGrade[];
-};
+import { useState, useEffect } from "react";
+import { LayoutDashboard, Users, Calendar, Award, Star, BookOpen, Clock, ShieldCheck, Key, TrendingUp, CheckCircle, LogOut } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function TeacherDashboard() {
-  const currentTeacher = mockUsers.find(u => u.id === "T-1045");
-  const TODAY_DATE = "18.09"; 
-  const lessonDates = ["02.09", "04.09", "09.09", "11.09", "16.09", "18.09", "23.09", "25.09", "30.09"];
+  // ==========================================
+  // LOGIN SIMULYATSIYASI (Test uchun)
+  // ==========================================
+  const [allTeachers, setAllTeachers] = useState<any[]>([]);
+  const [currentTeacher, setCurrentTeacher] = useState<any>(null); // "Kirgan" ustoz
 
-  const checkIsLastFiveDays = () => {
-    const today = new Date();
-    const currentDay = today.getDate();
-    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    return currentDay > (lastDayOfMonth - 5);
-  };
-  const isEndOfMonth = checkIsLastFiveDays();
+  // ==========================================
+  // ASOSIY STATE'LAR
+  // ==========================================
+  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "homeroom" | "timetable" | "grading">("boshqaruv");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeView, setActiveView] = useState<"dashboard" | "journal" | "plan">("dashboard");
-
-  // 1. ISH REJA BAZASI
-  const [lessonPlan, setLessonPlan] = useState([
-    { id: 1, date: "02.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Jismlarning zaryadlanishi", homework: "Mavzuni o'rganish", type: "lesson" },
-    { id: 2, date: "04.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Elektr zaryad", homework: "2-mavzuni o'rganish, 1-mashq", type: "lesson" },
-    { id: 3, date: "09.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Zaryadlarning o'zaro ta'siri. Kulon qonuni", homework: "+ Keyingi darsga UV", type: "lesson" },
-    { id: 4, date: "11.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Masalalar yechish", homework: "+ Keyingi darsga UV", type: "lesson" },
-    { id: 5, date: "16.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Elektr maydon", homework: "+ Keyingi darsga UV", type: "lesson" },
-    { id: 6, date: "18.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "O'tkazgichlarda elektr zaryadlarining taqsimlanishi", homework: "+ Keyingi darsga UV", type: "lesson" },
-    { id: 7, date: "23.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "BSB-1: Elektr maydon kuchlanganligi", homework: "Takrorlash", type: "bsb1" },
-    { id: 8, date: "02.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "Fizika va Koinot", homework: "Mavzuni o'qish", type: "lesson" },
-    { id: 9, date: "04.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "Mexanika qonunlari", homework: "Masalalar yechish", type: "lesson" },
-    { id: 10, date: "18.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "BSB-1: Mexanika", homework: "Tayyorgarlik", type: "bsb1" },
-  ]);
-
-  const todaysSchedule = lessonPlan.filter(s => s.date === TODAY_DATE);
-  const [planClassFilter, setPlanClassFilter] = useState("10-A");
-  const filteredLessonPlan = lessonPlan.filter(plan => plan.className === planClassFilter);
-
-  // 2. O'QUVCHILAR BAZASI
-  const [allStudents, setAllStudents] = useState<Student[]>([
-    { id: "S-8392", class: "10-A", name: "Asadova Parizod", balancePP: 12000, daily: [{ id: 1, val: 8, hwVal: 9, attendance: "present", date: "04.09" }], bsb1: 22, bsb2: null, chsb: null },
-    { id: "S-8393", class: "10-A", name: "Azimov Kamron", balancePP: 450, daily: [{ id: 3, val: 7, hwVal: null, attendance: "present", date: "04.09" }], bsb1: 18, bsb2: null, chsb: null },
-    { id: "S-1001", class: "10-A", name: "Baxtiyorov Sherjahon", balancePP: 5000, daily: [{ id: 4, val: null, hwVal: null, attendance: "absent", date: "04.09" }], bsb1: 15, bsb2: null, chsb: null },
-    { id: "S-1002", class: "10-A", name: "Baxshilloyev Akbar", balancePP: 800, daily: [], bsb1: 25, bsb2: null, chsb: null },
-    { id: "S-1003", class: "10-A", name: "Botirova Bonu", balancePP: 3000, daily: [{ id: 5, val: null, hwVal: null, attendance: "sick", date: "04.09" }], bsb1: 20, bsb2: null, chsb: null },
-  ]);
-
-  const [selectedClass, setSelectedClass] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [recentLogs, setRecentLogs] = useState([{ id: 1, text: "Tizimga muvaffaqiyatli kirdingiz", time: "Hozirgina", type: "system" }]);
-
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [actionType, setActionType] = useState<"pp" | "grade" | "editGrade" | "retroGrade" | "boostExam" | "bulkPP" | "addPlan" | "assignHW" | null>(null);
+  // Bazadan keladigan ma'lumotlar
+  const [myStudents, setMyStudents] = useState<any[]>([]); // Sinf rahbar bo'lsa
+  const [myTimetable, setMyTimetable] = useState<any[]>([]); // Darslari
+  const [allClasses, setAllClasses] = useState<any[]>([]); // Baholash uchun hamma sinflar
   
-  const [amount, setAmount] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isWaitingApproval, setIsWaitingApproval] = useState(false); // YANGI: O'quvchi tasdig'ini kutish state'i
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState(""); 
+  // Baholash formasi
+  const [gradeForm, setGradeForm] = useState({ classId: "", studentId: "", grade: "", note: "" });
+  const [studentsToGrade, setStudentsToGrade] = useState<any[]>([]);
 
-  const [activeDate, setActiveDate] = useState(TODAY_DATE);
-  const [attendanceStatus, setAttendanceStatus] = useState<"present" | "absent" | "sick">("present");
-  const [lessonGrade, setLessonGrade] = useState("");
-  const [homeworkGrade, setHomeworkGrade] = useState("");
-  const [gradeCategory, setGradeCategory] = useState<"daily" | "bsb1" | "bsb2" | "chsb">("daily");
-  
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const [homeworkText, setHomeworkText] = useState("");
-  const [newPlan, setNewPlan] = useState({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" });
-  const [selectedGradeObj, setSelectedGradeObj] = useState<DailyGrade | null>(null);
-  const [reason, setReason] = useState("");
+  // ==========================================
+  // BOSHIDAN O'QITUVCHILARNI OLIB KELISH
+  // ==========================================
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
-  const activeClassStudents = allStudents.filter(s => selectedClass ? s.class === selectedClass.className : true);
-  const filteredStudents = activeClassStudents.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const getDailyAverage = (daily: DailyGrade[]) => {
-    const allGrades = daily.flatMap(d => [d.val, d.hwVal].filter(g => g !== null && g !== undefined));
-    if (allGrades.length === 0) return 0;
-    return allGrades.reduce((a, b) => a + Number(b), 0) / allGrades.length;
-  };
-  const getTotalQuarterScore = (student: Student) => Math.round(getDailyAverage(student.daily)) + (student.bsb1 || 0) + (student.bsb2 || 0) + (student.chsb || 0);
-
-  const handleAddPP = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setSuccessMessage(`Muvaffaqiyatli amalga oshirildi!`);
-      if (actionType === "bulkPP") {
-        setAllStudents(prev => prev.map(s => s.class === selectedClass.className ? { ...s, balancePP: s.balancePP + Number(amount) } : s));
-        setRecentLogs(prev => [{ id: Date.now(), text: `Sinfga ${amount} PP tarqatildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
-      } else if (actionType === "pp" && selectedStudent) {
-        setAllStudents(prev => prev.map(s => s.id === selectedStudent.id ? { ...s, balancePP: s.balancePP + Number(amount) } : s));
-        setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} ga ${amount} PP berildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
-      }
-      setTimeout(() => { closeModal(); }, 1000);
-    }, 500);
+  const fetchInitialData = async () => {
+    setIsLoading(true);
+    const { data: teachers } = await supabase.from('profiles').select('*').eq('role', 'teacher');
+    setAllTeachers(teachers || []);
+    setIsLoading(false);
   };
 
-  // RETRO (O'tgan kun) VA NORMAL BAHO SAQLASH
-  const handleSaveGradeAndAttendance = (e: React.FormEvent, isRetro: boolean = false) => {
-    e.preventDefault();
-    if (!selectedStudent) return;
-    
-    const RETRO_COST = 500;
-    if (isRetro) {
-      if (selectedStudent.balancePP < RETRO_COST) {
-        setErrorMessage(`O'quvchi balansida yetarli PP yo'q! (Kerak: ${RETRO_COST} PP)`);
-        return;
+  // ==========================================
+  // USTOZ "KIRGANDA" UNING MA'LUMOTLARINI TORTISH
+  // ==========================================
+  useEffect(() => {
+    if (currentTeacher) {
+      loadTeacherData(currentTeacher);
+    }
+  }, [currentTeacher]);
+
+  const loadTeacherData = async (teacher: any) => {
+    setIsLoading(true);
+    try {
+      // 1. Sinf rahbarligi bo'yicha o'quvchilari (Parollari bilan)
+      if (teacher.homeroom) {
+        const { data: students } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', teacher.homeroom).order('full_name');
+        setMyStudents(students || []);
       }
-      
-      // O'quvchi tasdig'ini kutish simulyatsiyasi (2.5 soniya)
-      setIsWaitingApproval(true);
-      setTimeout(() => {
-        setIsWaitingApproval(false);
-        executeSaveGrade(true, RETRO_COST);
-      }, 2500);
-    } else {
-      executeSaveGrade(false, 0); // Normal baho darhol saqlanadi
+
+      // 2. O'qituvchining dars jadvali
+      const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', teacher.id);
+      setMyTimetable(schedule || []);
+
+      // 3. Baholash uchun maktabdagi barcha sinflarni olib kelish
+      const { data: classes } = await supabase.from('classes').select('*').order('name');
+      setAllClasses(classes || []);
+
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const executeSaveGrade = (isRetro: boolean, cost: number) => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      
-      setAllStudents(prev => prev.map(s => {
-        if (s.id !== selectedStudent?.id) return s;
-        
-        let newBalance = s.balancePP;
-        if (isRetro) newBalance -= cost; 
-        
-        if (gradeCategory !== "daily") {
-          return { ...s, [gradeCategory]: Number(lessonGrade), balancePP: newBalance };
-        }
+  // Baholash oynasida sinf tanlanganda shu sinf o'quvchilarini tortish
+  const handleSelectClassToGrade = async (className: string) => {
+    setGradeForm({ ...gradeForm, classId: className, studentId: "" });
+    const { data } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', className).order('full_name');
+    setStudentsToGrade(data || []);
+  };
 
-        const existingDailyIndex = s.daily.findIndex(d => d.date === activeDate);
-        const newDailyEntry: DailyGrade = {
-          id: existingDailyIndex >= 0 ? s.daily[existingDailyIndex].id : Date.now(),
-          date: activeDate,
-          attendance: attendanceStatus,
-          val: attendanceStatus === "present" && lessonGrade ? Number(lessonGrade) : null,
-          hwVal: attendanceStatus === "present" && homeworkGrade ? Number(homeworkGrade) : null
-        };
+  // ==========================================
+  // BAHOLASH VA PUL (PP) BERISH LOGIKASI
+  // ==========================================
+  const handleGiveGrade = async () => {
+    if(!gradeForm.studentId || !gradeForm.grade) return alert("O'quvchi va bahoni tanlang!");
 
-        let newDailyArray = [...s.daily];
-        if (existingDailyIndex >= 0) newDailyArray[existingDailyIndex] = newDailyEntry;
-        else newDailyArray.push(newDailyEntry);
+    const numericGrade = parseInt(gradeForm.grade);
+    // Tizim iqtisodiyoti (Reyting = CP, Pul = PP)
+    let addedCP = 0;
+    let addedPP = 0;
 
-        return { ...s, daily: newDailyArray, balancePP: newBalance };
-      }));
+    if(numericGrade === 5) { addedCP = 10; addedPP = 100; }
+    else if(numericGrade === 4) { addedCP = 5; addedPP = 50; }
+    else if(numericGrade === 3) { addedCP = 0; addedPP = 10; }
+    else if(numericGrade === 2) { addedCP = -5; addedPP = 0; } // 2 baho uchun jarima
 
-      const logText = isRetro 
-        ? `Tasdiqlandi! ${selectedStudent?.name} dan 500 PP yechilib, o'tib ketgan kunga (${activeDate}) baho saqlandi.` 
-        : `${selectedStudent?.name} ga baho saqlandi.`;
-        
-      setRecentLogs(prev => [{ id: Date.now(), text: logText, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
-      setSuccessMessage(isRetro ? "O'quvchi tasdiqladi! Muvaffaqiyatli saqlandi!" : "Muvaffaqiyatli saqlandi!");
-      setTimeout(() => { closeModal(); }, 1500);
-    }, 500);
+    // Bazadan o'quvchini topib, eskisi ustiga yangisini qo'shish
+    const student = studentsToGrade.find(s => s.id === gradeForm.studentId);
+    if(!student) return;
+
+    const newCP = (student.cp_score || 0) + addedCP;
+    const newPP = (student.pp_balance || 0) + addedPP;
+
+    // Supabase'da yangilash (Update)
+    const { error } = await supabase.from('profiles').update({
+      cp_score: newCP,
+      pp_balance: newPP
+    }).eq('id', student.id);
+
+    if(error) {
+      alert("Xatolik: " + error.message);
+    } else {
+      alert(`Muvaffaqiyatli! O'quvchiga ${addedPP} PP berildi.`);
+      setGradeForm({ ...gradeForm, studentId: "", grade: "", note: "" });
+      // Jadvalni yangilash
+      handleSelectClassToGrade(gradeForm.classId);
+    }
+  };
+
+  // ==========================================
+  // EKRANLAR
+  // ==========================================
+
+  // Agar login qilmagan bo'lsa
+  if (!currentTeacher) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-indigo-50 font-sans">
+        <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center animate-in zoom-in-95">
+          <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4"><BookOpen className="w-8 h-8"/></div>
+          <h2 className="text-2xl font-black text-gray-800 mb-2">Tizimga kirish</h2>
+          <p className="text-gray-500 mb-6 text-sm">O'zingizni qaysi o'qituvchi sifatida sinab ko'rmoqchisiz?</p>
+          
+          {isLoading ? (
+            <p className="text-indigo-500 font-bold animate-pulse">Ustozlar qidirilmoqda...</p>
+          ) : allTeachers.length === 0 ? (
+            <p className="text-red-500 font-bold bg-red-50 p-4 rounded-xl">Direktor hali ustoz qo'shmagan!</p>
+          ) : (
+            <div className="space-y-3">
+              {allTeachers.map(t => (
+                <button 
+                  key={t.id} 
+                  onClick={() => setCurrentTeacher(t)}
+                  className="w-full p-4 border border-indigo-100 hover:border-indigo-500 bg-slate-50 hover:bg-indigo-50 rounded-2xl flex items-center justify-between transition-all group"
+                >
+                  <div className="text-left">
+                    <p className="font-bold text-gray-800 group-hover:text-indigo-700">{t.full_name}</p>
+                    <p className="text-xs text-gray-500">{t.bio} {t.homeroom ? `(${t.homeroom} rahbari)` : ''}</p>
+                  </div>
+                  <ShieldCheck className="w-5 h-5 text-indigo-300 group-hover:text-indigo-600" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
-  // IMTIHON NATIJASINI OSHIRISH (BOOST)
-  const handleBoostExam = (boostAmount: number, cost: number) => {
-    if (!selectedStudent || !gradeCategory) return;
-    if (selectedStudent.balancePP < cost) {
-      setErrorMessage(`Balans yetarli emas! (Narxi: ${cost} PP)`);
-      return;
-    }
-
-    const currentScore = selectedStudent[gradeCategory as "bsb1" | "bsb2" | "chsb"] || 0;
-    const maxAllowed = gradeCategory === "chsb" ? 40 : 25;
-
-    if (currentScore + boostAmount > maxAllowed) {
-      setErrorMessage(`Baho maksimal darajadan (${maxAllowed} ball) oshib ketadi!`);
-      return;
-    }
-
-    // O'quvchi tasdig'ini kutish simulyatsiyasi
-    setIsWaitingApproval(true);
-    setTimeout(() => {
-      setIsWaitingApproval(false);
-      
-      setIsProcessing(true);
-      setTimeout(() => {
-        setIsProcessing(false);
-        setAllStudents(prev => prev.map(s => {
-          if (s.id !== selectedStudent.id) return s;
-          return { 
-            ...s, 
-            [gradeCategory]: currentScore + boostAmount,
-            balancePP: s.balancePP - cost
-          };
-        }));
-
-        setRecentLogs(prev => [{ id: Date.now(), text: `Tasdiqlandi: ${selectedStudent.name} ning ${gradeCategory.toUpperCase()} natijasiga +${boostAmount} ball qo'shildi (${cost} PP yechildi).`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
-        setSuccessMessage(`O'quvchi tasdiqladi! +${boostAmount} ball qo'shildi!`);
-        setTimeout(() => { closeModal(); }, 1500);
-      }, 500);
-    }, 2500);
-  };
-
-  const handleEditGrade = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedStudent || !selectedGradeObj) return;
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setSuccessMessage("Baho o'zgartirildi!");
-      setAllStudents(prev => prev.map(s => {
-        if (s.id !== selectedStudent.id) return s;
-        return { ...s, daily: s.daily.map(g => g.id === selectedGradeObj.id ? { ...g, val: Number(lessonGrade) } : g) };
-      }));
-      setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} bahosi o'zgardi. Sabab: ${reason}`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
-      setTimeout(() => { closeModal(); }, 1000);
-    }, 500);
-  };
-
-  const handleAssignHomework = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setLessonPlan(prev => prev.map(p => p.id === selectedPlanId ? { ...p, homework: homeworkText } : p));
-      setRecentLogs(prev => [{ id: Date.now(), text: `Yangi uy vazifa saqlandi.`, time: "Hozirgina", type: "system" }, ...prev].slice(0, 10));
-      setSuccessMessage("Uy vazifasi muvaffaqiyatli yuborildi!");
-      setTimeout(() => { closeModal(); }, 1000);
-    }, 500);
-  };
-
-  const handleAddNewPlan = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      const newLesson = { id: Date.now(), date: newPlan.date, time: "08:00 - 08:45", className: newPlan.className, subject: "Fizika", room: "302-xona", topic: newPlan.topic, homework: newPlan.homework, type: newPlan.type };
-      setLessonPlan(prev => [...prev, newLesson].sort((a, b) => a.date.localeCompare(b.date)));
-      setPlanClassFilter(newPlan.className);
-      setRecentLogs(prev => [{ id: Date.now(), text: `Yangi ish reja qo'shildi: ${newPlan.topic}`, time: "Hozirgina", type: "system" }, ...prev].slice(0, 10));
-      setSuccessMessage("Ish reja muvaffaqiyatli saqlandi!");
-      setTimeout(() => { closeModal(); }, 1000);
-    }, 600);
-  };
-
-  const openGradeModal = (student: Student, date: string) => {
-    setSelectedStudent(student);
-    setActiveDate(date);
-    setErrorMessage("");
-    
-    const todayIdx = lessonDates.indexOf(TODAY_DATE);
-    const dateIdx = lessonDates.indexOf(date);
-
-    if (dateIdx > todayIdx) return; 
-
-    setGradeCategory("daily");
-    const existingEntry = student.daily.find(d => d.date === date);
-    
-    if (existingEntry) {
-      setAttendanceStatus(existingEntry.attendance as any);
-      setLessonGrade(existingEntry.val ? existingEntry.val.toString() : "");
-      setHomeworkGrade(existingEntry.hwVal ? existingEntry.hwVal.toString() : "");
-    } else {
-      setAttendanceStatus("present");
-      setLessonGrade("");
-      setHomeworkGrade("");
-    }
-    
-    if (dateIdx < todayIdx && !existingEntry) {
-      setActionType("retroGrade");
-    } else {
-      setActionType("grade");
-    }
-  };
-
-  const openBoostModal = (student: Student, examType: "bsb1" | "bsb2" | "chsb") => {
-    setSelectedStudent(student);
-    setGradeCategory(examType);
-    setErrorMessage("");
-    setActionType("boostExam");
-  };
-
-  const openHomeworkModal = (planId: number, currentHw: string) => {
-    setSelectedPlanId(planId);
-    setHomeworkText(currentHw.includes('+') ? "" : currentHw);
-    setActionType("assignHW");
-  };
-
-  const closeModal = () => { 
-    setSelectedStudent(null); setActionType(null); setAmount(""); setLessonGrade(""); setHomeworkGrade(""); setAttendanceStatus("present"); setSuccessMessage(""); setErrorMessage(""); setIsWaitingApproval(false);
-    setNewPlan({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" });
-  };
-
+  // LOGINDAN O'TGAN HOLAT
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
-      {/* TEPADAGI PROFIL */}
-      <div className="bg-gradient-to-br from-indigo-900 to-slate-900 dark:from-indigo-950 dark:to-slate-950 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-10"><ShieldAlert className="w-32 h-32" /></div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between md:items-end">
-          <div>
-            <p className="text-indigo-300 text-sm mb-1 uppercase tracking-wider font-medium">O'qituvchi Paneli</p>
-            <h1 className="text-3xl font-bold mb-2">Ustoz {currentTeacher?.name}</h1>
-            <p className="text-indigo-200 text-sm flex items-center"><Calendar className="w-4 h-4 mr-2" /> Bugungi sana: {TODAY_DATE}.2025</p>
-          </div>
+      {/* ==================== YON PANEL ==================== */}
+      <div className="w-64 bg-indigo-950 border-r border-indigo-900 flex flex-col h-screen flex-shrink-0 z-20 text-slate-300 hidden md:flex">
+        <div className="h-20 flex items-center px-6 border-b border-indigo-900/50">
+          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3 shadow-lg shadow-amber-500/30">E</div>
+          <span className="text-xl font-black tracking-widest text-white">ELITA <span className="text-[10px] text-amber-400 align-top uppercase">Teacher</span></span>
+        </div>
+
+        <div className="p-4 flex flex-col gap-2 mt-2 flex-1">
+          <button onClick={() => setActiveMenu("boshqaruv")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'boshqaruv' ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-900/50 hover:text-white'}`}>
+            <LayoutDashboard className="w-5 h-5 mr-3" /> Asosiy Panel
+          </button>
+          <button onClick={() => setActiveMenu("timetable")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'timetable' ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-900/50 hover:text-white'}`}>
+            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvalim
+          </button>
+          <button onClick={() => setActiveMenu("grading")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'grading' ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-900/50 hover:text-white'}`}>
+            <Award className="w-5 h-5 mr-3" /> Baholash (PP Berish)
+          </button>
+          
+          {/* Faqat Sinf rahbarlari ko'radi */}
+          {currentTeacher.homeroom && (
+            <button onClick={() => setActiveMenu("homeroom")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'homeroom' ? 'bg-amber-500 text-white shadow-md' : 'text-amber-200 hover:bg-indigo-900/50 hover:text-white'}`}>
+              <Users className="w-5 h-5 mr-3" /> Mening Sinfim
+            </button>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-indigo-900/50">
+          <button onClick={() => setCurrentTeacher(null)} className="flex items-center justify-center w-full px-4 py-3 rounded-xl font-bold text-sm text-indigo-300 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+            <LogOut className="w-4 h-4 mr-2" /> Chiqish
+          </button>
         </div>
       </div>
 
-      {/* ASOSIY EKRAN */}
-      {activeView === "dashboard" && (
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-in zoom-in-95 duration-300">
-          <div className="xl:col-span-2 space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center"><Clock className="w-6 h-6 mr-2 text-indigo-500" /> Bugungi Darslar</h2>
-              <button onClick={() => setActiveView("plan")} className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl font-bold text-sm flex items-center shadow-sm">
-                <FileText className="w-4 h-4 mr-1" /> Ish Rejani ko'rish
-              </button>
-            </div>
-            {todaysSchedule.map((cls) => (
-              <div key={cls.id} onClick={() => { setSelectedClass(cls); setActiveView("journal"); }} className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-slate-800 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all group">
-                <div className="flex items-center gap-5">
-                  <div className={`font-bold p-3 rounded-xl text-center w-20 border ${cls.type === 'bsb1' || cls.type === 'chsb' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>
-                    <div className="text-sm">{cls.time.split(' - ')[0]}</div>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
-                      {cls.className} {cls.type === 'bsb1' || cls.type === 'chsb' ? <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-md">Imtihon kungi</span> : null}
-                    </h3>
-                    <p className="text-sm font-medium text-indigo-600 mt-1 flex items-center"><FileText className="w-4 h-4 mr-1" /> {cls.topic}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 h-fit">
-            <h3 className="font-bold text-lg flex items-center mb-6 dark:text-white"><History className="w-5 h-5 mr-2 text-orange-500" /> Baza Tarixi</h3>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-              {recentLogs.map((log) => (
-                <div key={log.id} className="border-b border-gray-50 pb-3 last:border-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{log.text}</p>
-                  <p className="text-xs text-gray-400 mt-1">{log.time}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ISH REJA EKRANI */}
-      {activeView === "plan" && (
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-8">
-           <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50">
-              <div className="flex items-center gap-4">
-                <button onClick={() => setActiveView("dashboard")} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
-                <div>
-                  <h2 className="text-xl font-black text-blue-600 flex items-center">Ish Reja va Mavzular</h2>
-                  <p className="text-xs text-gray-500 mt-1">2025/2026 o'quv yili • {currentTeacher?.name}</p>
-                </div>
-              </div>
-              
-              <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
-                {["10-A", "10-B", "11-A"].map(cls => (
-                  <button 
-                    key={cls} 
-                    onClick={() => setPlanClassFilter(cls)} 
-                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planClassFilter === cls ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
-                  >
-                    {cls}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex gap-2">
-                <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 rounded-lg text-sm font-bold bg-blue-50">1 chorak</button>
-                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">2</button>
-                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">3</button>
-                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">4</button>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => setActionType("addPlan")} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg text-sm font-bold shadow-sm flex items-center">
-                  <Plus className="w-4 h-4 mr-2"/> Yangi mavzu
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse border border-gray-200">
-                <thead>
-                  <tr className="bg-slate-50">
-                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-12">№</th>
-                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-24">Sana</th>
-                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200">Mavzu dars ({planClassFilter})</th>
-                    <th className="p-3 text-center text-xs text-gray-500 font-bold border border-gray-200 w-1/3">Keyingi darsga uy vazifa</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLessonPlan.length === 0 && (
-                    <tr><td colSpan={4} className="p-8 text-center text-gray-500 font-medium">Ushbu sinf uchun reja kiritilmagan.</td></tr>
-                  )}
-                  {filteredLessonPlan.map((plan, i) => (
-                    <tr key={plan.id} className="hover:bg-blue-50/10 transition-colors">
-                      <td className="p-3 text-center text-gray-400 text-sm border border-gray-200">{i + 1}</td>
-                      <td className={`p-3 text-center text-sm border border-gray-200 ${plan.date === TODAY_DATE ? 'text-blue-600 font-bold bg-blue-50/30' : 'text-blue-500'}`}>
-                        {plan.date}.2025
-                        {plan.date === TODAY_DATE && <div className="text-[10px] text-blue-400 mt-1">bugun</div>}
-                      </td>
-                      <td className="p-3 text-sm text-gray-700 border border-gray-200">
-                        <span className={plan.type !== 'lesson' ? 'text-red-600 font-bold' : ''}>{plan.topic}</span>
-                      </td>
-                      <td className="p-3 text-sm text-gray-600 border border-gray-200 align-top">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className={!plan.homework.includes('+') ? 'text-gray-700 font-medium' : 'text-blue-500 cursor-pointer hover:underline'} onClick={() => { if(plan.homework.includes('+')) openHomeworkModal(plan.id, plan.homework) }}>{plan.homework}</span>
-                        </div>
-                        <div className="flex justify-end mt-2">
-                          <button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm bg-white">
-                            {plan.homework.includes('+') ? 'Onlayn berish' : 'Tahrirlash'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-        </div>
-      )}
-
-      {/* JURNAL EKRANI */}
-      {activeView === "journal" && selectedClass && (
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-right-8 duration-300">
+      {/* ==================== ASOSIY KONTENT ==================== */}
+      <div className="flex-1 h-full overflow-y-auto bg-slate-50 p-4 md:p-8">
+        <div className="w-full max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
           
-          <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
-            <div className="flex items-center gap-4">
-              <button onClick={() => setActiveView("dashboard")} className="p-2 border border-gray-300 rounded-xl hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
-              <div>
-                <h2 className="text-xl font-black text-blue-600 flex items-center">{selectedClass.className} <ChevronRight className="w-4 h-4 mx-1 text-blue-300"/> Fizika</h2>
-                <p className="text-xs text-gray-500 font-medium mt-1">2025/2026 o'quv yili • {currentTeacher?.name}</p>
+          {/* HEADER */}
+          <div className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-10"><BookOpen className="w-32 h-32 text-white" /></div>
+            <div className="relative z-10">
+              <p className="text-indigo-200 text-sm mb-1 uppercase tracking-wider font-bold">O'qituvchi Paneli</p>
+              <h1 className="text-3xl font-black mb-2">Salom, {currentTeacher.full_name} 👋</h1>
+              <div className="flex gap-3 mt-4">
+                <span className="bg-white/20 px-3 py-1.5 rounded-lg text-sm font-bold backdrop-blur-md flex items-center">
+                  <Star className="w-4 h-4 mr-2 text-amber-300" /> Faningiz: {currentTeacher.bio}
+                </span>
+                {currentTeacher.homeroom && (
+                  <span className="bg-amber-500/80 px-3 py-1.5 rounded-lg text-sm font-bold backdrop-blur-md flex items-center shadow-inner">
+                    <ShieldCheck className="w-4 h-4 mr-2" /> {currentTeacher.homeroom} Rahbari
+                  </span>
+                )}
               </div>
             </div>
-            
-            <div className="flex gap-2">
-               {isEndOfMonth ? (
-                 <button onClick={() => setActionType("bulkPP")} className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold shadow-sm flex items-center hover:bg-blue-600">
-                   <Award className="w-4 h-4 mr-2"/> Sinfga PP tarqatish
-                 </button>
-               ) : (
-                 <button disabled className="px-4 py-2 bg-gray-100 text-gray-400 rounded-lg text-sm font-bold flex items-center cursor-not-allowed border border-gray-200" title="Oy yakuniga hali vaqt bor">
-                   <Lock className="w-4 h-4 mr-2"/> Sinfga PP (Oy yakunida)
-                 </button>
-               )}
-            </div>
           </div>
 
-          <div className="p-4 border-b border-gray-200 bg-slate-50 flex gap-2 overflow-x-auto">
-             <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 rounded-lg text-sm font-bold bg-white">1 chorak</button>
-             <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-white">xulosa</button>
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-20 text-indigo-600 font-bold animate-pulse">Yuklanmoqda...</div>
+          ) : (
+            <>
+              {/* 1. ASOSIY PANEL */}
+              {activeMenu === "boshqaruv" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50">
+                    <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4"><Calendar className="w-6 h-6"/></div>
+                    <h3 className="font-bold text-gray-500">Haftalik darslaringiz</h3>
+                    <p className="text-3xl font-black text-gray-800 mt-1">{myTimetable.length} <span className="text-lg font-bold text-gray-400">soat</span></p>
+                  </div>
+                  {currentTeacher.homeroom && (
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-amber-50">
+                      <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4"><Users className="w-6 h-6"/></div>
+                      <h3 className="font-bold text-gray-500">Sinfingiz o'quvchilari</h3>
+                      <p className="text-3xl font-black text-gray-800 mt-1">{myStudents.length} <span className="text-lg font-bold text-gray-400">nafar</span></p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-          <div className="overflow-x-auto p-4">
-            <table className="w-full text-left border-collapse border border-gray-200">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th colSpan={2} className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-64">To'liq Ism</th>
-                  
-                  {lessonDates.map(date => (
-                    <th key={date} className={`p-2 text-center border border-gray-200 w-14 align-bottom ${date === TODAY_DATE ? 'border-x-2 border-x-blue-400 bg-blue-50/50' : ''}`}>
-                      <div className={`text-xs ${date === TODAY_DATE ? 'text-blue-600 font-bold' : 'text-blue-500'}`}>{date}</div>
-                    </th>
-                  ))}
-                  
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-gray-50">O'rt</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">CHSB</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-green-50">Chorak</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">Puli (PP)</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white">
-                {filteredStudents.map((student, index) => {
-                  const dailyAvg = getDailyAverage(student.daily);
-                  const totalQuarter = getTotalQuarterScore(student);
-                  
-                  return (
-                    <tr key={student.id} className="hover:bg-blue-50/20 transition-colors">
-                      <td className="p-2 text-center text-gray-500 text-sm border border-gray-200 w-8">{index + 1}</td>
-                      <td className="p-2 font-medium text-xs md:text-sm text-gray-700 border border-gray-200 cursor-pointer hover:text-blue-600">{student.name}</td>
-
-                      {/* KATAKCHALAR: BUGUN, KELAJAK VA O'TGAN KUNLAR MANTIG'I */}
-                      {lessonDates.map(date => {
-                        const todayIdx = lessonDates.indexOf(TODAY_DATE);
-                        const dateIdx = lessonDates.indexOf(date);
-                        const g = student.daily.find((d:any) => d.date === date);
+              {/* 2. DARS JADVALIM */}
+              {activeMenu === "timetable" && (
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-indigo-50 animate-in slide-in-from-bottom-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center"><Clock className="w-6 h-6 mr-2 text-indigo-600"/> Dars Jadvalim</h2>
+                  {myTimetable.length === 0 ? (
+                    <div className="text-center p-10 bg-slate-50 rounded-2xl text-gray-400 font-bold border-2 border-dashed border-gray-200">
+                      Direktor sizga hali dars qo'ymagan.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {["Du", "Se", "Ch", "Pa", "Ju", "Sh"].map(day => {
+                        const dayLessons = myTimetable.filter(t => t.day_of_week === day).sort((a, b) => a.lesson_number - b.lesson_number);
+                        if(dayLessons.length === 0) return null;
                         
-                        // Kelajakdagi kun
-                        if (dateIdx > todayIdx) {
-                           return (
-                             <td key={date} className="p-1 border border-gray-200 text-center h-12 align-middle bg-gray-50/50">
-                               <div className="w-full h-full flex items-center justify-center cursor-not-allowed opacity-30 text-gray-400">-</div>
-                             </td>
-                           )
-                        }
-
-                        // Bugun yoki O'tgan kun
                         return (
-                          <td key={date} className={`p-1 border border-gray-200 text-center h-12 align-middle ${date === TODAY_DATE ? 'border-x-2 border-x-blue-400 bg-blue-50/10' : ''}`}>
-                            <div 
-                              className="w-full h-full cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-center group relative min-h-[36px]" 
-                              onClick={() => {
-                                if (g) {
-                                  setSelectedStudent(student); setSelectedGradeObj(g); setLessonGrade(g.val?.toString() || ""); setActionType("editGrade");
-                                } else {
-                                  openGradeModal(student, date);
-                                }
-                              }}
-                            >
-                              {g ? (
-                                g.attendance === "absent" ? <span className="text-red-500 font-black text-sm">MQ</span> : 
-                                g.attendance === "sick" ? <span className="text-orange-500 font-black text-sm">S</span> : (
-                                  <div className="flex flex-col items-center justify-center w-full leading-none space-y-0.5">
-                                    {g.val && <span className={`font-bold text-[13px] ${g.val >= 8 ? 'text-green-600' : g.val >= 6 ? 'text-orange-500' : 'text-red-600'}`}>{g.val}</span>}
-                                    {g.hwVal && <span className={`font-bold text-[10px] bg-blue-50 text-blue-600 px-1 rounded-sm`}>{g.hwVal}</span>}
+                          <div key={day} className="border border-indigo-100 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="bg-indigo-50 p-3 border-b border-indigo-100 font-black text-indigo-900 text-center">{day}shanba</div>
+                            <div className="p-2 space-y-2">
+                              {dayLessons.map(lesson => (
+                                <div key={lesson.id} className="flex items-center bg-white p-3 rounded-xl border border-gray-100">
+                                  <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-black mr-3">{lesson.lesson_number}</div>
+                                  <div>
+                                    <p className="font-bold text-gray-800 text-sm">{lesson.class_name}</p>
+                                    {lesson.room && <p className="text-xs text-gray-500">{lesson.room} xona</p>}
                                   </div>
-                                )
-                              ) : (
-                                // Agar o'tgan kun bo'lsa (Pullik indikator), Bugun bo'lsa (+)
-                                dateIdx < todayIdx 
-                                  ? <span className="opacity-0 group-hover:opacity-100 text-orange-400 text-xs font-bold absolute">500<br/>PP</span>
-                                  : <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-lg absolute">+</span>
-                              )}
+                                </div>
+                              ))}
                             </div>
-                          </td>
+                          </div>
                         )
                       })}
-
-                      <td className="p-2 text-center border border-gray-200 font-bold text-sm text-gray-600 bg-gray-50">{dailyAvg > 0 ? dailyAvg.toFixed(1) : ""}</td>
-                      
-                      {/* IMTIHON BAHOLARINI OSHIRISH (BOOST) */}
-                      <td onClick={() => { if(student.bsb1) openBoostModal(student, "bsb1"); }} className={`p-2 text-center border border-gray-200 font-bold text-sm text-blue-600 bg-blue-50/30 ${student.bsb1 ? 'cursor-pointer hover:bg-blue-100' : ''}`} title={student.bsb1 ? "Imtihon natijasini oshirish (PP)" : ""}>
-                        {student.bsb1 || ""}
-                      </td>
-                      <td onClick={() => { if(student.chsb) openBoostModal(student, "chsb"); }} className={`p-2 text-center border border-gray-200 font-bold text-sm text-purple-600 bg-purple-50/30 ${student.chsb ? 'cursor-pointer hover:bg-purple-100' : ''}`} title={student.chsb ? "Imtihon natijasini oshirish (PP)" : ""}>
-                        {student.chsb || ""}
-                      </td>
-                      
-                      <td className="p-2 text-center border border-gray-200 font-bold text-sm text-green-600 bg-green-50/50">{totalQuarter > 0 ? totalQuarter : ""}</td>
-                      
-                      <td className="p-1 border border-gray-200 text-center bg-gray-50">
-                        <div className="flex items-center justify-between px-1">
-                          <span className="font-bold text-orange-500 text-xs">{student.balancePP}</span>
-                          <button onClick={() => { setSelectedStudent(student); setActionType("pp"); }} className="p-1 text-gray-400 hover:text-orange-500 transition-colors" title="PP kiritish"><Award className="w-4 h-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* MODALLAR */}
-
-      {/* 1. RETRO BAHO QO'YISH MODALI (O'tib ketgan kun uchun pul yechish va tasdiq kutish) */}
-      {selectedStudent && actionType === "retroGrade" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-orange-200 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-1 flex items-center text-orange-600"><History className="w-6 h-6 mr-2" /> O'tgan kunga baho kiritish</h2>
-              <p className="text-sm text-gray-500 mb-4">O'quvchi: <strong className="text-gray-900">{selectedStudent.name}</strong> • Sana: {activeDate}</p>
-              
-              <div className="bg-orange-50 text-orange-800 p-4 rounded-xl text-sm mb-4 border border-orange-200 flex items-start">
-                <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" /> 
-                <div>
-                  <p className="font-bold mb-1">Diqqat! Pullik xizmat.</p>
-                  <p>Bu kun o'tib ketgan. Baho kiritish uchun o'quvchining balansidan <strong>500 PP</strong> yechiladi va undan tasdiq olinadi.</p>
-                  <p className="mt-2 font-black text-orange-600">O'quvchi balansi: {selectedStudent.balancePP} PP</p>
-                </div>
-              </div>
-
-              {errorMessage && <div className="text-red-500 font-bold text-sm text-center mb-4">{errorMessage}</div>}
-              
-              {isWaitingApproval ? (
-                <div className="bg-blue-50 text-blue-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-blue-100 text-center">
-                  <Loader2 className="w-12 h-12 mb-3 animate-spin" />
-                  <h3 className="text-lg font-bold mb-1">So'rov yuborildi...</h3>
-                  <p className="text-sm text-blue-500">O'quvchi o'z ilovasidan tasdiqlashi kutilmoqda</p>
-                </div>
-              ) : successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100 text-center"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Davomatni belgilang</label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setAttendanceStatus("present")} className={`flex-1 py-3 rounded-xl font-bold text-sm ${attendanceStatus === 'present' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Keldi</button>
-                      <button onClick={() => setAttendanceStatus("absent")} className={`flex-1 py-3 rounded-xl font-bold text-sm ${attendanceStatus === 'absent' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'}`}>MQ</button>
-                      <button onClick={() => setAttendanceStatus("sick")} className={`flex-1 py-3 rounded-xl font-bold text-sm ${attendanceStatus === 'sick' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Kasal</button>
-                    </div>
-                  </div>
-
-                  {attendanceStatus === "present" && (
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                      <label className="block text-xs font-bold text-gray-500 mb-2">Dars bahosi (Majburiy emas)</label>
-                      <div className="grid grid-cols-5 gap-2">
-                        {[1,2,3,4,5,6,7,8,9,10].map(g => (
-                          <button key={g} onClick={() => setLessonGrade(lessonGrade === String(g) ? "" : String(g))} className={`py-2 rounded-lg font-black text-base border ${lessonGrade === String(g) ? "bg-green-500 text-white" : "bg-white text-gray-600"}`}>{g}</button>
-                        ))}
-                      </div>
                     </div>
                   )}
-
-                  <button onClick={(e) => handleSaveGradeAndAttendance(e, true)} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors shadow-md shadow-orange-500/20">
-                    O'quvchiga so'rov yuborish (500 PP)
-                  </button>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* 2. IMTIHON NATIJASINI OSHIRISH MODALI (BOOST) */}
-      {selectedStudent && actionType === "boostExam" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-blue-200 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4"><TrendingUp className="w-8 h-8" /></div>
-              <h2 className="text-xl font-bold mb-1 text-gray-900">Imtihon Natijasini Oshirish</h2>
-              <p className="text-sm text-gray-500 mb-4">O'quvchi o'z PP balansi hisobidan bahosini ko'tarishi mumkin.</p>
-              
-              <div className="bg-slate-50 rounded-xl p-4 mb-6 border border-slate-100">
-                <p className="text-xs text-gray-500 uppercase font-bold mb-1">{gradeCategory} joriy natijasi:</p>
-                <div className="text-4xl font-black text-blue-600">{selectedStudent[gradeCategory as "bsb1" | "bsb2" | "chsb"]} <span className="text-lg text-gray-400">/ {gradeCategory === 'chsb' ? '40' : '25'}</span></div>
-                <p className="text-sm mt-2 font-bold text-orange-500">Balans: {selectedStudent.balancePP} PP</p>
-              </div>
-
-              {errorMessage && <div className="text-red-500 font-bold text-sm text-center mb-4">{errorMessage}</div>}
-              
-              {isWaitingApproval ? (
-                <div className="bg-blue-50 text-blue-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-blue-100 text-center">
-                  <Loader2 className="w-12 h-12 mb-3 animate-spin" />
-                  <h3 className="text-lg font-bold mb-1">So'rov yuborildi...</h3>
-                  <p className="text-sm text-blue-500">O'quvchi ilovadan tasdiqlashi kutilmoqda</p>
-                </div>
-              ) : successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100 text-center"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-3">
-                  <button onClick={() => handleBoostExam(1, 1000)} className="w-full py-4 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-xl font-black transition-colors flex justify-between px-6 items-center">
-                    <span>+1 Ball so'rash</span> <span className="bg-white px-3 py-1 rounded-lg text-sm text-orange-500 border border-blue-100">1000 PP</span>
-                  </button>
-                  <button onClick={() => handleBoostExam(2, 2000)} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-colors shadow-md shadow-blue-500/30 flex justify-between px-6 items-center">
-                    <span>+2 Ball so'rash</span> <span className="bg-blue-800 px-3 py-1 rounded-lg text-sm text-orange-300">2000 PP</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NORMAL BAHO MODALI (Faqat bugun uchun) */}
-      {selectedStudent && actionType === "grade" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-1 flex items-center"><GraduationCap className="w-6 h-6 mr-2 text-blue-600" /> Baholash va Davomat</h2>
-              <p className="text-sm text-gray-500 mb-6">O'quvchi: <strong className="text-gray-900">{selectedStudent.name}</strong> • Sana: {activeDate}</p>
-              
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Davomatni belgilang</label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setAttendanceStatus("present")} className={`flex-1 py-3 rounded-xl font-bold text-sm ${attendanceStatus === 'present' ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 text-gray-500'}`}>Keldi</button>
-                      <button onClick={() => setAttendanceStatus("absent")} className={`flex-1 py-3 rounded-xl font-bold text-sm ${attendanceStatus === 'absent' ? 'bg-red-500 text-white shadow-md' : 'bg-gray-100 text-gray-500'}`}>MQ</button>
-                      <button onClick={() => setAttendanceStatus("sick")} className={`flex-1 py-3 rounded-xl font-bold text-sm ${attendanceStatus === 'sick' ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-500'}`}>Kasal</button>
-                    </div>
-                  </div>
-
-                  {attendanceStatus === "present" && (
-                    <div className="space-y-4">
-                      {gradeCategory === "daily" ? (
-                        <>
-                          <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                            <label className="block text-xs font-bold text-gray-500 mb-3">Dars ishtiroki bahosi</label>
-                            <div className="grid grid-cols-5 gap-2">
-                              {[1,2,3,4,5,6,7,8,9,10].map(g => (
-                                <button key={g} onClick={() => setLessonGrade(lessonGrade === String(g) ? "" : String(g))} className={`py-2 rounded-lg font-black text-base border ${lessonGrade === String(g) ? "bg-green-500 text-white border-green-600" : "bg-white text-gray-600 border-gray-200"}`}>{g}</button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                            <label className="block text-xs font-bold text-blue-600 mb-3">Uy vazifasi bahosi</label>
-                            <div className="grid grid-cols-5 gap-2">
-                              {[1,2,3,4,5,6,7,8,9,10].map(g => (
-                                <button key={g} onClick={() => setHomeworkGrade(homeworkGrade === String(g) ? "" : String(g))} className={`py-2 rounded-lg font-black text-base border ${homeworkGrade === String(g) ? "bg-blue-500 text-white border-blue-600" : "bg-white text-blue-600 border-blue-200"}`}>{g}</button>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                         <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
-                            <label className="block text-xs font-bold text-orange-600 mb-3">Imtihon bahosi ({gradeCategory.toUpperCase()})</label>
-                            <input type="number" value={lessonGrade} onChange={(e) => setLessonGrade(e.target.value)} className="w-full p-4 rounded-xl border border-orange-200 bg-white font-black text-xl outline-none" />
-                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  <button onClick={(e) => handleSaveGradeAndAttendance(e, false)} disabled={isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors">
-                    {isProcessing ? "Saqlanmoqda..." : "Saqlash"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAHRIRLASH MODALI */}
-      {selectedStudent && actionType === "editGrade" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold mb-1"><Edit3 className="w-6 h-6 mr-2 text-orange-500 inline" /> Bahoni tahrirlash</h2>
-              <div className="bg-orange-50 text-orange-800 p-3 rounded-xl text-sm mb-4 flex border border-orange-200 mt-2">
-                <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" /> Bahoni o'zgartirish tarixda saqlanadi va sabab ko'rsatilishi shart.
-              </div>
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Yangi baho (1-10)</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {[1,2,3,4,5,6,7,8,9,10].map(g => (
-                        <button key={g} onClick={() => setLessonGrade(g.toString())} className={`py-2 rounded-lg font-black text-lg border ${lessonGrade === g.toString() ? "bg-orange-600 text-white border-orange-600" : "bg-white text-gray-600 border-gray-200"}`}>{g}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Sabab</label>
-                    <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Masalan: Uy vazifasi xatosini to'g'riladi..." className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none resize-none h-24" />
-                  </div>
-                  <button onClick={handleEditGrade} disabled={!lessonGrade || !reason || isProcessing} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
-                    {isProcessing ? "Saqlanmoqda..." : "O'zgarishni tasdiqlash"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* UY VAZIFASI BERISH MODALI */}
-      {actionType === "assignHW" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center"><BookOpen className="w-6 h-6 mr-2 text-blue-500" /> Uy vazifasini kiritish</h2>
-              
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <div className="space-y-4 mt-4">
-                  <textarea 
-                    value={homeworkText} 
-                    onChange={(e) => setHomeworkText(e.target.value)} 
-                    placeholder="Uy vazifasi matnini kiriting (Masalan: 3-mavzu oxiridagi 5-10 masalalarni yechish...)" 
-                    className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 outline-none resize-none h-32 focus:border-blue-500 transition-colors text-sm" 
-                  />
-                  <button onClick={handleAssignHomework} disabled={!homeworkText || isProcessing} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
-                    {isProcessing ? "Yuborilmoqda..." : "Uy vazifasini saqlash"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REJA QO'SHISH MODALI */}
-      {actionType === "addPlan" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
-            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center"><FileText className="w-6 h-6 mr-2 text-blue-500" /> Yangi Mavzu Qo'shish</h2>
-              
-              {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
-              ) : (
-                <form onSubmit={handleAddNewPlan} className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Sana</label>
-                      <input type="text" required placeholder="Masalan: 20.09" value={newPlan.date} onChange={e => setNewPlan({...newPlan, date: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Sinf</label>
-                      <select value={newPlan.className} onChange={e => setNewPlan({...newPlan, className: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm font-medium">
-                        <option value="10-A">10-A</option>
-                        <option value="10-B">10-B</option>
-                        <option value="11-A">11-A</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Dars turi</label>
-                    <select value={newPlan.type} onChange={e => setNewPlan({...newPlan, type: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm font-medium">
-                      <option value="lesson">Oddiy Dars (Mavzu)</option>
-                      <option value="bsb1">BSB (Birlik sinov bahosi)</option>
-                      <option value="chsb">CHSB (Chorak sinov bahosi)</option>
+              {/* 3. BAHOLASH (IQTISODIYOT) */}
+              {activeMenu === "grading" && (
+                <div className="bg-white rounded-3xl shadow-sm border border-indigo-50 overflow-hidden animate-in slide-in-from-bottom-4 flex flex-col md:flex-row h-[600px]">
+                  
+                  {/* Chap tomon: Sinf va O'quvchi tanlash */}
+                  <div className="w-full md:w-1/3 bg-slate-50 border-r border-gray-100 p-6 flex flex-col">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center"><Award className="w-5 h-5 mr-2 text-indigo-600"/> Baholash</h3>
+                    
+                    <label className="text-xs font-bold text-gray-500 mb-1">Qaysi sinfga dars o'tdingiz?</label>
+                    <select value={gradeForm.classId} onChange={(e) => handleSelectClassToGrade(e.target.value)} className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-300 font-bold mb-4 shadow-sm">
+                      <option value="">Sinfni tanlang</option>
+                      {allClasses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                     </select>
+
+                    {gradeForm.classId && (
+                      <>
+                        <label className="text-xs font-bold text-gray-500 mb-1">Kimga baho qo'yasiz?</label>
+                        <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200 p-2 space-y-1 scrollbar-thin">
+                          {studentsToGrade.length === 0 ? (
+                            <p className="text-xs text-center text-gray-400 p-4">Bu sinfda o'quvchi yo'q</p>
+                          ) : (
+                            studentsToGrade.map(student => (
+                              <button key={student.id} onClick={() => setGradeForm({...gradeForm, studentId: student.id})} className={`w-full text-left p-3 rounded-lg text-sm font-bold transition-colors ${gradeForm.studentId === student.id ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-50 text-gray-700'}`}>
+                                {student.full_name}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Mavzu nomi</label>
-                    <input type="text" required placeholder="Masalan: Logarifmlar..." value={newPlan.topic} onChange={e => setNewPlan({...newPlan, topic: e.target.value})} className="w-full p-2.5 rounded-xl border border-gray-200 bg-gray-50 outline-none text-sm" />
+                  {/* O'ng tomon: Baho qo'yish pulti */}
+                  <div className="flex-1 p-8 flex flex-col justify-center items-center relative">
+                    {!gradeForm.studentId ? (
+                      <div className="text-center text-gray-400">
+                        <Star className="w-16 h-16 mx-auto mb-4 text-indigo-100" />
+                        <p className="font-bold">Chap tomondan o'quvchini tanlang</p>
+                      </div>
+                    ) : (
+                      <div className="w-full max-w-sm animate-in zoom-in-95">
+                        <div className="text-center mb-8">
+                          <h2 className="text-2xl font-black text-gray-900">{studentsToGrade.find(s=>s.id === gradeForm.studentId)?.full_name}</h2>
+                          <p className="text-indigo-500 font-bold">{gradeForm.classId} o'quvchisi</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          <button onClick={() => setGradeForm({...gradeForm, grade: "5"})} className={`p-4 rounded-2xl border-2 font-black text-2xl transition-all ${gradeForm.grade === "5" ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg scale-105' : 'bg-white border-gray-200 text-emerald-600 hover:border-emerald-500'}`}>
+                            5
+                            <p className="text-[10px] font-bold opacity-80 mt-1 uppercase">+100 PP | +10 CP</p>
+                          </button>
+                          <button onClick={() => setGradeForm({...gradeForm, grade: "4"})} className={`p-4 rounded-2xl border-2 font-black text-2xl transition-all ${gradeForm.grade === "4" ? 'bg-blue-500 border-blue-600 text-white shadow-lg scale-105' : 'bg-white border-gray-200 text-blue-600 hover:border-blue-500'}`}>
+                            4
+                            <p className="text-[10px] font-bold opacity-80 mt-1 uppercase">+50 PP | +5 CP</p>
+                          </button>
+                          <button onClick={() => setGradeForm({...gradeForm, grade: "3"})} className={`p-4 rounded-2xl border-2 font-black text-2xl transition-all ${gradeForm.grade === "3" ? 'bg-amber-500 border-amber-600 text-white shadow-lg scale-105' : 'bg-white border-gray-200 text-amber-600 hover:border-amber-500'}`}>
+                            3
+                            <p className="text-[10px] font-bold opacity-80 mt-1 uppercase">+10 PP | 0 CP</p>
+                          </button>
+                          <button onClick={() => setGradeForm({...gradeForm, grade: "2"})} className={`p-4 rounded-2xl border-2 font-black text-2xl transition-all ${gradeForm.grade === "2" ? 'bg-red-500 border-red-600 text-white shadow-lg scale-105' : 'bg-white border-gray-200 text-red-600 hover:border-red-500'}`}>
+                            2
+                            <p className="text-[10px] font-bold opacity-80 mt-1 uppercase">0 PP | -5 CP</p>
+                          </button>
+                        </div>
+                        <button onClick={handleGiveGrade} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:bg-indigo-700 transition-colors flex items-center justify-center text-lg">
+                          <CheckCircle className="w-6 h-6 mr-2"/> Bahoni Tasdiqlash
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  <button type="submit" disabled={isProcessing} className="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
-                    {isProcessing ? "Saqlanmoqda..." : "Rejani saqlash"}
-                  </button>
-                </form>
+                </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
 
+              {/* 4. MENING SINFIM (Faqat rahbarlar uchun) */}
+              {activeMenu === "homeroom" && currentTeacher.homeroom && (
+                <div className="bg-white rounded-3xl shadow-sm border border-amber-100 overflow-hidden animate-in slide-in-from-bottom-4">
+                  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-amber-50/50">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center"><ShieldCheck className="w-6 h-6 mr-2 text-amber-500"/> Mening Sinfim ({currentTeacher.homeroom})</h2>
+                      <p className="text-sm text-gray-500 mt-1">Bu yerdagi parollarni o'quvchilaringizga tarqating</p>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto p-2">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="p-4 text-sm font-bold text-gray-500">ID / Login</th>
+                          <th className="p-4 text-sm font-bold text-gray-500">Parol</th>
+                          <th className="p-4 text-sm font-bold text-gray-500">F.I.SH</th>
+                          <th className="p-4 text-sm font-bold text-gray-500 text-right">Iqtisodiyoti</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myStudents.length === 0 ? (
+                          <tr><td colSpan={4} className="text-center p-8 text-gray-400 font-bold">Sinfingizda hali o'quvchi yo'q.</td></tr>
+                        ) : (
+                          myStudents.map(s => (
+                            <tr key={s.id} className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors">
+                              <td className="p-4 font-black text-indigo-600 text-sm">{s.id}</td>
+                              <td className="p-4 text-sm font-mono font-black text-red-500 flex items-center bg-red-50/50 w-fit px-2 py-1 rounded"><Key className="w-3 h-3 mr-1"/> {s.password}</td>
+                              <td className="p-4 text-sm font-bold text-gray-900">{s.full_name}</td>
+                              <td className="p-4 text-right">
+                                <div className="inline-flex flex-col items-end">
+                                  <span className="font-bold text-amber-600 text-sm">{s.pp_balance || 0} PP</span>
+                                  <span className="text-xs font-bold text-emerald-600 mt-0.5">{s.cp_score || 0} Reyting</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
