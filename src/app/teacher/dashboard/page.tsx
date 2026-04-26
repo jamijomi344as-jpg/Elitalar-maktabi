@@ -232,7 +232,6 @@ export default function TeacherDashboard() {
           <button onClick={() => setActiveMenu("jurnal")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'jurnal' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-white/5 hover:text-white'}`}><TableProperties className="w-5 h-5 mr-3" /> Baholash (Jurnal)</button>
           {currentTeacher.homeroom && <button onClick={() => setActiveMenu("homeroom")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all mt-4 ${activeMenu === 'homeroom' ? 'bg-amber-500 text-white shadow-xl' : 'text-amber-300 hover:bg-white/5 hover:text-white'}`}><Users className="w-5 h-5 mr-3" /> Mening Sinfim</button>}
           
-          {/* SOZLAMALAR TUGMASI SHU YERDA */}
           <button onClick={() => setActiveMenu("settings")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all mt-8 ${activeMenu === 'settings' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-white/5 hover:text-white'}`}><Settings className="w-5 h-5 mr-3" /> Sozlamalar</button>
         </nav>
         <button onClick={() => setCurrentTeacher(null)} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4"><LogOut className="w-5 h-5 mr-2" /> Chiqish</button>
@@ -246,6 +245,9 @@ export default function TeacherDashboard() {
             <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {currentTeacher.full_name} 👋</h1>
             <div className="flex gap-4 mt-6">
               <span className="bg-white/20 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center"><Star className="w-4 h-4 mr-2 text-amber-300" /> {currentTeacher.bio} Fani</span>
+              {currentTeacher.homeroom && (
+                <span className="bg-amber-500/90 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center shadow-inner"><ShieldCheck className="w-4 h-4 mr-2" /> {currentTeacher.homeroom} Rahbari</span>
+              )}
             </div>
           </div>
         </div>
@@ -311,7 +313,9 @@ export default function TeacherDashboard() {
                             <td className="p-4 border-l border-slate-100">
                               <div className="flex items-center justify-between">
                                 <span className="font-medium text-slate-700">{plan.topic}</span>
-                                <Video className="w-4 h-4 text-slate-300 cursor-pointer hover:text-blue-500" title="Video dars qo'shish"/>
+                                <span title="Video dars qo'shish">
+                                  <Video className="w-4 h-4 text-slate-300 cursor-pointer hover:text-blue-500" />
+                                </span>
                               </div>
                             </td>
                             <td className="p-4 border-l border-slate-100">
@@ -360,7 +364,7 @@ export default function TeacherDashboard() {
             </div>
           )}
 
-          {/* 3. JURNAL (YANGI RASMDAGI DIZAYN) */}
+          {/* JURNAL */}
           {activeMenu === "jurnal" && (
             <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col">
               <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white">
@@ -411,7 +415,7 @@ export default function TeacherDashboard() {
                               </td>
                               {journalColumns.map((col, cIdx) => {
                                 const key = `${student.id}-${col.label}`;
-                                const val = localGrades[key]; // Qo'yilgan bahoni o'qish
+                                const val = localGrades[key]; 
                                 return (
                                   <td key={cIdx} onClick={() => openGradeModal(student.id, student.full_name, col.label)} className={`p-1 border-b border-slate-200 cursor-pointer transition-colors relative group h-10 ${col.isToday ? 'border-x-blue-200 border-x bg-blue-50/20' : 'hover:bg-slate-50'}`}>
                                     <div className="flex items-center justify-center w-full h-full">
@@ -435,7 +439,7 @@ export default function TeacherDashboard() {
             </div>
           )}
 
-          {/* SOZLAMALAR (QAYTARILDI!) */}
+          {/* SOZLAMALAR */}
           {activeMenu === "settings" && (
             <div className="max-w-xl bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 mx-auto mt-10">
               <div className="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mb-6"><Settings className="w-8 h-8"/></div>
@@ -451,7 +455,7 @@ export default function TeacherDashboard() {
         </div>
       </main>
 
-      {/* BAHOLASH MODALI (SHUNDAY QOLDI, PP HAM BOR) */}
+      {/* BAHOLASH MODALI */}
       {showGradeModal && activeCell && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowGradeModal(false)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 border border-slate-100" onClick={e => e.stopPropagation()}>
