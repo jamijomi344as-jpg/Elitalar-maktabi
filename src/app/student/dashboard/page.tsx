@@ -12,7 +12,7 @@ export default function StudentDashboard() {
     cp: 150
   };
 
-  const [mainMenu, setMainMenu] = useState<"asosiy" | "talim" | "reyting" | "hamyon">("reyting");
+  const [mainMenu, setMainMenu] = useState<"asosiy" | "talim" | "reyting" | "hamyon">("reyting"); // Test qilish oson bo'lishi uchun Reytingdan boshlanadi
   const [activeTab, setActiveTab] = useState<"kundalik" | "jadval" | "vazifa">("kundalik");
   const [kundalikView, setKundalikView] = useState<"joriy" | "chorak">("chorak"); 
   
@@ -75,7 +75,11 @@ export default function StudentDashboard() {
     { time: "3 (09:40 - 10:25)", days: [{ day: "Dush", subject: "Algebra", teacher: "Abduraximov V.M." }, { day: "Sesh", subject: "Ingliz tili", teacher: "SHERMIRZAYEVA S." }, { day: "Chor", subject: "Ona tili", teacher: "Omondillayeva B." }, { day: "Pay", subject: "Jismoniy madaniyat", teacher: "Qahharov H.Z." }, { day: "Jum", subject: "Dav/huq as", teacher: "Adashaliyev A.K." }, { day: "Shan", subject: "Fizika", teacher: "G'ULOMOVA G.R." }] }
   ];
 
-  // REYTING BAZALARI
+  // ==========================================
+  // REYTING BAZALARI (To'g'rilangan Mantiq)
+  // ==========================================
+  
+  // 1. SINFLAR REYTINGI (Faqat CP bo'yicha!)
   const schoolRanking = [
     { rank: 1, class: "9-B", cp: 4500, students: 25 },
     { rank: 2, class: "9-A", cp: 4100, students: 24 },
@@ -83,32 +87,33 @@ export default function StudentDashboard() {
     { rank: 4, class: "9-D", cp: 3200, students: 23 },
   ];
 
+  // 2. O'QUVCHILAR REYTINGI (Faqat PP bo'yicha o'rinlarga ajratilgan!)
   const classRankings = {
     "9-B": [
-      { rank: 1, name: "Azizbek O'lmasov", cp: 175, isMe: false },
-      { rank: 2, name: "Kiyotaka Ayanokoji", cp: 150, isMe: true }, // Sizning sinfingiz va Siz!
-      { rank: 3, name: "Asadova Parizod", cp: 140, isMe: false },
-      { rank: 4, name: "Dilmurodov Javohir", cp: 120, isMe: false },
-      { rank: 5, name: "Botirova Bonu", cp: 115, isMe: false },
+      { rank: 1, name: "Azizbek O'lmasov", pp: 14500, isMe: false },
+      { rank: 2, name: "Kiyotaka Ayanokoji", pp: 12000, isMe: true }, // Sizning sinfingiz va Siz!
+      { rank: 3, name: "Asadova Parizod", pp: 11200, isMe: false },
+      { rank: 4, name: "Dilmurodov Javohir", pp: 9800, isMe: false },
+      { rank: 5, name: "Botirova Bonu", pp: 8500, isMe: false },
     ],
     "9-A": [
-      { rank: 1, name: "Rahmatov Alisher", cp: 180, isMe: false },
-      { rank: 2, name: "Valiyeva Kamila", cp: 165, isMe: false },
-      { rank: 3, name: "Tursunov Doston", cp: 130, isMe: false },
+      { rank: 1, name: "Rahmatov Alisher", pp: 15200, isMe: false },
+      { rank: 2, name: "Valiyeva Kamila", pp: 13400, isMe: false },
+      { rank: 3, name: "Tursunov Doston", pp: 10500, isMe: false },
     ],
     "9-C": [
-      { rank: 1, name: "Karimov Temur", cp: 190, isMe: false },
-      { rank: 2, name: "Rustamova Shahnoza", cp: 145, isMe: false },
+      { rank: 1, name: "Karimov Temur", pp: 11000, isMe: false },
+      { rank: 2, name: "Rustamova Shahnoza", pp: 9200, isMe: false },
     ],
     "9-D": [
-      { rank: 1, name: "Umarov Sanjar", cp: 160, isMe: false },
-      { rank: 2, name: "Nazarova Madina", cp: 125, isMe: false },
+      { rank: 1, name: "Umarov Sanjar", pp: 8900, isMe: false },
+      { rank: 2, name: "Nazarova Madina", pp: 7400, isMe: false },
     ]
   };
 
   return (
-    // DIQQAT: Ekranning o'rtasiga tekislash uchun 'w-full max-w-6xl mx-auto' eng zo'r yechim!
-    <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10 flex flex-col items-center">
+    // ASOSIY DIV: Hamma narsani markazlashtirib, bo'shliqlarni olib tashlaydi!
+    <div className="w-full max-w-6xl mx-auto flex flex-col items-center space-y-6 animate-in fade-in duration-500 pb-10">
       
       {/* TEPADAGI PROFIL VA BALANS (Har doim ko'rinadi) */}
       <div className="w-full bg-gradient-to-br from-blue-900 to-indigo-900 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-500 border border-transparent dark:border-slate-800">
@@ -135,7 +140,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* MENYULAR QATORI (O'rtaga tekislangan) */}
-      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 w-full sm:w-auto overflow-x-auto mx-auto justify-start sm:justify-center">
+      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100 w-full md:w-auto overflow-x-auto mx-auto justify-start md:justify-center">
         <button onClick={() => setMainMenu("asosiy")} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center whitespace-nowrap ${mainMenu === 'asosiy' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
           <Home className="w-4 h-4 mr-2"/> Asosiy
         </button>
@@ -155,6 +160,7 @@ export default function StudentDashboard() {
       {/* ======================================================== */}
       {mainMenu === "asosiy" && (
         <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-300">
+          
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 lg:col-span-2">
             <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center"><BellRing className="w-5 h-5 mr-2 text-indigo-500"/> Muhim E'lonlar</h2>
             <div className="space-y-3">
@@ -186,25 +192,18 @@ export default function StudentDashboard() {
                 </li>
               </ul>
             </div>
-
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-6 rounded-3xl shadow-sm text-white">
-              <h2 className="text-lg font-bold mb-1 flex items-center"><Activity className="w-5 h-5 mr-2"/> O'zlashtirish</h2>
-              <p className="text-emerald-100 text-sm mb-4">Sinfdagi umumiy o'rningiz (Top 3)</p>
-              <div className="text-4xl font-black mb-1">2-o'rin</div>
-              <p className="text-sm font-medium text-emerald-200">1-o'ringa chiqish uchun yana 25 CP kerak.</p>
-            </div>
           </div>
         </div>
       )}
 
       {/* ======================================================== */}
-      {/* 2. REYTING SAHIFASI (Ajoyib Gamification mantiqi) */}
+      {/* 2. REYTING SAHIFASI (To'g'rilangan Mantiq) */}
       {/* ======================================================== */}
       {mainMenu === "reyting" && (
         <div className="w-full space-y-6 animate-in slide-in-from-bottom-4 duration-300">
           
-          {/* Maktab bo'yicha Sinflar Reytingi */}
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+          {/* Maktab bo'yicha Sinflar Reytingi (Faqat CP qatnashadi) */}
+          <div className="w-full bg-gradient-to-br from-emerald-600 to-teal-700 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-20"><Trophy className="w-32 h-32" /></div>
             <div className="relative z-10">
               <p className="text-emerald-200 text-sm mb-1 uppercase tracking-wider font-bold flex items-center"><Award className="w-4 h-4 mr-2"/> Maktab Reytingi (9-sinflar)</p>
@@ -212,7 +211,7 @@ export default function StudentDashboard() {
               
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {schoolRanking.map((sClass) => (
-                  <div key={sClass.rank} className={`p-4 rounded-2xl flex flex-col items-center justify-center border ${sClass.class === student.class ? 'bg-white text-emerald-700 border-white shadow-md transform scale-105' : 'bg-white/10 text-white border-white/20'}`}>
+                  <div key={sClass.rank} className={`p-4 rounded-2xl flex flex-col items-center justify-center border transition-all ${sClass.class === student.class ? 'bg-white text-emerald-700 border-white shadow-md transform scale-105 z-10' : 'bg-white/10 text-white border-white/20 hover:bg-white/20 cursor-pointer'}`} onClick={() => setRatingClass(sClass.class as any)}>
                     <div className={`text-xl font-black mb-1 ${sClass.class === student.class ? 'text-emerald-600' : 'text-emerald-100'}`}>#{sClass.rank} {sClass.class}</div>
                     <div className={`text-xs font-bold ${sClass.class === student.class ? 'text-emerald-500' : 'text-emerald-200'}`}>{sClass.cp} CP</div>
                   </div>
@@ -221,12 +220,12 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* O'quvchilar Reytingi */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+          {/* O'quvchilar Reytingi (Faqat PP bo'yicha o'rinlar!) */}
+          <div className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
             <div className="border-b border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 flex flex-wrap justify-between items-center gap-4">
-              <h2 className="text-lg font-black text-gray-800 dark:text-white flex items-center"><Medal className="w-5 h-5 mr-2 text-emerald-500"/> O'quvchilar Reytingi</h2>
+              <h2 className="text-lg font-black text-gray-800 dark:text-white flex items-center"><Medal className="w-5 h-5 mr-2 text-emerald-500"/> {ratingClass} O'quvchilari Reytingi</h2>
               
-              {/* Sinfni tanlash */}
+              {/* Sinfni tanlash filtr tugmalari */}
               <div className="flex bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
                 {(["9-A", "9-B", "9-C", "9-D"] as const).map(cls => (
                   <button 
@@ -241,7 +240,9 @@ export default function StudentDashboard() {
             </div>
 
             <div className="p-4">
+              <div className="text-xs font-bold text-gray-400 mb-4 px-2 uppercase tracking-wide">O'rinlar o'quvchilarning Hamyonidagi (PP) pullari orqali hisoblangan.</div>
               {classRankings[ratingClass].map((st) => {
+                
                 // MANTIQ: Agar bu mening sinfim bo'lmasa, ballarini yashirish
                 const isMyClass = ratingClass === student.class;
                 
@@ -260,9 +261,9 @@ export default function StudentDashboard() {
                     
                     {/* BOSHQA SINFLARNI BALLARINI SIR TUTISH */}
                     {isMyClass ? (
-                      <div className="flex items-center bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-800">
-                        <Star className="w-4 h-4 text-emerald-500 mr-2 fill-emerald-500"/>
-                        <span className="font-black text-emerald-700 dark:text-emerald-400">{st.cp} CP</span>
+                      <div className="flex items-center bg-amber-50 dark:bg-amber-900/30 px-4 py-2 rounded-xl border border-amber-100 dark:border-amber-800">
+                        <Award className="w-4 h-4 text-amber-500 mr-2"/>
+                        <span className="font-black text-amber-600 dark:text-amber-400">{st.pp} PP</span>
                       </div>
                     ) : (
                       <div className="flex items-center bg-gray-100 dark:bg-slate-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-700 opacity-60">
@@ -280,7 +281,7 @@ export default function StudentDashboard() {
 
 
       {/* ======================================================== */}
-      {/* 3. TA'LIM SAHIFASI (Avvalgidek qoldi, faqat w-full markazda) */}
+      {/* 3. TA'LIM SAHIFASI */}
       {/* ======================================================== */}
       {mainMenu === "talim" && (
         <div className="w-full bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
@@ -346,25 +347,8 @@ export default function StudentDashboard() {
                 )}
 
                 {kundalikView === "chorak" && (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden animate-in slide-in-from-right-4">
-                    <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-900/50">
-                      <div className="flex items-center gap-4">
-                        <button className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"><ChevronLeft className="w-6 h-6"/></button>
-                        <h3 className="text-2xl font-black text-blue-900 dark:text-white flex items-center">
-                          2025/2026 <span className="text-lg font-medium text-gray-500 dark:text-gray-400 ml-2">({student.class})</span>
-                        </h3>
-                        <button className="text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"><ChevronRight className="w-6 h-6"/></button>
-                      </div>
-                      <div className="flex gap-1 items-center">
-                        <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">1</button>
-                        <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">2</button>
-                        <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">3</button>
-                        <button className="px-5 py-2 font-bold text-sm text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 border-2 border-blue-400 dark:border-blue-500 rounded-xl shadow-sm">4 chorak</button>
-                        <button className="px-4 py-2 font-bold text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">xulosa</button>
-                      </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden animate-in slide-in-from-right-4 w-full">
+                    <div className="overflow-x-auto w-full">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-gray-200 dark:border-slate-700">
@@ -399,21 +383,8 @@ export default function StudentDashboard() {
             )}
 
             {activeTab === "jadval" && (
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className="p-5 border-b border-gray-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900/50">
-                  <div>
-                    <h2 className="text-2xl font-light text-gray-600 dark:text-gray-300">Dars jadvali <strong className="text-blue-900 dark:text-white font-black">{student.class}</strong> <span className="text-lg text-gray-400">(2025/2026)</span></h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">O'zbek tili</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800">1 chorak</button>
-                    <button className="px-4 py-2 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800">2 chorak</button>
-                    <button className="px-4 py-2 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 font-bold text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 bg-white dark:bg-slate-800">3 chorak</button>
-                    <button className="px-4 py-2 border-2 border-blue-400 dark:border-blue-500 text-blue-600 dark:text-blue-400 font-bold text-sm rounded-lg bg-blue-50 dark:bg-blue-900/30">4 chorak</button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto p-4">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 w-full">
+                <div className="overflow-x-auto p-4 w-full">
                   <table className="w-full text-left border-collapse border border-gray-200 dark:border-slate-700 min-w-[800px]">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700">
@@ -450,14 +421,14 @@ export default function StudentDashboard() {
             )}
 
             {activeTab === "vazifa" && (
-              <div className="max-w-4xl mx-auto space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="w-full space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-800 dark:to-indigo-900 rounded-2xl p-6 text-white shadow-lg mb-8">
                   <h2 className="text-2xl font-black mb-2 flex items-center"><FileText className="w-6 h-6 mr-2" /> Uy vazifalari (Checklist)</h2>
                   <p className="text-blue-100 text-sm">O'qituvchi tomonidan berilgan vazifalarni belgilab boring. Hammasini yakunlab, reytingingizni oshiring!</p>
                 </div>
 
                 {sortedHomeworks.map((hw) => (
-                  <div key={hw.id} className={`flex items-start gap-4 p-5 rounded-2xl border transition-all duration-300 ${hw.completed ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 opacity-60' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-600 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500'}`}>
+                  <div key={hw.id} className={`flex items-start gap-4 p-5 rounded-2xl border transition-all duration-300 w-full ${hw.completed ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 opacity-60' : 'bg-white dark:bg-slate-800 border-blue-100 dark:border-slate-600 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500'}`}>
                     <button onClick={() => toggleHomework(hw.id)} className={`mt-1 flex-shrink-0 transition-colors ${hw.completed ? 'text-green-500' : 'text-gray-300 dark:text-gray-500 hover:text-blue-500'}`}>
                       {hw.completed ? <CheckSquare className="w-7 h-7" /> : <Square className="w-7 h-7" />}
                     </button>
@@ -480,7 +451,7 @@ export default function StudentDashboard() {
       )}
 
       {/* ======================================================== */}
-      {/* HAMYON SAHIFASI (Qisqacha) */}
+      {/* 4. HAMYON SAHIFASI */}
       {/* ======================================================== */}
       {mainMenu === "hamyon" && (
         <div className="w-full grid grid-cols-1 gap-6 animate-in slide-in-from-bottom-4 duration-300">
