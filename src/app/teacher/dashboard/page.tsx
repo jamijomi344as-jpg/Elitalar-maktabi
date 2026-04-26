@@ -19,7 +19,7 @@ export type Student = {
   id: string;
   class: string;
   name: string;
-  balancePP: number; // O'quvchining puli qo'shildi
+  balancePP: number;
   bsb1: number | null;
   bsb2: number | null;
   chsb: number | null;
@@ -50,13 +50,16 @@ export default function TeacherDashboard() {
     { id: 5, date: "16.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "Elektr maydon", homework: "+ Keyingi darsga UV", type: "lesson" },
     { id: 6, date: "18.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "O'tkazgichlarda elektr zaryadlarining taqsimlanishi", homework: "+ Keyingi darsga UV", type: "lesson" },
     { id: 7, date: "23.09", time: "08:00 - 08:45", className: "10-A", subject: "Fizika", room: "302-xona", topic: "BSB-1: Elektr maydon kuchlanganligi", homework: "Takrorlash", type: "bsb1" },
+    { id: 8, date: "02.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "Fizika va Koinot", homework: "Mavzuni o'qish", type: "lesson" },
+    { id: 9, date: "04.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "Mexanika qonunlari", homework: "Masalalar yechish", type: "lesson" },
+    { id: 10, date: "18.09", time: "08:50 - 09:35", className: "10-B", subject: "Fizika", room: "302-xona", topic: "BSB-1: Mexanika", homework: "Tayyorgarlik", type: "bsb1" },
   ]);
 
   const todaysSchedule = lessonPlan.filter(s => s.date === TODAY_DATE);
   const [planClassFilter, setPlanClassFilter] = useState("10-A");
   const filteredLessonPlan = lessonPlan.filter(plan => plan.className === planClassFilter);
 
-  // 2. O'QUVCHILAR BAZASI (PP balans bilan)
+  // 2. O'QUVCHILAR BAZASI
   const [allStudents, setAllStudents] = useState<Student[]>([
     { id: "S-8392", class: "10-A", name: "Asadova Parizod", balancePP: 12000, daily: [{ id: 1, val: 8, hwVal: 9, attendance: "present", date: "04.09" }], bsb1: 22, bsb2: null, chsb: null },
     { id: "S-8393", class: "10-A", name: "Azimov Kamron", balancePP: 450, daily: [{ id: 3, val: 7, hwVal: null, attendance: "present", date: "04.09" }], bsb1: 18, bsb2: null, chsb: null },
@@ -75,7 +78,7 @@ export default function TeacherDashboard() {
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState(""); // Yangi xatolik ko'rsatkich
+  const [errorMessage, setErrorMessage] = useState(""); 
 
   const [activeDate, setActiveDate] = useState(TODAY_DATE);
   const [attendanceStatus, setAttendanceStatus] = useState<"present" | "absent" | "sick">("present");
@@ -99,7 +102,6 @@ export default function TeacherDashboard() {
   };
   const getTotalQuarterScore = (student: Student) => Math.round(getDailyAverage(student.daily)) + (student.bsb1 || 0) + (student.bsb2 || 0) + (student.chsb || 0);
 
-  // PP QO'SHISH VA TARQATISH
   const handleAddPP = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
@@ -117,16 +119,14 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
-  // NORMAL VA RETRO (PULLIK) BAHOLASH
   const handleSaveGradeAndAttendance = (e: React.FormEvent, isRetro: boolean = false) => {
     e.preventDefault();
     if (!selectedStudent) return;
     
-    // O'tib ketgan kun uchun pul yetishmasligi tekshiruvi
     const RETRO_COST = 500;
     if (isRetro) {
       if (selectedStudent.balancePP < RETRO_COST) {
-        setErrorMessage(`O'quvchi balansida yetarli PP yo'q! (Kerak: ${RETRO_COST} PP, Balans: ${selectedStudent.balancePP} PP)`);
+        setErrorMessage(`O'quvchi balansida yetarli PP yo'q! (Kerak: ${RETRO_COST} PP)`);
         return;
       }
     }
@@ -139,7 +139,7 @@ export default function TeacherDashboard() {
         if (s.id !== selectedStudent.id) return s;
         
         let newBalance = s.balancePP;
-        if (isRetro) newBalance -= RETRO_COST; // Pulni yechib olish
+        if (isRetro) newBalance -= RETRO_COST; 
         
         if (gradeCategory !== "daily") {
           return { ...s, [gradeCategory]: Number(lessonGrade), balancePP: newBalance };
@@ -171,10 +171,8 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
-  // IMTIHON NATIJASINI OSHIRISH (BOOST)
   const handleBoostExam = (boostAmount: number, cost: number) => {
     if (!selectedStudent || !gradeCategory) return;
-    
     if (selectedStudent.balancePP < cost) {
       setErrorMessage(`Balans yetarli emas! (Narxi: ${cost} PP)`);
       return;
@@ -206,7 +204,6 @@ export default function TeacherDashboard() {
     }, 500);
   };
 
-  // BOShQA FUNKSIYALAR...
   const handleEditGrade = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent || !selectedGradeObj) return;
@@ -254,11 +251,10 @@ export default function TeacherDashboard() {
     setActiveDate(date);
     setErrorMessage("");
     
-    // Qaysi kunligini tekshirish (Bugun, O'tgan kun, Kelajak)
     const todayIdx = lessonDates.indexOf(TODAY_DATE);
     const dateIdx = lessonDates.indexOf(date);
 
-    if (dateIdx > todayIdx) return; // Kelajak kun bo'lsa hech narsa qilmaydi
+    if (dateIdx > todayIdx) return; 
 
     setGradeCategory("daily");
     const existingEntry = student.daily.find(d => d.date === date);
@@ -273,7 +269,6 @@ export default function TeacherDashboard() {
       setHomeworkGrade("");
     }
     
-    // Agar o'tgan kun bo'lsa va hali baho/davomat qo'yilmagan bo'lsa -> Retro oynasi ochiladi
     if (dateIdx < todayIdx && !existingEntry) {
       setActionType("retroGrade");
     } else {
@@ -343,7 +338,7 @@ export default function TeacherDashboard() {
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-slate-800 h-fit">
             <h3 className="font-bold text-lg flex items-center mb-6 dark:text-white"><History className="w-5 h-5 mr-2 text-orange-500" /> Baza Tarixi</h3>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
               {recentLogs.map((log) => (
                 <div key={log.id} className="border-b border-gray-50 pb-3 last:border-0">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{log.text}</p>
@@ -358,7 +353,6 @@ export default function TeacherDashboard() {
       {/* ISH REJA EKRANI */}
       {activeView === "plan" && (
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-8">
-           {/* Reja menyusi va filtrlari avvalgidek */}
            <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-50">
               <div className="flex items-center gap-4">
                 <button onClick={() => setActiveView("dashboard")} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
@@ -367,9 +361,14 @@ export default function TeacherDashboard() {
                   <p className="text-xs text-gray-500 mt-1">2025/2026 o'quv yili • {currentTeacher?.name}</p>
                 </div>
               </div>
+              
               <div className="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto">
                 {["10-A", "10-B", "11-A"].map(cls => (
-                  <button key={cls} onClick={() => setPlanClassFilter(cls)} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planClassFilter === cls ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}>
+                  <button 
+                    key={cls} 
+                    onClick={() => setPlanClassFilter(cls)} 
+                    className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${planClassFilter === cls ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
+                  >
                     {cls}
                   </button>
                 ))}
@@ -380,12 +379,13 @@ export default function TeacherDashboard() {
               <div className="flex gap-2">
                 <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 rounded-lg text-sm font-bold bg-blue-50">1 chorak</button>
                 <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">2</button>
+                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">3</button>
+                <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50">4</button>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setActionType("addPlan")} className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 rounded-lg text-sm font-bold shadow-sm flex items-center">
                   <Plus className="w-4 h-4 mr-2"/> Yangi mavzu
                 </button>
-                <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium shadow-sm flex items-center hidden md:flex"><Download className="w-4 h-4 mr-2"/> TMR</button>
               </div>
             </div>
 
@@ -400,6 +400,9 @@ export default function TeacherDashboard() {
                   </tr>
                 </thead>
                 <tbody>
+                  {filteredLessonPlan.length === 0 && (
+                    <tr><td colSpan={4} className="p-8 text-center text-gray-500 font-medium">Ushbu sinf uchun reja kiritilmagan.</td></tr>
+                  )}
                   {filteredLessonPlan.map((plan, i) => (
                     <tr key={plan.id} className="hover:bg-blue-50/10 transition-colors">
                       <td className="p-3 text-center text-gray-400 text-sm border border-gray-200">{i + 1}</td>
@@ -454,11 +457,17 @@ export default function TeacherDashboard() {
             </div>
           </div>
 
+          <div className="p-4 border-b border-gray-200 bg-slate-50 flex gap-2 overflow-x-auto">
+             <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 rounded-lg text-sm font-bold bg-white">1 chorak</button>
+             <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-white">xulosa</button>
+          </div>
+
           <div className="overflow-x-auto p-4">
             <table className="w-full text-left border-collapse border border-gray-200">
               <thead>
                 <tr className="bg-slate-50">
-                  <th colSpan={2} className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-64">To'liq Ism</th>
+                  <th className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-8">Nº</th>
+                  <th className="p-3 text-center text-sm text-blue-600 font-bold border border-gray-200 w-56">To'liq Ism</th>
                   
                   {lessonDates.map(date => (
                     <th key={date} className={`p-2 text-center border border-gray-200 w-14 align-bottom ${date === TODAY_DATE ? 'border-x-2 border-x-blue-400 bg-blue-50/50' : ''}`}>
@@ -467,10 +476,11 @@ export default function TeacherDashboard() {
                   ))}
                   
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-gray-50">O'rt</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB</th>
+                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB 1</th>
+                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">BSB 2</th>
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">CHSB</th>
                   <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12 bg-green-50">Chorak</th>
-                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-12">Puli (PP)</th>
+                  <th className="p-2 text-center text-[10px] text-gray-500 font-bold border border-gray-200 w-16">Puli (PP)</th>
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -480,16 +490,14 @@ export default function TeacherDashboard() {
                   
                   return (
                     <tr key={student.id} className="hover:bg-blue-50/20 transition-colors">
-                      <td className="p-2 text-center text-gray-500 text-sm border border-gray-200 w-8">{index + 1}</td>
-                      <td className="p-2 font-medium text-xs md:text-sm text-gray-700 border border-gray-200">{student.name}</td>
+                      <td className="p-2 text-center text-gray-500 text-sm border border-gray-200">{index + 1}</td>
+                      <td className="p-2 font-medium text-xs md:text-sm text-gray-700 border border-gray-200 cursor-pointer hover:text-blue-600">{student.name}</td>
 
-                      {/* KATAKCHALAR: BUGUN, KELAJAK VA O'TGAN KUNLAR MANTIG'I */}
                       {lessonDates.map(date => {
                         const todayIdx = lessonDates.indexOf(TODAY_DATE);
                         const dateIdx = lessonDates.indexOf(date);
                         const g = student.daily.find((d:any) => d.date === date);
                         
-                        // Kelajakdagi kun
                         if (dateIdx > todayIdx) {
                            return (
                              <td key={date} className="p-1 border border-gray-200 text-center h-12 align-middle bg-gray-50/50">
@@ -498,7 +506,6 @@ export default function TeacherDashboard() {
                            )
                         }
 
-                        // Bugun yoki O'tgan kun
                         return (
                           <td key={date} className={`p-1 border border-gray-200 text-center h-12 align-middle ${date === TODAY_DATE ? 'border-x-2 border-x-blue-400 bg-blue-50/10' : ''}`}>
                             <div 
@@ -520,7 +527,6 @@ export default function TeacherDashboard() {
                                   </div>
                                 )
                               ) : (
-                                // Agar o'tgan kun bo'lsa (Pullik indikator), Bugun bo'lsa (+)
                                 dateIdx < todayIdx 
                                   ? <span className="opacity-0 group-hover:opacity-100 text-orange-400 text-xs font-bold absolute">500<br/>PP</span>
                                   : <span className="opacity-0 group-hover:opacity-100 text-blue-400 text-lg absolute">+</span>
@@ -532,7 +538,6 @@ export default function TeacherDashboard() {
 
                       <td className="p-2 text-center border border-gray-200 font-bold text-sm text-gray-600 bg-gray-50">{dailyAvg > 0 ? dailyAvg.toFixed(1) : ""}</td>
                       
-                      {/* IMTIHON BAHOLARINI OSHIRISH (BOOST) */}
                       <td onClick={() => { if(student.bsb1) openBoostModal(student, "bsb1"); }} className={`p-2 text-center border border-gray-200 font-bold text-sm text-blue-600 bg-blue-50/30 ${student.bsb1 ? 'cursor-pointer hover:bg-blue-100' : ''}`} title={student.bsb1 ? "Imtihon natijasini oshirish (PP)" : ""}>
                         {student.bsb1 || ""}
                       </td>
@@ -545,8 +550,11 @@ export default function TeacherDashboard() {
                       
                       <td className="p-2 text-center border border-gray-200 font-bold text-sm text-green-600 bg-green-50/50">{totalQuarter > 0 ? totalQuarter : ""}</td>
                       
-                      <td className="p-1 border border-gray-200 text-center">
-                        <div className="font-bold text-orange-500 text-xs">{student.balancePP}</div>
+                      <td className="p-1 border border-gray-200 text-center bg-gray-50">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="font-bold text-orange-500 text-xs">{student.balancePP}</span>
+                          <button onClick={() => { setSelectedStudent(student); setActionType("pp"); }} className="p-1 text-gray-400 hover:text-orange-500 transition-colors" title="PP kiritish"><Award className="w-4 h-4" /></button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -559,7 +567,7 @@ export default function TeacherDashboard() {
 
       {/* MODALLAR */}
 
-      {/* 1. RETRO BAHO QO'YISH MODALI (O'tib ketgan kun uchun pul yechish) */}
+      {/* 1. RETRO BAHO QO'YISH MODALI */}
       {selectedStudent && actionType === "retroGrade" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-orange-200 relative">
@@ -582,7 +590,6 @@ export default function TeacherDashboard() {
                 <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
               ) : (
                 <div className="space-y-4">
-                  {/* Davomat va Baho tanlash xuddi normaldek */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Davomatni belgilang</label>
                     <div className="flex gap-2">
@@ -710,8 +717,6 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* QOLGAN MODALLAR (Tahrirlash, Reja qo'shish va h.k avvalgidek qoldi, faqat pastda saqlab qo'yildi...) */}
-      
       {/* TAHRIRLASH MODALI */}
       {selectedStudent && actionType === "editGrade" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
@@ -740,6 +745,34 @@ export default function TeacherDashboard() {
                   </div>
                   <button onClick={handleEditGrade} disabled={!lessonGrade || !reason || isProcessing} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
                     {isProcessing ? "Saqlanmoqda..." : "O'zgarishni tasdiqlash"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UY VAZIFASI BERISH MODALI */}
+      {actionType === "assignHW" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2 flex items-center"><BookOpen className="w-6 h-6 mr-2 text-blue-500" /> Uy vazifasini kiritish</h2>
+              
+              {successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              ) : (
+                <div className="space-y-4 mt-4">
+                  <textarea 
+                    value={homeworkText} 
+                    onChange={(e) => setHomeworkText(e.target.value)} 
+                    placeholder="Uy vazifasi matnini kiriting (Masalan: 3-mavzu oxiridagi 5-10 masalalarni yechish...)" 
+                    className="w-full p-4 rounded-xl border border-gray-200 bg-gray-50 outline-none resize-none h-32 focus:border-blue-500 transition-colors text-sm" 
+                  />
+                  <button onClick={handleAssignHomework} disabled={!homeworkText || isProcessing} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                    {isProcessing ? "Yuborilmoqda..." : "Uy vazifasini saqlash"}
                   </button>
                 </div>
               )}
@@ -799,6 +832,54 @@ export default function TeacherDashboard() {
         </div>
       )}
 
+      {/* BULK PP MODAL */}
+      {actionType === "bulkPP" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4"><Award className="w-8 h-8" /></div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Oy yakuni: Sinfga PP</h2>
+              <p className="text-sm text-gray-500 mb-6">Butun sinf o'quvchilariga oylik stipendiya ajratish.</p>
+              
+              {successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              ) : (
+                <div className="space-y-4">
+                  <input type="number" placeholder="Miqdor" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full text-center px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-xl font-black text-blue-600" />
+                  <button onClick={handleAddPP} disabled={!amount || isProcessing} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                    Barchasiga qo'shish
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHAXSIY PP MODAL */}
+      {selectedStudent && actionType === "pp" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full"><X className="w-5 h-5" /></button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-1 flex items-center"><Award className="w-6 h-6 mr-2 text-orange-500" /> PP Boshqaruvi</h2>
+              <p className="text-sm text-gray-500 mb-6">O'quvchi: <strong>{selectedStudent.name}</strong></p>
+              {successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              ) : (
+                <div className="space-y-4">
+                  <input type="number" placeholder="Summa (PP)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-lg font-mono" />
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button onClick={handleAddPP} disabled={!amount || isProcessing} className="py-3 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center"><Minus className="w-5 h-5 mr-1" /> Jarima</button>
+                    <button onClick={handleAddPP} disabled={!amount || isProcessing} className="py-3 bg-green-50 text-green-600 rounded-xl font-bold flex items-center justify-center"><Plus className="w-5 h-5 mr-1" /> Mukofot</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
