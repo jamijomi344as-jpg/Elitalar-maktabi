@@ -1,45 +1,149 @@
 "use client";
 
-import { useState } from "react";
-import { Users, UserPlus, Shield, Table, Calendar, Calculator, Building, Crown, LayoutDashboard, CheckCircle2, AlertTriangle, Lock, X, PlusCircle, Clock, Save, BarChart3, Receipt, ArrowRightLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, UserPlus, Shield, Table, Calendar, Calculator, Building, Crown, LayoutDashboard, CheckCircle2, Lock, X, PlusCircle, Clock, Save, BarChart3, Receipt, ArrowRightLeft } from "lucide-react";
+// DIQQAT: Supabase Client ni chaqirib oldik!
+import { supabase } from "@/lib/supabase"; 
 
 export default function DirectorDashboard() {
-  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "teachers" | "students" | "timetable" | "algorithm">("algorithm"); // Algoritmni ko'rsatish uchun default qildik
+  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "teachers" | "students" | "timetable" | "algorithm">("boshqaruv");
 
-  // MODALLAR UCHUN STATE'LAR
+  // ==========================================
+  // MODALLAR STATE'I
+  // ==========================================
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // KONSTRUKTOR STATE'LARI
   const [selectedClassForTimetable, setSelectedClassForTimetable] = useState<string | null>(null);
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [currentCell, setCurrentCell] = useState<{ day: string, lesson: number } | null>(null);
 
-  // MOCK BAZALAR
-  const [teachers, setTeachers] = useState([
-    { id: "T-101", name: "Abduraximov V.M.", subject: "Algebra & Geometriya", homeroom: "9-B" },
-    { id: "T-102", name: "Omondillayeva B.", subject: "Ona tili & Adabiyot", homeroom: "9-A" },
-    { id: "T-103", name: "G'ULOMOVA G.R.", subject: "Fizika", homeroom: "Biriktirilmagan" },
-  ]);
-
-  const [classes, setClasses] = useState([
-    { name: "9-A", capacity: 24, maxLimit: 24, status: "To'la" },
-    { name: "9-B", capacity: 23, maxLimit: 24, status: "Joy bor" },
-    { name: "9-C", capacity: 24, maxLimit: 24, status: "To'la" },
-    { name: "9-D", capacity: 18, maxLimit: 24, status: "Joy bor" },
-  ]);
+  // ==========================================
+  // HAQIQIY BAZA STATE'LARI (Supabase'dan keladi)
+  // ==========================================
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [studentsCountByClass, setStudentsCountByClass] = useState<any>({}); // Qaysi sinfda necha o'quvchi borligi
+  
+  // Yangi odam qo'shish uchun Input State'lar
+  const [newPerson, setNewPerson] = useState({ fullName: "", subject: "", gender: "", className: "", phone: "" });
 
   const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika"];
-  const cabinetsBase = ["101-xona", "102-xona", "201-xona (Kompyuter)", "202-xona", "Fizika lab.", "Kimyo lab.", "Sport zal"];
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
   const lessonNumbers = [1, 2, 3, 4, 5, 6, 7];
 
-  const [timetableData, setTimetableData] = useState<any>({
-    "9-B": {
-      "Du": { 1: { subject: "Kelajak soati", group: "Butun sinf", teacher: "ABDURAZZAQOV D.", room: "101-xona" } },
-      "Se": { 2: { subject: "Algebra", group: "Butun sinf", teacher: "Abduraximov V.M.", room: "101-xona" } }
+  // ==========================================
+  // SUPABASE'DAN MA'LUMOT O'QISH (Fetch)
+  // ==========================================
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // 1. O'qituvchilarni olib kelamiz (role = 'teacher')
+      const { data: teachersData, error: tError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'teacher')
+        .order('created_at', { ascending: false });
+      
+      if (tError) throw tError;
+      setTeachers(teachersData || []);
+
+      // 2. Sinflarni olib kelamiz
+      const { data: classesData, error: cError } = await supabase
+        .from('classes')
+        .select('*')
+        .order('name');
+      
+      if (cError) throw cError;
+      setClasses(classesData || []);
+
+      // 3. O'quvchilar sonini sinflar bo'yicha hisoblaymiz
+      const { data: studentsData, error: sError } = await supabase
+        .from('profiles')
+        .select('class_name')
+        .eq('role', 'student');
+      
+      if (sError) throw sError;
+
+      const counts: any = {};
+      classesData?.forEach(c => counts[c.name] = 0); // Boshida hamma sinf 0
+      studentsData?.forEach(student => {
+        if(student.class_name) counts[student.class_name] = (counts[student.class_name] || 0) + 1;
+      });
+      setStudentsCountByClass(counts);
+
+    } catch (error) {
+      console.error("Ma'lumotlarni tortishda xatolik:", error);
+      alert("Bazaga ulanishda xatolik! Kalitlarni tekshiring.");
+    } finally {
+      setIsLoading(false);
     }
-  });
+  };
+
+  // ==========================================
+  // SUPABASE'GA MA'LUMOT YOZISH (Insert)
+  // ==========================================
+  
+  // O'QITUVCHI QO'SHISH
+  const handleAddTeacher = async () => {
+    if(!newPerson.fullName || !newPerson.subject) return alert("Hamma joyni to'ldiring!");
+    
+    // Noyob ID yaratamiz (Masalan: T-1234)
+    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const { error } = await supabase.from('profiles').insert([
+      { 
+        id: uniqueId, 
+        role: 'teacher', 
+        full_name: newPerson.fullName, 
+        bio: newPerson.subject // Fanni bio ga vaqtincha saqlab turamiz
+      }
+    ]);
+
+    if (error) {
+      alert("Xatolik: " + error.message);
+    } else {
+      setShowTeacherModal(false);
+      setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" });
+      fetchData(); // Jadvalni yangilash
+    }
+  };
+
+  // O'QUVCHI QO'SHISH
+  const handleAddStudent = async () => {
+    if(!newPerson.fullName || !newPerson.className) return alert("Hamma joyni to'ldiring!");
+    
+    // Limit tekshiruvi
+    const limit = classes.find(c => c.name === newPerson.className)?.max_limit || 24;
+    const currentCount = studentsCountByClass[newPerson.className] || 0;
+    if(currentCount >= limit) return alert("Kechirasiz, bu sinfda joy qolmagan!");
+
+    // Noyob ID yaratamiz (Masalan: S-8392)
+    const uniqueId = `S-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const { error } = await supabase.from('profiles').insert([
+      { 
+        id: uniqueId, 
+        role: 'student', 
+        full_name: newPerson.fullName, 
+        class_name: newPerson.className 
+      }
+    ]);
+
+    if (error) {
+      alert("Xatolik: " + error.message);
+    } else {
+      setShowStudentModal(false);
+      setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" });
+      fetchData(); // Jadvalni yangilash
+    }
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -91,239 +195,125 @@ export default function DirectorDashboard() {
             </div>
           </div>
 
-          {/* 1. BOSHQARUV */}
-          {activeMenu === "boshqaruv" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4"><Users className="w-8 h-8"/></div>
-                <h3 className="font-bold text-lg text-gray-800">Jami O'qituvchilar</h3>
-                <p className="text-3xl font-black text-purple-600 mt-2">12</p>
-              </div>
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center hover:shadow-md transition-shadow">
-                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4"><CheckCircle2 className="w-8 h-8"/></div>
-                <h3 className="font-bold text-lg text-gray-800">Tizim holati</h3>
-                <p className="text-lg font-black text-emerald-600 mt-2">Algoritm Faol 🟢</p>
-              </div>
-            </div>
-          )}
+          {/* Yuklanmoqda yozuvi */}
+          {isLoading ? (
+            <div className="flex justify-center py-20 text-purple-600 font-bold animate-pulse">Bazadan ma'lumotlar yuklanmoqda... (Kuting)</div>
+          ) : (
+            <>
+              {/* 1. BOSHQARUV */}
+              {activeMenu === "boshqaruv" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4"><Users className="w-8 h-8"/></div>
+                    <h3 className="font-bold text-lg text-gray-800">Jami O'qituvchilar</h3>
+                    <p className="text-3xl font-black text-purple-600 mt-2">{teachers.length}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4"><CheckCircle2 className="w-8 h-8"/></div>
+                    <h3 className="font-bold text-lg text-gray-800">Tizim holati</h3>
+                    <p className="text-lg font-black text-emerald-600 mt-2">Baza Ulangan 🟢</p>
+                  </div>
+                </div>
+              )}
 
-          {/* 2. O'QITUVCHILAR */}
-          {activeMenu === "teachers" && (
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-4">
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center"><Crown className="w-6 h-6 mr-2 text-purple-600"/> O'qituvchilar Ro'yxati</h2>
-                <button onClick={() => setShowTeacherModal(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-xl shadow-md transition-colors flex items-center">
-                  <UserPlus className="w-4 h-4 mr-2" /> Yangi o'qituvchi
-                </button>
-              </div>
-              <div className="overflow-x-auto p-2">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="p-4 text-sm font-bold text-gray-500">ID</th>
-                      <th className="p-4 text-sm font-bold text-gray-500">F.I.SH</th>
-                      <th className="p-4 text-sm font-bold text-gray-500">Fani</th>
-                      <th className="p-4 text-sm font-bold text-gray-500">Sinf Rahbarligi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teachers.map(t => (
-                      <tr key={t.id} className="border-b border-gray-50 hover:bg-slate-50 transition-colors">
-                        <td className="p-4 text-sm font-medium text-gray-500">{t.id}</td>
-                        <td className="p-4 text-sm font-bold text-gray-900">{t.name}</td>
-                        <td className="p-4 text-sm text-gray-600">{t.subject}</td>
-                        <td className="p-4">
-                          <select className={`text-sm font-bold p-2 rounded-lg border outline-none ${t.homeroom === 'Biriktirilmagan' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`} defaultValue={t.homeroom}>
-                            <option value="Biriktirilmagan">Biriktirilmagan</option>
-                            {(["9-A", "9-B", "9-C", "9-D", "10-A", "11-A"] as const).map(cls => (
-                               <option key={cls} value={cls}>{cls}</option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* 3. O'QUVCHILAR & LIMIT */}
-          {activeMenu === "students" && (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
-              <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center"><Shield className="w-6 h-6 mr-2 text-purple-600"/> Sifat Nazorati (Sinf Limiti)</h2>
-              <p className="text-gray-500 text-sm mb-6 max-w-2xl">O'quv sifatini tushirmaslik uchun har bir sinfda jami 24 tadan ortiq o'quvchi bo'lishiga ruxsat berilmaydi.</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {classes.map(cls => (
-                  <div key={cls.name} className={`p-5 rounded-2xl border transition-colors ${cls.capacity >= cls.maxLimit ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-2xl font-black text-gray-800">{cls.name}</h3>
-                      <span className={`px-3 py-1 rounded-lg text-xs font-bold ${cls.capacity >= cls.maxLimit ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>
-                        {cls.status}
-                      </span>
-                    </div>
-                    <div className="w-full bg-white rounded-full h-3 mb-2 overflow-hidden border border-gray-200 relative">
-                      <div className={`h-3 rounded-full ${cls.capacity >= cls.maxLimit ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${(cls.capacity / cls.maxLimit) * 100}%` }}></div>
-                    </div>
-                    <p className="text-sm font-bold text-gray-600 text-right">{cls.capacity} / {cls.maxLimit}</p>
-
-                    <button onClick={() => setShowStudentModal(true)} disabled={cls.capacity >= cls.maxLimit} className={`mt-4 w-full py-2.5 rounded-xl font-bold text-sm transition-all ${cls.capacity >= cls.maxLimit ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-600 hover:text-white shadow-sm'}`}>
-                      + {cls.capacity >= cls.maxLimit ? "Limit To'lgan" : "O'quvchi qo'shish"}
+              {/* 2. O'QITUVCHILAR */}
+              {activeMenu === "teachers" && (
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-4">
+                  <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center"><Crown className="w-6 h-6 mr-2 text-purple-600"/> O'qituvchilar Ro'yxati</h2>
+                    <button onClick={() => setShowTeacherModal(true)} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-xl shadow-md transition-colors flex items-center">
+                      <UserPlus className="w-4 h-4 mr-2" /> Yangi o'qituvchi
                     </button>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 4. DARS JADVALI KONSTRUKTORI */}
-          {activeMenu === "timetable" && (
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-4">
-              <div className="p-6 border-b border-gray-100 bg-slate-50 flex flex-wrap justify-between items-center gap-4">
-                 <h2 className="text-xl font-bold text-gray-800 flex items-center"><Table className="w-6 h-6 mr-2 text-purple-600"/> Dars Jadvali Konstruktori</h2>
-                 <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 overflow-x-auto max-w-full">
-                   {classes.map(cls => (
-                      <button key={cls.name} onClick={() => setSelectedClassForTimetable(cls.name)} className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${selectedClassForTimetable === cls.name ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>
-                         {cls.name} Sinf
-                      </button>
-                   ))}
-                 </div>
-              </div>
-
-              <div className="p-6">
-                {!selectedClassForTimetable ? (
-                  <div className="py-20 text-center flex flex-col items-center">
-                    <Table className="w-16 h-16 text-purple-300 mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Konstruktorni ishga tushirish</h2>
-                    <p className="text-gray-500 max-w-md mx-auto mb-6">Dars jadvalini shakllantirish uchun avval tepadagi ro'yxatdan kerakli sinfni tanlang.</p>
-                  </div>
-                ) : (
-                  <div className="animate-in fade-in duration-300 space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-bold text-gray-800">Sinf: <span className="font-black text-2xl text-purple-700">{selectedClassForTimetable}</span></h3>
-                      <button className="flex items-center px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-sm hover:bg-emerald-600 hover:text-white transition-colors">
-                         <Save className="w-4 h-4 mr-2" /> Jadvalni saqlash
-                      </button>
-                    </div>
-                    
-                    <div className="overflow-x-auto p-1 border border-gray-200 rounded-3xl shadow-inner bg-slate-50/50">
-                       <table className="w-full text-left border-collapse min-w-[900px]">
-                          <thead>
-                             <tr>
-                                <th className="p-4 border-r border-gray-100 text-gray-400 font-bold text-xs text-center w-24">Soat \ Kun</th>
-                                {days.map(day => (
-                                   <th key={day} className="p-4 text-center text-sm font-bold text-gray-600 border-r border-gray-100 last:border-r-0">{day === 'Du' ? "Dushanba" : day === 'Se' ? "Seshanba" : day === 'Ch' ? "Chorshanba" : day === 'Pa' ? "Payshanba" : day === 'Ju' ? "Juma" : day === 'Sh' ? "Shanba" : day}</th>
-                                ))}
-                             </tr>
-                          </thead>
-                          <tbody>
-                             {lessonNumbers.map(lessonNum => (
-                                <tr key={lessonNum} className="border-t border-gray-100 hover:bg-slate-50/50">
-                                   <td className="p-4 border-r border-gray-100 text-gray-400 font-black text-center align-top relative">
-                                      <div className="absolute top-1 right-1 text-[10px] text-gray-400">{lessonNum}</div>
-                                      <div className="flex flex-col items-center gap-1 text-[11px] font-medium text-gray-500">
-                                         <Clock className="w-3 h-3"/><span>0{7 + lessonNum}:00</span>
-                                      </div>
-                                   </td>
-                                   {days.map(day => {
-                                      const cellData = timetableData[selectedClassForTimetable]?.[day]?.[lessonNum];
-                                      return (
-                                        <td key={day} className="p-2 border-r border-gray-100 last:border-r-0 align-top min-h-[100px] h-full relative group">
-                                          {cellData ? (
-                                            <div className="bg-purple-100 border border-purple-200 rounded-lg p-3 h-full cursor-pointer hover:border-purple-400 transition-colors relative" onClick={() => { setCurrentCell({day, lesson: lessonNum}); setShowLessonModal(true); }}>
-                                                <div className="text-[10px] text-purple-600 uppercase font-black">{cellData.group}</div>
-                                                <div className="font-bold text-sm text-purple-900 leading-tight my-1">{cellData.subject}</div>
-                                                <div className="text-[11px] text-gray-600 leading-tight">{cellData.teacher}</div>
-                                            </div>
-                                          ) : (
-                                            <div className="border-2 border-dashed border-gray-200 rounded-lg py-8 h-full flex items-center justify-center text-gray-300 hover:border-purple-300 hover:text-purple-500 transition-all cursor-pointer bg-white" onClick={() => { setCurrentCell({day, lesson: lessonNum}); setShowLessonModal(true); }}>
-                                               <PlusCircle className="w-6 h-6" />
-                                            </div>
-                                          )}
-                                        </td>
-                                      )
-                                   })}
-                                </tr>
-                             ))}
-                          </tbody>
-                       </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================== */}
-          {/* 5. MOLIYA VA ALGORITM (Yangi Mantiq: 1-kun hisobi) */}
-          {/* ======================================================== */}
-          {activeMenu === "algorithm" && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4">
-              
-              <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-                <Lock className="absolute top-6 right-6 w-24 h-24 text-white/5" />
-                <h2 className="text-2xl font-black mb-2 flex items-center"><Calculator className="w-6 h-6 mr-2 text-amber-400"/> ELITA "Oy Boshi" Algoritmi</h2>
-                <p className="text-slate-400 text-sm max-w-2xl">
-                  <strong>Ishlash qoidasi:</strong> PP (Pul) ballari har kuni berilmaydi. Buning o'rniga, algoritm <strong>har oyning 1-kuni soat 00:00 da</strong> ishga tushib, butun oylik maktab byudjetini o'quvchilarning "O'rtacha oylik bahosi"ga va sinfning CP siga qarab bir marotaba "Maosh" sifatida taqsimlaydi.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 1-Bosqich */}
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-full">
-                  <div className="flex items-center mb-4">
-                    <div className="w-10 h-10 bg-amber-100 text-amber-600 font-black rounded-full flex items-center justify-center mr-3 border border-amber-200">1</div>
-                    <h3 className="text-lg font-bold text-gray-800">Sinflar g'aznasiga taqsimot</h3>
-                  </div>
-                  <p className="text-sm text-gray-500 mb-4 flex-1">
-                    Avval o'tgan oydagi jami yig'ilgan CP reytingi hisoblanadi. Byudjet (Masalan 100K PP) sinflar o'rniga qarab ajratiladi.
-                  </p>
-                  <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="font-bold text-gray-700">1-o'rin (9-B)</span>
-                      <span className="font-black text-amber-500 flex items-center">40% <ArrowRightLeft className="w-3 h-3 mx-1 text-gray-300"/> 40,000 PP</span>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                      <span className="font-bold text-gray-700">2-o'rin (9-A)</span>
-                      <span className="font-black text-amber-500 flex items-center">30% <ArrowRightLeft className="w-3 h-3 mx-1 text-gray-300"/> 30,000 PP</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-gray-700">... Boshqalar ...</span>
-                      <span className="font-bold text-gray-400 text-sm">Reytingga mos</span>
-                    </div>
+                  <div className="overflow-x-auto p-2">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="p-4 text-sm font-bold text-gray-500">ID Raqam</th>
+                          <th className="p-4 text-sm font-bold text-gray-500">F.I.SH</th>
+                          <th className="p-4 text-sm font-bold text-gray-500">Fani</th>
+                          <th className="p-4 text-sm font-bold text-gray-500">Holati</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teachers.length === 0 ? (
+                          <tr><td colSpan={4} className="text-center p-8 text-gray-400">Hali hech qanday o'qituvchi yo'q. Yangi qo'shing.</td></tr>
+                        ) : (
+                          teachers.map(t => (
+                            <tr key={t.id} className="border-b border-gray-50 hover:bg-slate-50 transition-colors">
+                              <td className="p-4 text-sm font-black text-purple-600">{t.id}</td>
+                              <td className="p-4 text-sm font-bold text-gray-900">{t.full_name}</td>
+                              <td className="p-4 text-sm text-gray-600">{t.bio || "Kiritilmagan"}</td>
+                              <td className="p-4"><span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">Faol</span></td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
+              )}
 
-                {/* 2-Bosqich */}
-                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-full">
-                  <div className="flex items-center mb-4">
-                    <div className="w-10 h-10 bg-purple-100 text-purple-600 font-black rounded-full flex items-center justify-center mr-3 border border-purple-200">2</div>
-                    <h3 className="text-lg font-bold text-gray-800">O'quvchi maoshini hisoblash</h3>
-                  </div>
-                  <p className="text-sm text-gray-500 mb-4 flex-1">
-                    Sinfga berilgan jami pul (masalan 40,000 PP), shu sinf o'quvchilariga ularning <strong>Oy davomidagi O'rtacha Bahosiga</strong> mutanosib qilib tarqatiladi.
-                  </p>
-                  <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                    <h4 className="font-bold text-purple-900 mb-2 flex items-center"><BarChart3 className="w-4 h-4 mr-2"/> Matematik Formula:</h4>
-                    <code className="text-xs bg-white p-3 rounded-lg text-purple-700 block font-mono border border-purple-200 font-bold mb-3 shadow-sm">
-                      Mening Ulushim = (Mening O'rtacha Bahom / Sinfning Jami Baholari) * Sinf Byudjeti
-                    </code>
-                    <div className="flex items-start text-xs text-purple-700">
-                      <Receipt className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5"/>
-                      <span><strong>Natija:</strong> Har kuni pul yozilmaydi, tizim "charchamaydi". Oy oxirida yaxshi o'qigan bola kattaroq mablag'ni "Oylik Stipendiya" sifatida oladi.</span>
+              {/* 3. O'QUVCHILAR & LIMIT */}
+              {activeMenu === "students" && (
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
+                  <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center"><Shield className="w-6 h-6 mr-2 text-purple-600"/> Sifat Nazorati (Sinf Limiti)</h2>
+                  <p className="text-gray-500 text-sm mb-6 max-w-2xl">O'quv sifatini tushirmaslik uchun har bir sinfda jami 24 tadan ortiq o'quvchi bo'lishiga ruxsat berilmaydi.</p>
+                  
+                  {classes.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400">Hali hech qanday sinf yo'q. (Avval bazaga sinf qo'shish kerak)</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {classes.map(cls => {
+                        const count = studentsCountByClass[cls.name] || 0;
+                        const limit = cls.max_limit;
+                        const isFull = count >= limit;
+
+                        return (
+                          <div key={cls.name} className={`p-5 rounded-2xl border transition-colors ${isFull ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                            <div className="flex justify-between items-center mb-3">
+                              <h3 className="text-2xl font-black text-gray-800">{cls.name}</h3>
+                              <span className={`px-3 py-1 rounded-lg text-xs font-bold ${isFull ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                                {isFull ? "To'la" : "Joy bor"}
+                              </span>
+                            </div>
+                            <div className="w-full bg-white rounded-full h-3 mb-2 overflow-hidden border border-gray-200 relative">
+                              <div className={`h-3 rounded-full ${isFull ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${(count / limit) * 100}%` }}></div>
+                            </div>
+                            <p className="text-sm font-bold text-gray-600 text-right">{count} / {limit}</p>
+
+                            <button onClick={() => { setNewPerson({...newPerson, className: cls.name}); setShowStudentModal(true); }} disabled={isFull} className={`mt-4 w-full py-2.5 rounded-xl font-bold text-sm transition-all ${isFull ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-600 hover:text-white shadow-sm'}`}>
+                              + {isFull ? "Limit To'lgan" : "O'quvchi qo'shish"}
+                            </button>
+                          </div>
+                        )
+                      })}
                     </div>
-                  </div>
+                  )}
                 </div>
-              </div>
+              )}
 
-            </div>
+              {/* TIMETABLE VA ALGORITM VIZUAL QISMLARI OLDINGIDEK QOLDI (Keyingi qadamda bularni ham ulaymiz) */}
+              {activeMenu === "timetable" && (
+                <div className="p-20 text-center text-gray-500 font-bold bg-white rounded-3xl shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
+                  Bu bo'lim keyingi qadamda API ga ulanadi...
+                </div>
+              )}
+               {activeMenu === "algorithm" && (
+                <div className="p-20 text-center text-gray-500 font-bold bg-white rounded-3xl shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
+                  Bu bo'lim oy oxirida API orqali ishlaydi...
+                </div>
+              )}
+
+            </>
           )}
-
         </div>
       </div>
 
-      {/* MODALLAR (Tugmalar ishlaydi) */}
+      {/* ======================================================== */}
+      {/* MODALLAR (HAQIQIY BAZAGA YOZADIGAN) */}
+      {/* ======================================================== */}
+
       {showTeacherModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowTeacherModal(false)}>
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
@@ -332,15 +322,15 @@ export default function DirectorDashboard() {
                 <button onClick={() => setShowTeacherModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
              </div>
              <div className="p-6 space-y-4">
-                <input type="text" placeholder="F.I.SH (Masalan: Alimov B.)" className="w-full p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-300 font-medium" />
-                <select className="w-full p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-300 text-gray-600 font-medium">
+                <input type="text" value={newPerson.fullName} onChange={e => setNewPerson({...newPerson, fullName: e.target.value})} placeholder="F.I.SH (Masalan: Alimov B.)" className="w-full p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-300 font-medium" />
+                <select value={newPerson.subject} onChange={e => setNewPerson({...newPerson, subject: e.target.value})} className="w-full p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-300 text-gray-600 font-medium">
                    <option value="">O'tadigan Fanini tanlang</option>
                    {subjectsBase.map(s => (<option key={s} value={s}>{s}</option>))}
                 </select>
              </div>
              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-slate-50">
                 <button onClick={() => setShowTeacherModal(false)} className="px-5 py-2 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition-colors">Bekor qilish</button>
-                <button onClick={() => setShowTeacherModal(false)} className="px-5 py-2 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:bg-purple-700 transition-colors">Saqlash</button>
+                <button onClick={handleAddTeacher} className="px-5 py-2 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:bg-purple-700 transition-colors">Bazaga Saqlash</button>
              </div>
           </div>
         </div>
@@ -350,68 +340,23 @@ export default function DirectorDashboard() {
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowStudentModal(false)}>
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50">
-                <h3 className="font-bold text-lg text-gray-800 flex items-center"><PlusCircle className="w-5 h-5 mr-2 text-emerald-600"/> Yangi O'quvchi</h3>
+                <h3 className="font-bold text-lg text-gray-800 flex items-center"><PlusCircle className="w-5 h-5 mr-2 text-emerald-600"/> Yangi O'quvchi ({newPerson.className})</h3>
                 <button onClick={() => setShowStudentModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
              </div>
              <div className="p-6 space-y-4">
-                <input type="text" placeholder="O'quvchining F.I.SH" className="w-full p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-300 font-medium" />
+                <input type="text" value={newPerson.fullName} onChange={e => setNewPerson({...newPerson, fullName: e.target.value})} placeholder="O'quvchining F.I.SH" className="w-full p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-300 font-medium" />
                 <div className="grid grid-cols-2 gap-4">
-                   <select className="p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-300 text-gray-600 font-medium">
+                   <select value={newPerson.gender} onChange={e => setNewPerson({...newPerson, gender: e.target.value})} className="p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-300 text-gray-600 font-medium">
                       <option value="">Jinsi</option>
-                      <option value="Male">Erkak</option>
-                      <option value="Female">Ayol</option>
+                      <option value="Male">O'g'il bola</option>
+                      <option value="Female">Qiz bola</option>
                    </select>
-                   <select className="p-4 bg-slate-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-emerald-300 text-gray-600 font-medium">
-                      <option value="">Sinfi</option>
-                      {classes.map(c => (<option key={c.name} value={c.name}>{c.name}</option>))}
-                   </select>
+                   <input type="text" value={newPerson.className} disabled className="p-4 bg-gray-100 border border-gray-200 rounded-xl outline-none text-gray-500 font-bold text-center cursor-not-allowed" />
                 </div>
              </div>
              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-slate-50">
                 <button onClick={() => setShowStudentModal(false)} className="px-5 py-2 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition-colors">Bekor qilish</button>
-                <button onClick={() => setShowStudentModal(false)} className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-md hover:bg-emerald-700 transition-colors">Maktabga Qo'shish</button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {showLessonModal && currentCell && selectedClassForTimetable && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowLessonModal(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
-             <div className="p-6 border-b border-gray-100 bg-purple-50 flex justify-between items-center">
-                <div>
-                   <div className="text-xs text-purple-600 font-black tracking-widest">{selectedClassForTimetable} SINF</div>
-                   <h3 className="font-bold text-xl text-purple-900 mt-1">Dars qo'shish: <span className="text-purple-600">{currentCell.day}, {currentCell.lesson}-soat</span></h3>
-                </div>
-                <button onClick={() => setShowLessonModal(false)} className="text-gray-400 hover:text-gray-600 bg-white p-2 rounded-full shadow-sm"><X className="w-5 h-5"/></button>
-             </div>
-             <div className="p-6 space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                   <select className="p-4 bg-slate-50 border border-gray-200 rounded-xl outline-none focus:border-purple-500 font-bold text-gray-700">
-                      <option value="">Fanni tanlang</option>
-                      {subjectsBase.map(s => (<option key={s} value={s}>{s}</option>))}
-                   </select>
-                   <select className="p-4 bg-slate-50 border border-gray-200 rounded-xl outline-none focus:border-purple-500 font-bold text-gray-700">
-                      <option value="">Guruh?</option>
-                      <option value="Butun sinf">Butun sinf</option>
-                      <option value="1-guruh">1-guruh</option>
-                      <option value="2-guruh">2-guruh</option>
-                   </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                   <select className="p-4 bg-slate-50 border border-gray-200 rounded-xl outline-none focus:border-purple-500 text-gray-700 font-medium">
-                      <option value="">O'qituvchini tanlang</option>
-                      {teachers.map(t => (<option key={t.id} value={t.name}>{t.name}</option>))}
-                   </select>
-                   <select className="p-4 bg-slate-50 border border-gray-200 rounded-xl outline-none focus:border-purple-500 text-gray-700 font-medium">
-                      <option value="">Kabinetni tanlang</option>
-                      {cabinetsBase.map(c => (<option key={c} value={c}>{c}</option>))}
-                   </select>
-                </div>
-             </div>
-             <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-slate-50">
-                <button onClick={() => setShowLessonModal(false)} className="px-5 py-3 rounded-xl text-gray-500 font-bold hover:bg-gray-200 transition-colors">Bekor qilish</button>
-                <button onClick={() => setShowLessonModal(false)} className="px-5 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:bg-purple-700 transition-colors">Darsni Yaratish</button>
+                <button onClick={handleAddStudent} className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl shadow-md hover:bg-emerald-700 transition-colors">Maktabga Qo'shish</button>
              </div>
           </div>
         </div>
