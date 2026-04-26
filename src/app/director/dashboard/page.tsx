@@ -1,33 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, UserPlus, Shield, Table, Calendar, Calculator, Building, Crown, LayoutDashboard, CheckCircle2, X, PlusCircle } from "lucide-react";
+import { Users, UserPlus, Shield, Table, Calendar, Calculator, Building, Crown, LayoutDashboard, CheckCircle2, X, PlusCircle, School } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 
 export default function DirectorDashboard() {
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "teachers" | "students" | "timetable" | "algorithm">("boshqaruv");
 
-  // ==========================================
-  // MODALLAR STATE'I
-  // ==========================================
+  // Modallar State'i
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
+  const [showClassModal, setShowClassModal] = useState(false); // YANGI SINF UCHUN MODAL
   const [isLoading, setIsLoading] = useState(true);
 
-  // ==========================================
-  // HAQIQIY BAZA STATE'LARI (Bo'shdan boshlanadi)
-  // ==========================================
+  // Baza State'lari
   const [teachers, setTeachers] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [studentsCountByClass, setStudentsCountByClass] = useState<any>({});
   
-  // Yangi odam qo'shish uchun Input State'lar
+  // Input State'lar
   const [newPerson, setNewPerson] = useState({ fullName: "", subject: "", gender: "", className: "", phone: "" });
+  const [newClassInfo, setNewClassInfo] = useState({ name: "", limit: 24 }); // YANGI SINF UCHUN
 
   const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika"];
 
   // ==========================================
-  // SUPABASE'DAN MA'LUMOT O'QISH (Fetch)
+  // O'QISH (Fetch)
   // ==========================================
   useEffect(() => {
     fetchData();
@@ -36,40 +34,19 @@ export default function DirectorDashboard() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // 1. O'qituvchilarni olib kelish
-      const { data: teachersData, error: tError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'teacher')
-        .order('created_at', { ascending: false });
-      
-      if (tError) throw tError;
+      const { data: teachersData } = await supabase.from('profiles').select('*').eq('role', 'teacher').order('created_at', { ascending: false });
       setTeachers(teachersData || []);
 
-      // 2. Sinflarni olib kelish
-      const { data: classesData, error: cError } = await supabase
-        .from('classes')
-        .select('*')
-        .order('name');
-      
-      if (cError) throw cError;
+      const { data: classesData } = await supabase.from('classes').select('*').order('name');
       setClasses(classesData || []);
 
-      // 3. O'quvchilar sonini sinflar bo'yicha hisoblash
-      const { data: studentsData, error: sError } = await supabase
-        .from('profiles')
-        .select('class_name')
-        .eq('role', 'student');
-      
-      if (sError) throw sError;
-
+      const { data: studentsData } = await supabase.from('profiles').select('class_name').eq('role', 'student');
       const counts: any = {};
       classesData?.forEach(c => counts[c.name] = 0);
       studentsData?.forEach(student => {
         if(student.class_name) counts[student.class_name] = (counts[student.class_name] || 0) + 1;
       });
       setStudentsCountByClass(counts);
-
     } catch (error) {
       console.error("Xatolik:", error);
     } finally {
@@ -78,82 +55,70 @@ export default function DirectorDashboard() {
   };
 
   // ==========================================
-  // SUPABASE'GA MA'LUMOT YOZISH (Insert)
+  // YOZISH (Insert)
   // ==========================================
-  const handleAddTeacher = async () => {
-    if(!newPerson.fullName || !newPerson.subject) return alert("Hamma joyni to'ldiring!");
+  
+  // 1. YANGI SINF QO'SHISH FUNKSIYASI
+  const handleAddClass = async () => {
+    if(!newClassInfo.name) return alert("Sinf nomini yozing! (Masalan: 9-A)");
     
-    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
+    // Sinf nomi oldin borligini tekshirish
+    if(classes.some(c => c.name === newClassInfo.name.toUpperCase())) return alert("Bu sinf allaqachon mavjud!");
 
-    const { error } = await supabase.from('profiles').insert([
-      { id: uniqueId, role: 'teacher', full_name: newPerson.fullName, bio: newPerson.subject }
+    const { error } = await supabase.from('classes').insert([
+      { name: newClassInfo.name.toUpperCase(), max_limit: newClassInfo.limit }
     ]);
 
     if (error) {
       alert("Xatolik: " + error.message);
     } else {
-      setShowTeacherModal(false);
-      setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" });
-      fetchData();
+      setShowClassModal(false);
+      setNewClassInfo({ name: "", limit: 24 });
+      fetchData(); // Jadvalni yangilash
     }
   };
 
+  // 2. O'QITUVCHI QO'SHISH
+  const handleAddTeacher = async () => {
+    if(!newPerson.fullName || !newPerson.subject) return alert("Hamma joyni to'ldiring!");
+    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { error } = await supabase.from('profiles').insert([{ id: uniqueId, role: 'teacher', full_name: newPerson.fullName, bio: newPerson.subject }]);
+    if (error) alert("Xatolik: " + error.message);
+    else { setShowTeacherModal(false); setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" }); fetchData(); }
+  };
+
+  // 3. O'QUVCHI QO'SHISH
   const handleAddStudent = async () => {
     if(!newPerson.fullName || !newPerson.className) return alert("Hamma joyni to'ldiring!");
-    
     const limit = classes.find(c => c.name === newPerson.className)?.max_limit || 24;
     const currentCount = studentsCountByClass[newPerson.className] || 0;
     if(currentCount >= limit) return alert("Kechirasiz, bu sinfda joy qolmagan!");
 
     const uniqueId = `S-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const { error } = await supabase.from('profiles').insert([
-      { id: uniqueId, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className }
-    ]);
-
-    if (error) {
-      alert("Xatolik: " + error.message);
-    } else {
-      setShowStudentModal(false);
-      setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" });
-      fetchData();
-    }
+    const { error } = await supabase.from('profiles').insert([{ id: uniqueId, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className }]);
+    if (error) alert("Xatolik: " + error.message);
+    else { setShowStudentModal(false); setNewPerson({ fullName: "", subject: "", gender: "", className: "", phone: "" }); fetchData(); }
   };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
-      {/* ======================================================== */}
-      {/* YON PANEL (SIDEBAR) */}
-      {/* ======================================================== */}
+      {/* YON PANEL */}
       <div className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col h-screen flex-shrink-0 z-20 text-slate-300 hidden md:flex">
         <div className="h-20 flex items-center px-6 border-b border-slate-800">
           <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3 shadow-lg shadow-purple-600/30">E</div>
           <span className="text-xl font-black tracking-widest text-white">ELITA <span className="text-xs text-purple-400 align-top">ADMIN</span></span>
         </div>
-
         <div className="p-4 flex flex-col gap-2 mt-2 flex-1">
-          <button onClick={() => setActiveMenu("boshqaruv")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'boshqaruv' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <LayoutDashboard className="w-5 h-5 mr-3" /> Boshqaruv
-          </button>
-          <button onClick={() => setActiveMenu("teachers")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'teachers' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <Crown className="w-5 h-5 mr-3" /> O'qituvchilar
-          </button>
-          <button onClick={() => setActiveMenu("students")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'students' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <Users className="w-5 h-5 mr-3" /> O'quvchilar & Limit
-          </button>
-          <button onClick={() => setActiveMenu("timetable")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'timetable' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvali
-          </button>
-          <button onClick={() => setActiveMenu("algorithm")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'algorithm' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}>
-            <Calculator className="w-5 h-5 mr-3" /> Algoritm
-          </button>
+          <button onClick={() => setActiveMenu("boshqaruv")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'boshqaruv' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard className="w-5 h-5 mr-3" /> Boshqaruv</button>
+          <button onClick={() => setActiveMenu("teachers")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'teachers' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}><Crown className="w-5 h-5 mr-3" /> O'qituvchilar</button>
+          <button onClick={() => setActiveMenu("students")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'students' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}><Users className="w-5 h-5 mr-3" /> O'quvchilar & Limit</button>
+          <button onClick={() => setActiveMenu("timetable")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'timetable' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}><Calendar className="w-5 h-5 mr-3" /> Dars Jadvali</button>
+          <button onClick={() => setActiveMenu("algorithm")} className={`flex items-center px-4 py-3.5 rounded-xl font-bold text-[15px] transition-all ${activeMenu === 'algorithm' ? 'bg-purple-600 text-white shadow-md' : 'hover:bg-slate-800 hover:text-white'}`}><Calculator className="w-5 h-5 mr-3" /> Algoritm</button>
         </div>
       </div>
 
-      {/* ======================================================== */}
       {/* ASOSIY KONTENT */}
-      {/* ======================================================== */}
       <div className="flex-1 h-full overflow-y-auto bg-slate-50 p-4 md:p-8">
         <div className="w-full max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500 pb-10">
           
@@ -174,13 +139,18 @@ export default function DirectorDashboard() {
             <div className="flex justify-center py-20 text-purple-600 font-bold animate-pulse">Bazadan ma'lumotlar yuklanmoqda... (Kuting)</div>
           ) : (
             <>
-              {/* 1. BOSHQARUV */}
+              {/* BOSHQARUV */}
               {activeMenu === "boshqaruv" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">
                   <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                     <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4"><Users className="w-8 h-8"/></div>
                     <h3 className="font-bold text-lg text-gray-800">Jami O'qituvchilar</h3>
                     <p className="text-3xl font-black text-purple-600 mt-2">{teachers.length}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4"><School className="w-8 h-8"/></div>
+                    <h3 className="font-bold text-lg text-gray-800">Jami Sinflar</h3>
+                    <p className="text-3xl font-black text-blue-600 mt-2">{classes.length}</p>
                   </div>
                   <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center text-center">
                     <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4"><CheckCircle2 className="w-8 h-8"/></div>
@@ -190,7 +160,7 @@ export default function DirectorDashboard() {
                 </div>
               )}
 
-              {/* 2. O'QITUVCHILAR */}
+              {/* O'QITUVCHILAR */}
               {activeMenu === "teachers" && (
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-4">
                   <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50">
@@ -228,14 +198,25 @@ export default function DirectorDashboard() {
                 </div>
               )}
 
-              {/* 3. O'QUVCHILAR & LIMIT */}
+              {/* O'QUVCHILAR & LIMIT */}
               {activeMenu === "students" && (
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
-                  <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center"><Shield className="w-6 h-6 mr-2 text-purple-600"/> Sifat Nazorati (Sinf Limiti)</h2>
-                  <p className="text-gray-500 text-sm mb-6 max-w-2xl">O'quv sifatini tushirmaslik uchun har bir sinfda jami 24 tadan ortiq o'quvchi bo'lishiga ruxsat berilmaydi.</p>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-800 mb-1 flex items-center"><Shield className="w-6 h-6 mr-2 text-purple-600"/> Sifat Nazorati (Sinflar)</h2>
+                      <p className="text-gray-500 text-sm">O'quv sifatini tushirmaslik uchun sinf limitlarini nazorat qiling.</p>
+                    </div>
+                    {/* SINF QO'SHISH TUGMASI */}
+                    <button onClick={() => setShowClassModal(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-md transition-colors flex items-center">
+                      <School className="w-4 h-4 mr-2" /> Yangi Sinf Ochish
+                    </button>
+                  </div>
                   
                   {classes.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400 font-bold border-2 border-dashed rounded-2xl">Hali hech qanday sinf yo'q. (Supabase'dan qoshing)</div>
+                    <div className="p-10 text-center text-gray-400 font-bold border-2 border-dashed rounded-2xl bg-gray-50 flex flex-col items-center justify-center">
+                      <School className="w-12 h-12 mb-3 text-gray-300" />
+                      Maktabda hali hech qanday sinf yo'q.<br/>Tepadagi "Yangi Sinf Ochish" tugmasini bosing.
+                    </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(cls => {
@@ -286,6 +267,33 @@ export default function DirectorDashboard() {
       {/* ======================================================== */}
       {/* MODALLAR */}
       {/* ======================================================== */}
+
+      {/* SINF YARATISH MODALI */}
+      {showClassModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowClassModal(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+             <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-blue-50">
+                <h3 className="font-bold text-lg text-blue-900 flex items-center"><School className="w-5 h-5 mr-2 text-blue-600"/> Yangi Sinf</h3>
+                <button onClick={() => setShowClassModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
+             </div>
+             <div className="p-6 space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">Sinf Nomi</label>
+                  <input type="text" value={newClassInfo.name} onChange={e => setNewClassInfo({...newClassInfo, name: e.target.value})} placeholder="Masalan: 9-A, 10-V" className="w-full mt-1 p-3 bg-slate-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-300 font-bold uppercase" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase">O'quvchilar Limiti</label>
+                  <input type="number" value={newClassInfo.limit} onChange={e => setNewClassInfo({...newClassInfo, limit: Number(e.target.value)})} className="w-full mt-1 p-3 bg-slate-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-300 font-bold" />
+                </div>
+             </div>
+             <div className="p-4 border-t border-gray-100 flex justify-end bg-slate-50">
+                <button onClick={handleAddClass} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-colors">Sinfni Yaratish</button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* O'QITUVCHI MODALI */}
       {showTeacherModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowTeacherModal(false)}>
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
@@ -308,6 +316,7 @@ export default function DirectorDashboard() {
         </div>
       )}
 
+      {/* O'QUVCHI MODALI */}
       {showStudentModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowStudentModal(false)}>
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
