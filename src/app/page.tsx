@@ -17,7 +17,7 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Kichik harflarni kattaga aylantirib va bo'shliqlarni olib tashlab tekshiramiz
+    // Kiritilgan ID ni katta harflarga o'tkazib, bo'shliqlarni tozalaymiz
     const cleanId = userId.trim().toUpperCase();
     const cleanPass = password.trim();
 
@@ -25,44 +25,38 @@ export default function LoginPage() {
       setIsLoading(false);
 
       // 1. DIREKTOR (ADMIN) TEKSHIRUVI
-      if (cleanId.startsWith("ADMIN-")) {
-        if (cleanId === "ADMIN-001" && cleanPass === "director2026") {
+      if (cleanId.startsWith("ADMIN")) {
+        if (cleanPass === "123456") {
           router.push("/director/dashboard");
-          return;
         } else {
-          setError("Direktor ID yoki paroli noto'g'ri!");
-          return;
+          setError("Direktor paroli noto'g'ri! (Parol: 123456 bo'lishi kerak)");
         }
       }
 
       // 2. O'QITUVCHI TEKSHIRUVI
       else if (cleanId.startsWith("T-")) {
-        if (cleanId === "T-1045" && cleanPass === "ustoz123") {
+        if (cleanPass === "123456") {
           router.push("/teacher/dashboard");
-          return;
         } else {
-          setError("O'qituvchi ID yoki paroli noto'g'ri!");
-          return;
+          setError("O'qituvchi paroli noto'g'ri! (Parol: 123456 bo'lishi kerak)");
         }
       }
 
       // 3. O'QUVCHI TEKSHIRUVI
       else if (cleanId.startsWith("S-")) {
-        if (cleanId === "S-8392" && cleanPass === "student123") {
-          router.push("/student/dashboard"); // yoki /student/ranking ga, xohishingiz
-          return;
+        if (cleanPass === "123456") {
+          router.push("/student/dashboard");
         } else {
-          setError("O'quvchi ID yoki paroli noto'g'ri!");
-          return;
+          setError("O'quvchi paroli noto'g'ri! (Parol: 123456 bo'lishi kerak)");
         }
       }
 
-      // AGAR FORMAT UMUMAN BOSHQA BO'LSA
+      // AGAR FORMAT BOSHQA BO'LSA
       else {
-        setError("Noto'g'ri ID formati! (S-, T- yoki ADMIN- bilan boshlanishi kerak)");
+        setError("Noto'g'ri ID! Direktor uchun 'ADMIN', Ustoz uchun 'T-', O'quvchi uchun 'S-' bilan boshlang.");
       }
       
-    }, 800); // Tizim tekshirayotganini ko'rsatish uchun 0.8 soniya kutamiz
+    }, 800); // 0.8 soniya kutish animatsiyasi
   };
 
   return (
@@ -102,9 +96,9 @@ export default function LoginPage() {
               </div>
               <input
                 type="text"
-                placeholder="ADMIN-001, T-1045 yoki S-8392"
+                placeholder="Masalan: ADMIN, T-1045, S-8392"
                 value={userId}
-                onChange={(e) => setUserId(e.target.value.toUpperCase())}
+                onChange={(e) => setUserId(e.target.value)}
                 className="w-full pl-11 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-700 font-bold placeholder:font-medium placeholder:text-slate-400"
                 required
               />
@@ -119,7 +113,7 @@ export default function LoginPage() {
               </div>
               <input
                 type="password"
-                placeholder="Parolingizni kiriting"
+                placeholder="Parolni kiriting"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-11 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-slate-700 font-bold placeholder:font-medium placeholder:text-slate-400"
@@ -141,20 +135,15 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Eslatmalar (Design uchun) */}
-        <div className="mt-8 flex justify-center gap-6 border-t border-slate-100 pt-6">
-          <div className="flex flex-col items-center justify-center opacity-50">
-            <Shield className="w-5 h-5 text-purple-600 mb-1" />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Direktor</span>
+        {/* Yo'riqnoma */}
+        <div className="mt-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <p className="text-xs font-bold text-slate-500 text-center mb-3 uppercase">Test uchun ma'lumotlar:</p>
+          <div className="flex justify-between text-xs font-medium text-slate-600">
+            <span className="flex items-center"><Shield className="w-3 h-3 mr-1 text-purple-500"/> ADMIN</span>
+            <span className="flex items-center"><BookOpen className="w-3 h-3 mr-1 text-emerald-500"/> T-1045</span>
+            <span className="flex items-center"><GraduationCap className="w-3 h-3 mr-1 text-blue-500"/> S-8392</span>
           </div>
-          <div className="flex flex-col items-center justify-center opacity-50">
-            <BookOpen className="w-5 h-5 text-emerald-600 mb-1" />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ustoz</span>
-          </div>
-          <div className="flex flex-col items-center justify-center opacity-50">
-            <GraduationCap className="w-5 h-5 text-blue-600 mb-1" />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">O'quvchi</span>
-          </div>
+          <p className="text-center text-xs font-bold text-emerald-600 mt-2 bg-emerald-50 py-1 rounded-lg">Barchasi uchun parol: 123456</p>
         </div>
 
       </div>
