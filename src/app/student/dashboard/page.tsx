@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Calendar as CalendarIcon, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, MapPin, Square, User, Award } from "lucide-react";
+import { BookOpen, Calendar as CalendarIcon, CheckSquare, ChevronLeft, ChevronRight, Clock, FileText, GraduationCap, LayoutGrid, MapPin, Square, User, Award, TrendingUp, CheckCircle2 } from "lucide-react";
 
 export default function StudentDashboard() {
   // O'quvchi ma'lumotlari (Kiyotaka Ayanokoji)
