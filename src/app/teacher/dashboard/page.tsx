@@ -5,9 +5,9 @@ import { mockUsers } from "@/lib/mockData";
 import { Users, GraduationCap, Award, ShieldAlert, Search, Plus, Minus, CheckCircle2, X, Calendar, Clock, MapPin, History, Check, UserMinus, Stethoscope, ArrowLeft, BookOpen, Edit3, AlertCircle, FileText, Download, UploadCloud, Eye, Paperclip, ChevronRight, Lock } from "lucide-react";
 
 // ==========================================
-// TYPESCRIPT PASPORTLARI (Xatoni oldini olish uchun)
+// TYPESCRIPT PASPORTLARI (Qattiq himoya)
 // ==========================================
-type DailyGrade = {
+export type DailyGrade = {
   id: number;
   val: number | null;
   hwVal: number | null;
@@ -15,7 +15,7 @@ type DailyGrade = {
   date: string;
 };
 
-type Student = {
+export type Student = {
   id: string;
   class: string;
   name: string;
@@ -56,7 +56,7 @@ export default function TeacherDashboard() {
 
   const todaysSchedule = lessonPlan.filter(s => s.date === TODAY_DATE);
 
-  // 2. O'QUVCHILAR BAZASI (TypeScript pasporti ulandi)
+  // 2. O'QUVCHILAR BAZASI (Qat'iy tur bilan)
   const [allStudents, setAllStudents] = useState<Student[]>([
     { id: "S-8392", class: "10-A", name: "Asadova Parizod", daily: [{ id: 1, val: 8, hwVal: 9, attendance: "present", date: "04.09" }], bsb1: null, bsb2: null, chsb: null },
     { id: "S-8393", class: "10-A", name: "Azimov Kamron", daily: [{ id: 3, val: 7, hwVal: null, attendance: "present", date: "04.09" }], bsb1: null, bsb2: null, chsb: null },
@@ -71,8 +71,8 @@ export default function TeacherDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [recentLogs, setRecentLogs] = useState([{ id: 1, text: "Tizimga muvaffaqiyatli kirdingiz", time: "Hozirgina", type: "system" }]);
 
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
-  const [actionType, setActionType] = useState<"pp" | "grade" | "bulkPP" | "addPlan" | "assignHW" | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [actionType, setActionType] = useState<"pp" | "grade" | "editGrade" | "bulkPP" | "addPlan" | "assignHW" | null>(null);
   const [amount, setAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -88,16 +88,19 @@ export default function TeacherDashboard() {
 
   const [newPlan, setNewPlan] = useState({ date: TODAY_DATE, className: "10-A", topic: "", homework: "+ Keyingi darsga UV", type: "lesson" });
 
+  const [selectedGradeObj, setSelectedGradeObj] = useState<DailyGrade | null>(null);
+  const [reason, setReason] = useState("");
+
   const activeClassStudents = allStudents.filter(s => selectedClass ? s.class === selectedClass.className : true);
   const filteredStudents = activeClassStudents.filter(student => student.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const getDailyAverage = (daily: any[]) => {
+  const getDailyAverage = (daily: DailyGrade[]) => {
     const allGrades = daily.flatMap(d => [d.val, d.hwVal].filter(g => g !== null && g !== undefined));
     if (allGrades.length === 0) return 0;
     const sum = allGrades.reduce((a, b) => a + Number(b), 0);
     return sum / allGrades.length;
   };
-  const getTotalQuarterScore = (student: any) => Math.round(getDailyAverage(student.daily)) + (student.bsb1 || 0) + (student.bsb2 || 0) + (student.chsb || 0);
+  const getTotalQuarterScore = (student: Student) => Math.round(getDailyAverage(student.daily)) + (student.bsb1 || 0) + (student.bsb2 || 0) + (student.chsb || 0);
 
   const handleAttendanceChange = (studentId: string, status: string) => {
     setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, attendance: status } : s));
@@ -113,7 +116,17 @@ export default function TeacherDashboard() {
       if (actionType === "bulkPP") {
         setRecentLogs(prev => [{ id: Date.now(), text: `Oy yakuni: Butun sinfga ${amount} PP tarqatildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
       } else if (actionType === "pp") {
-         setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} hisobi o'zgartirildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
+         setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent?.name} hisobi o'zgartirildi`, time: "Hozirgina", type: "pp" }, ...prev].slice(0, 10));
+      } else if (selectedStudent) {
+        setAllStudents(prev => prev.map(s => {
+          if (s.id !== selectedStudent.id) return s;
+          if (gradeCategory === "daily") {
+            const newEntry: DailyGrade = { id: Date.now(), val: Number(grade), hwVal: null, attendance: "present", date: TODAY_DATE };
+            return { ...s, daily: [...s.daily, newEntry] };
+          }
+          return { ...s, [gradeCategory]: Number(grade) };
+        }));
+        setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} ga ${grade} qo'yildi`, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
       }
       setTimeout(() => { closeModal(); }, 1000);
     }, 500);
@@ -121,6 +134,8 @@ export default function TeacherDashboard() {
 
   const handleSaveGradeAndAttendance = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedStudent) return;
+
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
@@ -132,7 +147,7 @@ export default function TeacherDashboard() {
           return { ...s, [gradeCategory]: Number(lessonGrade) };
         }
 
-        const existingDailyIndex = s.daily.findIndex((d: any) => d.date === activeDate);
+        const existingDailyIndex = s.daily.findIndex(d => d.date === activeDate);
         const newDailyEntry: DailyGrade = {
           id: existingDailyIndex >= 0 ? s.daily[existingDailyIndex].id : Date.now(),
           date: activeDate,
@@ -157,6 +172,27 @@ export default function TeacherDashboard() {
         
       setRecentLogs(prev => [{ id: Date.now(), text: logText, time: "Hozirgina", type: "grade" }, ...prev].slice(0, 10));
       setSuccessMessage("Muvaffaqiyatli saqlandi!");
+      setTimeout(() => { closeModal(); }, 1000);
+    }, 500);
+  };
+
+  const handleEditGrade = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent || !selectedGradeObj) return;
+
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setSuccessMessage("Baho o'zgartirildi!");
+      
+      setAllStudents(prev => prev.map(s => {
+        if (s.id !== selectedStudent.id) return s;
+        return { 
+          ...s, 
+          daily: s.daily.map(g => g.id === selectedGradeObj.id ? { ...g, val: Number(grade) } : g) 
+        };
+      }));
+      setRecentLogs(prev => [{ id: Date.now(), text: `${selectedStudent.name} bahosi o'zgardi. Sabab: ${reason}`, time: "Hozirgina", type: "edit" }, ...prev].slice(0, 10));
       setTimeout(() => { closeModal(); }, 1000);
     }, 500);
   };
@@ -196,7 +232,7 @@ export default function TeacherDashboard() {
     }, 600);
   };
 
-  const openGradeModal = (student: any, date: string) => {
+  const openGradeModal = (student: Student, date: string) => {
     setSelectedStudent(student);
     setActiveDate(date);
     
@@ -205,7 +241,7 @@ export default function TeacherDashboard() {
     else if (todayLesson?.type === "chsb") setGradeCategory("chsb");
     else setGradeCategory("daily");
 
-    const existingEntry = student.daily.find((d: any) => d.date === date);
+    const existingEntry = student.daily.find(d => d.date === date);
     if (existingEntry) {
       setAttendanceStatus(existingEntry.attendance as any);
       setLessonGrade(existingEntry.val ? existingEntry.val.toString() : "");
@@ -331,18 +367,16 @@ export default function TeacherDashboard() {
                         {plan.date}.2025
                         {plan.date === TODAY_DATE && <div className="text-[10px] text-blue-400 mt-1">bugun</div>}
                       </td>
-                      <td className="p-3 text-sm text-gray-700 border border-gray-200">
+                      <td className="p-3 text-sm text-gray-700 border border-gray-200 flex justify-between items-center group cursor-text">
                         <span className={plan.type !== 'lesson' ? 'text-red-600 font-bold' : ''}>{plan.topic}</span>
+                        <div className="flex items-center text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"><Edit3 className="w-4 h-4 mr-1"/></div>
                       </td>
                       <td className="p-3 text-sm text-gray-600 border border-gray-200 align-top">
                         <div className="flex justify-between items-start mb-2">
-                          <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 font-medium'}>{plan.homework}</span>
+                          <span className={!plan.homework.includes('+') ? 'text-gray-700' : 'text-blue-500 cursor-pointer hover:underline'}>{plan.homework}</span>
+                          {!plan.homework.includes('+') && <div className="flex space-x-2 text-gray-400"><Eye className="w-4 h-4"/><Paperclip className="w-4 h-4"/></div>}
                         </div>
-                        <div className="flex justify-end mt-2">
-                          <button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50 transition-colors">
-                            Onlayn berish
-                          </button>
-                        </div>
+                        <div className="flex justify-end mt-2"><button onClick={() => openHomeworkModal(plan.id, plan.homework)} className="px-3 py-1.5 border border-blue-400 text-blue-500 rounded-md text-xs font-medium hover:bg-blue-50">Onlayn berish</button></div>
                       </td>
                     </tr>
                   ))}
@@ -376,6 +410,11 @@ export default function TeacherDashboard() {
                  </button>
                )}
             </div>
+          </div>
+
+          <div className="p-4 border-b border-gray-200 bg-slate-50 flex gap-2 overflow-x-auto">
+             <button className="px-4 py-2 border-2 border-blue-400 text-blue-600 rounded-lg text-sm font-bold bg-white">1 chorak</button>
+             <button className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-white">xulosa</button>
           </div>
 
           <div className="overflow-x-auto p-4">
@@ -453,8 +492,6 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* MODALLAR */}
-      
       {/* 1. BAHO VA DAVOMAT MODALI */}
       {selectedStudent && actionType === "grade" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
@@ -643,7 +680,7 @@ export default function TeacherDashboard() {
               <h2 className="text-xl font-bold mb-1 flex items-center"><Award className="w-6 h-6 mr-2 text-orange-500" /> PP Boshqaruvi</h2>
               <p className="text-sm text-gray-500 mb-6">O'quvchi: <strong>{selectedStudent.name}</strong></p>
               {successMessage ? (
-                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
               ) : (
                 <div className="space-y-4">
                   <input type="number" placeholder="Summa (PP)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 outline-none text-lg font-mono" />
@@ -651,6 +688,42 @@ export default function TeacherDashboard() {
                     <button onClick={(e) => handleAddGrade(e)} disabled={!amount || isProcessing} className="py-3 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center"><Minus className="w-5 h-5 mr-1" /> Jarima</button>
                     <button onClick={(e) => handleAddGrade(e)} disabled={!amount || isProcessing} className="py-3 bg-green-50 text-green-600 rounded-xl font-bold flex items-center justify-center"><Plus className="w-5 h-5 mr-1" /> Mukofot</button>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAHRIRLASH MODALI */}
+      {selectedStudent && actionType === "editGrade" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden border border-gray-100 relative">
+            <button onClick={closeModal} className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-100 rounded-full z-10"><X className="w-5 h-5" /></button>
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-1"><Edit3 className="w-6 h-6 mr-2 text-orange-500 inline" /> Bahoni tahrirlash</h2>
+              <div className="bg-orange-50 text-orange-800 p-3 rounded-xl text-sm mb-4 flex border border-orange-200 mt-2">
+                <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" /> Bahoni o'zgartirish tarixda saqlanadi va sabab ko'rsatilishi shart.
+              </div>
+              {successMessage ? (
+                <div className="bg-green-50 text-green-600 p-6 rounded-2xl flex flex-col items-center font-medium border border-green-100"><CheckCircle2 className="w-12 h-12 mb-3" />{successMessage}</div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Yangi baho (1-10)</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[1,2,3,4,5,6,7,8,9,10].map(g => (
+                        <button key={g} onClick={() => setGrade(g.toString())} className={`py-2 rounded-lg font-black text-lg border ${grade === g.toString() ? "bg-orange-600 text-white border-orange-600" : "bg-white text-gray-600 border-gray-200"}`}>{g}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Sabab</label>
+                    <textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Masalan: Uy vazifasi xatosini to'g'riladi..." className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 outline-none resize-none h-24" />
+                  </div>
+                  <button onClick={handleEditGrade} disabled={!grade || !reason || isProcessing} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50">
+                    {isProcessing ? "Saqlanmoqda..." : "O'zgarishni tasdiqlash"}
+                  </button>
                 </div>
               )}
             </div>
