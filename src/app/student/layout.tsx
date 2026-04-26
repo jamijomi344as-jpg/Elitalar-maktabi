@@ -96,7 +96,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                 {isSidebarOpen ? <Menu className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
              </button>
              <h2 className="font-black text-xl text-blue-900 dark:text-white hidden sm:block">
-                {isMessenger ? "Telegram Klon" : "O'quvchi Paneli"}
+                {isMessenger ? "Messenger" : "O'quvchi Paneli"}
              </h2>
            </div>
 
