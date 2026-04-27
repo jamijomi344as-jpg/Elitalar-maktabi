@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   Users, UserPlus, Shield, Calendar, Calculator, 
   Crown, LayoutDashboard, CheckCircle2, X, PlusCircle, 
-  School, Edit, Trash2, Search, ArrowLeft, MessageSquare, Send, CheckCircle
+  School, Edit, Trash2, Search, ArrowLeft, MessageSquare, Send, CheckCircle, Key, Clock
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 
@@ -18,6 +18,7 @@ export default function DirectorDashboard() {
   const [showClassModal, setShowClassModal] = useState(false);
   const [showEditTeacherModal, setShowEditTeacherModal] = useState(false);
   const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [showLessonModal, setShowLessonModal] = useState(false);
 
   // MUROJAAT JAVOBI UCHUN STATE
   const [replyModal, setReplyModal] = useState<any>(null);
@@ -29,12 +30,21 @@ export default function DirectorDashboard() {
   const [classes, setClasses] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]); 
   const [feedbacks, setFeedbacks] = useState<any[]>([]); 
+  const [timetableData, setTimetableData] = useState<any[]>([]);
   
   const [selectedClassView, setSelectedClassView] = useState<string | null>(null);
   const [editingTeacher, setEditingTeacher] = useState<any>(null);
   const [editingStudent, setEditingStudent] = useState<any>(null); 
   const [newPerson, setNewPerson] = useState({ fullName: "", subject: "", homeroom: "", className: "" });
   const [newClassInfo, setNewClassInfo] = useState({ name: "", limit: 24 });
+
+  const [selectedClassForTimetable, setSelectedClassForTimetable] = useState<string | null>(null);
+  const [currentCell, setCurrentCell] = useState<{ day: string, lesson: number } | null>(null);
+  const [lessonForm, setLessonForm] = useState({ subject: "", teacher_id: "", room: "" });
+
+  const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika", "Tarix", "Tarbiya"];
+  const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+  const lessonNumbers = [1, 2, 3, 4, 5, 6, 7];
 
   const generatePassword = () => Math.random().toString(36).slice(-6).toUpperCase();
 
@@ -57,6 +67,9 @@ export default function DirectorDashboard() {
 
       const { data: fData } = await supabase.from('feedbacks').select('*').order('created_at', { ascending: false });
       setFeedbacks(fData || []);
+
+      const { data: timeData } = await supabase.from('timetable').select('*');
+      setTimetableData(timeData || []);
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
   };
 
@@ -84,6 +97,15 @@ export default function DirectorDashboard() {
     }
   };
 
+  const handleUpdateTeacher = async () => {
+    const { error } = await supabase.from('profiles').update({ full_name: editingTeacher.full_name, bio: editingTeacher.bio, homeroom: editingTeacher.homeroom || null }).eq('id', editingTeacher.id);
+    if(!error) { setShowEditTeacherModal(false); fetchData(); }
+  };
+
+  const handleDeleteTeacher = async (id: string) => {
+    if(confirm("Ushbu o'qituvchini tizimdan butunlay o'chirmoqchimisiz?")) { await supabase.from('profiles').delete().eq('id', id); fetchData(); }
+  };
+
   const handleAddStudent = async () => {
     const pass = generatePassword();
     const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -104,6 +126,16 @@ export default function DirectorDashboard() {
     if(confirm("Bu murojaatni o'chirib yuborasizmi?")) { await supabase.from('feedbacks').delete().eq('id', id); fetchData(); }
   };
 
+  const handleSaveLesson = async () => {
+    const { error } = await supabase.from('timetable').upsert({ class_name: selectedClassForTimetable, day_of_week: currentCell?.day, lesson_number: currentCell?.lesson, subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room }, { onConflict: 'class_name, day_of_week, lesson_number' });
+    if(!error) { setShowLessonModal(false); fetchData(); }
+  };
+
+  const deleteLesson = async () => {
+    await supabase.from('timetable').delete().eq('class_name', selectedClassForTimetable).eq('day_of_week', currentCell?.day).eq('lesson_number', currentCell?.lesson);
+    setShowLessonModal(false); fetchData();
+  };
+
   // ==========================================
   // JAVOB YUBORISH ALGORITMI
   // ==========================================
@@ -111,25 +143,17 @@ export default function DirectorDashboard() {
     if (!replyText.trim()) return alert("Javob matnini yozing!");
     setIsReplying(true);
 
-    // 1. Murojaat jadvalidagi statusini "javob berildi" ga o'zgartirish va matnni saqlash
-    const { error: fError } = await supabase.from('feedbacks')
-      .update({ status: 'javob_berildi', answer: replyText })
-      .eq('id', replyModal.id);
+    const { error: fError } = await supabase.from('feedbacks').update({ status: 'javob_berildi', answer: replyText }).eq('id', replyModal.id);
 
-    // 2. Agar foydalanuvchi anonim bo'lmasa, unga Bildirishnoma (Notification) yuboramiz
     if (!fError && replyModal.sender_id) {
-      await supabase.from('notifications').insert([{
-        user_id: replyModal.sender_id,
-        title: "Direktordan javob keldi",
-        message: replyText
-      }]);
+      await supabase.from('notifications').insert([{ user_id: replyModal.sender_id, title: "Direktordan javob keldi", message: replyText }]);
     }
 
     alert("Javob foydalanuvchi paneliga yuborildi!");
     setReplyModal(null);
     setReplyText("");
     setIsReplying(false);
-    fetchData(); // Ma'lumotlarni yangilash
+    fetchData(); 
   };
 
   return (
@@ -144,13 +168,15 @@ export default function DirectorDashboard() {
           <button onClick={() => setActiveMenu("boshqaruv")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'boshqaruv' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><LayoutDashboard className="w-5 h-5 mr-3"/> Boshqaruv</button>
           <button onClick={() => setActiveMenu("teachers")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'teachers' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><Crown className="w-5 h-5 mr-3"/> O'qituvchilar</button>
           <button onClick={() => setActiveMenu("students")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'students' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><Users className="w-5 h-5 mr-3"/> O'quvchilar</button>
+          <button onClick={() => setActiveMenu("timetable")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'timetable' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><Calendar className="w-5 h-5 mr-3"/> Dars Jadvali</button>
+          <button onClick={() => setActiveMenu("algorithm")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'algorithm' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><Calculator className="w-5 h-5 mr-3"/> Algoritm & Moliya</button>
         </nav>
       </aside>
 
       {/* CONTENT */}
       <main className="flex-1 overflow-y-auto p-8 lg:p-12">
         <header className="flex justify-between items-center mb-10">
-          <div><h1 className="text-4xl font-black text-slate-900 tracking-tight">Direktor Paneli</h1><p className="text-slate-500 font-medium mt-1">Elita Meta-Education tizimi</p></div>
+          <div><h1 className="text-4xl font-black text-slate-900 tracking-tight">Direktor Paneli</h1><p className="text-slate-500 font-medium mt-1">Elita Meta-Education tizimi boshqaruvi</p></div>
         </header>
 
         {isLoading ? (
@@ -173,7 +199,6 @@ export default function DirectorDashboard() {
                   </div>
                 </div>
 
-                {/* MUROJAATLAR RO'YXATI */}
                 <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
                   <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                     <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><MessageSquare className="text-indigo-600"/> Kelib tushgan Murojaatlar</h2>
@@ -200,7 +225,6 @@ export default function DirectorDashboard() {
                             </div>
                             <p className="text-slate-700 font-medium leading-relaxed">{f.message}</p>
                             
-                            {/* Agar direktor avval javob yozgan bo'lsa, u pastda ko'rinib turadi */}
                             {f.answer && (
                               <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 text-sm font-medium">
                                 <span className="font-bold text-emerald-600 block mb-1">Sizning javobingiz:</span>
@@ -208,8 +232,6 @@ export default function DirectorDashboard() {
                               </div>
                             )}
                           </div>
-                          
-                          {/* Murojaatni o'chirish tugmasi */}
                           <button onClick={(e) => { e.stopPropagation(); handleDeleteFeedback(f.id); }} className="p-3 text-red-400 hover:text-white hover:bg-red-500 rounded-xl transition-all flex-shrink-0">
                              <Trash2 className="w-5 h-5"/>
                           </button>
@@ -221,7 +243,42 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* 2. O'QUVCHILAR & SINFLAR */}
+            {/* 2. O'QITUVCHILAR */}
+            {activeMenu === "teachers" && (
+              <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                  <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Crown className="text-indigo-600"/> Ustozlar Ro'yxati</h2>
+                  <button onClick={() => setShowTeacherModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
+                    <UserPlus className="w-5 h-5"/> Yangi O'qituvchi
+                  </button>
+                </div>
+                <div className="overflow-x-auto p-4">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50">
+                        <th className="p-4">ID / Parol</th><th className="p-4">To'liq F.I.SH</th><th className="p-4">Mutaxassisligi</th><th className="p-4">Sinf Rahbarligi</th><th className="p-4 text-right">Amallar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teachers.map(t => (
+                        <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+                          <td className="p-4"><div className="font-black text-indigo-600 text-sm">{t.id}</div><div className="text-[10px] font-mono font-bold text-amber-600 uppercase flex items-center gap-1"><Key className="w-3 h-3"/> {t.password}</div></td>
+                          <td className="p-4 font-bold text-slate-900">{t.full_name}</td>
+                          <td className="p-4 text-sm text-slate-500 font-medium">{t.bio}</td>
+                          <td className="p-4"><span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${t.homeroom ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>{t.homeroom || "Yo'q"}</span></td>
+                          <td className="p-4 text-right">
+                            <button onClick={() => { setEditingTeacher(t); setShowEditTeacherModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1"><Edit className="w-5 h-5"/></button>
+                            <button onClick={() => handleDeleteTeacher(t.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5"/></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 3. O'QUVCHILAR & SINFLAR */}
             {activeMenu === "students" && (
               <div className="space-y-8 animate-in slide-in-from-bottom-4">
                 {selectedClassView ? (
@@ -289,6 +346,104 @@ export default function DirectorDashboard() {
                 )}
               </div>
             )}
+
+            {/* 4. DARS JADVALI */}
+            {activeMenu === "timetable" && (
+              <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col">
+                <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                   <div>
+                     <h2 className="text-2xl font-black text-slate-900">Dars Jadvali Konstruktori</h2>
+                     <p className="text-slate-400 font-medium">Sinfni tanlang va jadvalni to'ldiring</p>
+                   </div>
+                   <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2">
+                     {classes.map(c => (
+                       <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-6 py-3 rounded-xl font-black text-sm whitespace-nowrap transition-all ${selectedClassForTimetable === c.name ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                         {c.name}
+                       </button>
+                     ))}
+                   </div>
+                </div>
+
+                {!selectedClassForTimetable ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-20 text-slate-300">
+                    <Calendar className="w-20 h-20 mb-4 opacity-20"/>
+                    <p className="text-xl font-bold italic">Tepadagi ro'yxatdan biron bir sinfni tanlang</p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-x-auto p-8">
+                    <table className="w-full border-collapse border border-slate-100">
+                      <thead>
+                        <tr>
+                          <th className="p-4 bg-slate-50 border border-slate-100 w-20"><Clock className="w-5 h-5 mx-auto text-slate-300"/></th>
+                          {days.map(d => <th key={d} className="p-4 bg-slate-50 border border-slate-100 text-slate-400 font-black uppercase text-xs tracking-widest">{d}shanba</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lessonNumbers.map(num => (
+                          <tr key={num}>
+                            <td className="p-4 border border-slate-100 text-center font-black text-slate-300 bg-slate-50/30 text-lg">{num}</td>
+                            {days.map(day => {
+                              const lesson = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === day && t.lesson_number === num);
+                              return (
+                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setShowLessonModal(true); }} className={`p-2 border border-slate-100 h-32 w-44 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
+                                  {lesson ? (
+                                    <div className="h-full flex flex-col justify-center bg-indigo-50/80 rounded-2xl p-3 border border-indigo-100">
+                                      <p className="font-black text-slate-900 text-sm leading-tight">{lesson.subject}</p>
+                                      <p className="text-[10px] font-bold text-indigo-500 mt-2 uppercase">{teachers.find(t=>t.id === lesson.teacher_id)?.full_name || "Noma'lum"}</p>
+                                      <span className="absolute bottom-2 right-2 text-[9px] font-black text-slate-300 uppercase">{lesson.room}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center opacity-0 group-hover:opacity-100"><PlusCircle className="text-indigo-200"/></div>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 5. ALGORITM & MOLIYA */}
+            {activeMenu === "algorithm" && (
+              <div className="bg-slate-900 rounded-[3.5rem] p-12 text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-10"><Calculator className="w-64 h-64"/></div>
+                <div className="relative z-10 max-w-2xl">
+                  <h2 className="text-5xl font-black italic tracking-tighter mb-6">ELITA IQTISODIYOTI</h2>
+                  <p className="text-slate-400 text-lg font-medium leading-relaxed mb-10">
+                    Sizning maktabingizda moliya va rag'batlantirish tizimi to'liq avtomatlashtirilgan. 
+                    Har oyning birinchi sanasida tizim sinflar o'rnini aniqlaydi va **100,000 PP** jamg'armani o'quvchilarning o'rtacha bahosiga qarab taqsimlaydi.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-6 mb-12">
+                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+                        <p className="text-indigo-400 font-black text-xs uppercase tracking-widest mb-1">1-o'rin (Elita)</p>
+                        <p className="text-3xl font-black italic">40,000 PP</p>
+                     </div>
+                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+                        <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-1">2-o'rin</p>
+                        <p className="text-3xl font-black italic">30,000 PP</p>
+                     </div>
+                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+                        <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-1">3-o'rin</p>
+                        <p className="text-3xl font-black italic">18,000 PP</p>
+                     </div>
+                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
+                        <p className="text-red-400 font-black text-xs uppercase tracking-widest mb-1">4-o'rin</p>
+                        <p className="text-3xl font-black italic">12,000 PP</p>
+                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-[2.5rem]">
+                     <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center"><CheckCircle2/></div>
+                     <p className="text-emerald-400 font-bold">Avtomatik tarqatish yoqilgan. Keyingi to'lov: 1-may.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -304,21 +459,12 @@ export default function DirectorDashboard() {
                  <button onClick={() => setReplyModal(null)} className="text-indigo-400 hover:text-indigo-700"><X/></button>
               </div>
               <div className="p-8 space-y-4">
-                 
-                 {/* Murojaatning asil matni */}
                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{replyModal.is_anonymous ? "Yashirin foydalanuvchi:" : replyModal.sender_name + ":"}</span>
                     <p className="text-sm font-medium text-slate-700">{replyModal.message}</p>
                  </div>
                  
-                 {/* Javob yozish inputi */}
-                 <textarea 
-                    rows={4} 
-                    placeholder="Sizning javobingiz..." 
-                    className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-bold outline-none resize-none"
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                 ></textarea>
+                 <textarea rows={4} placeholder="Sizning javobingiz..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-bold outline-none resize-none" value={replyText} onChange={e => setReplyText(e.target.value)}></textarea>
 
                  <button onClick={handleSendReply} disabled={isReplying} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center disabled:opacity-50">
                     {isReplying ? "YUBORILMOQDA..." : <><Send className="w-5 h-5 mr-2"/> JAVOBNI YUBORISH</>}
@@ -328,7 +474,60 @@ export default function DirectorDashboard() {
         </div>
       )}
 
-      {/* O'QUVCHINI TAHRIRLASH MODALI */}
+      {/* QOLGAN MODALLAR (O'qituvchi qo'shish, o'quvchi qo'shish) */}
+      {showTeacherModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowTeacherModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+              <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center"><h3 className="text-xl font-black">Yangi O'qituvchi</h3><button onClick={() => setShowTeacherModal(false)}><X/></button></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" placeholder="F.I.SH (Masalan: Alimov B.)" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-600" value={newPerson.fullName} onChange={e => setNewPerson({...newPerson, fullName: e.target.value})} />
+                 <select className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none text-slate-500" value={newPerson.subject} onChange={e => setNewPerson({...newPerson, subject: e.target.value})}><option value="">Fanni Tanlang</option>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                 <select className="w-full p-4 bg-blue-50 text-blue-600 rounded-2xl font-bold outline-none border-2 border-blue-100" value={newPerson.homeroom} onChange={e => setNewPerson({...newPerson, homeroom: e.target.value})}><option value="">Sinf Rahbarligi (Ixtiyoriy)</option>{classes.map(c => <option key={c.name} value={c.name}>{c.name} Rahbari</option>)}</select>
+                 <button onClick={handleAddTeacher} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all mt-4">BAZAGA QO'SHISH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showEditTeacherModal && editingTeacher && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowEditTeacherModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-blue-50 border-b border-blue-100 flex justify-between items-center"><h3 className="text-xl font-black text-blue-900">Tahrirlash</h3><button onClick={() => setShowEditTeacherModal(false)}><X/></button></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={editingTeacher.full_name} onChange={e => setEditingTeacher({...editingTeacher, full_name: e.target.value})} />
+                 <select className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={editingTeacher.bio} onChange={e => setEditingTeacher({...editingTeacher, bio: e.target.value})}>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                 <select className="w-full p-4 bg-blue-50 text-blue-600 rounded-2xl font-bold outline-none border-2 border-blue-100" value={editingTeacher.homeroom || ""} onChange={e => setEditingTeacher({...editingTeacher, homeroom: e.target.value})}><option value="">Biriktirilmagan</option>{classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}</select>
+                 <button onClick={handleUpdateTeacher} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all mt-4">SAQLASH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showClassModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowClassModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-slate-900 text-white flex justify-between items-center"><h3 className="text-xl font-black italic">Yangi Sinf Ochish</h3></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" placeholder="Sinf Nomi (Masalan: 9-A)" className="w-full p-4 bg-slate-100 rounded-2xl font-black text-center uppercase text-2xl outline-none" value={newClassInfo.name} onChange={e => setNewClassInfo({...newClassInfo, name: e.target.value})} />
+                 <input type="number" placeholder="O'quvchilar Limiti" className="w-full p-4 bg-slate-100 rounded-2xl font-bold text-center outline-none" value={newClassInfo.limit} onChange={e => setNewClassInfo({...newClassInfo, limit: Number(e.target.value)})} />
+                 <button onClick={handleAddClass} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-xl transition-all">SINFNI YARATISH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showStudentModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowStudentModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center"><h3 className="text-xl font-black text-emerald-900">Yangi O'quvchi ({newPerson.className})</h3><button onClick={() => setShowStudentModal(false)}><X/></button></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" placeholder="O'quvchi F.I.SH" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={newPerson.fullName} onChange={e => setNewPerson({...newPerson, fullName: e.target.value})} />
+                 <button onClick={handleAddStudent} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-xl hover:bg-emerald-700 transition-all">MAKTAGBA QO'SHISH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {showEditStudentModal && editingStudent && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowEditStudentModal(false)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -339,12 +538,35 @@ export default function DirectorDashboard() {
               <div className="p-8 space-y-4">
                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">F.I.SH</label>
                  <input type="text" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={editingStudent.full_name} onChange={e => setEditingStudent({...editingStudent, full_name: e.target.value})} />
-                 
                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-4">Sinfini o'zgartirish</label>
                  <select className="w-full p-4 bg-indigo-50 text-indigo-700 rounded-2xl font-bold outline-none border-2 border-indigo-100" value={editingStudent.class_name} onChange={e => setEditingStudent({...editingStudent, class_name: e.target.value})}>
                     {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                  </select>
                  <button onClick={handleUpdateStudent} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all mt-4">SAQLASH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showLessonModal && currentCell && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowLessonModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                 <h3 className="text-xl font-black text-indigo-900">{currentCell.day}, {currentCell.lesson}-soat</h3>
+                 <button onClick={() => setShowLessonModal(false)}><X/></button>
+              </div>
+              <div className="p-8 space-y-4">
+                 <select className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={lessonForm.subject} onChange={e => setLessonForm({...lessonForm, subject: e.target.value})}>
+                    <option value="">Fanni Tanlang</option>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}
+                 </select>
+                 <select className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={lessonForm.teacher_id} onChange={e => setLessonForm({...lessonForm, teacher_id: e.target.value})}>
+                    <option value="">Ustozni Tanlang</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                 </select>
+                 <input type="text" placeholder="Xona (Masalan: 12-xona)" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={lessonForm.room} onChange={e => setLessonForm({...lessonForm, room: e.target.value})} />
+                 <div className="flex gap-3 pt-4">
+                    <button onClick={deleteLesson} className="flex-1 py-4 bg-red-100 text-red-600 rounded-2xl font-black hover:bg-red-600 hover:text-white transition-all text-xs">O'CHIRISH</button>
+                    <button onClick={handleSaveLesson} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all">SAQLASH</button>
+                 </div>
               </div>
            </div>
         </div>
