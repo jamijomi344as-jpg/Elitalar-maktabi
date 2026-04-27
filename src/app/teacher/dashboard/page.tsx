@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
   Clock, ShieldCheck, Key, CheckCircle, LogOut, Settings, Eye, EyeOff, 
-  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, MessageCircle, Edit, MoreVertical, Search, BellOff, Trash2, Ban
+  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, MessageCircle, Edit, MessageSquare, MoreVertical, Search, BellOff, Trash2, Ban
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
