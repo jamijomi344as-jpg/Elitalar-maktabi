@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, MoreVertical, Paperclip, Send, Smile, Phone, Video, Users, CheckCheck, Menu, Bookmark, User, Megaphone, Settings, Moon, ChevronDown, X, Trash2, BellOff, Ban, Image as ImageIcon, Camera } from "lucide-react";
+import { Search, MoreVertical, Paperclip, Send, Smile, Phone, Video, Users, CheckCheck, Menu, Bookmark, User, Megaphone, Settings, Moon, ChevronDown, X, Trash2, BellOff, Ban, Image as ImageIcon, Camera, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -40,10 +40,9 @@ export default function MessengerPage() {
       fetchContacts(studentId);
     };
     loadData();
-  }, []);
+  }, [router]);
 
   const fetchChats = async (userId: string) => {
-    // Haqiqiy bazadan chatlarni olish
     const { data } = await supabase.from('chats').select('*').order('created_at', { ascending: false });
     setChats(data || []);
   };
@@ -105,14 +104,12 @@ export default function MessengerPage() {
 
     const newMsg = { sender_id: student.id, receiver_id: activeChat.id, text: messageInput };
     
-    // UI ni tez yangilash
     setMessages([...messages, { ...newMsg, id: Date.now(), created_at: new Date().toISOString() }]);
     setMessageInput("");
 
     await supabase.from('messages').insert([newMsg]);
   };
 
-  // Qidiruv filtri
   const filteredChats = chats.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (!student) return <div className="p-10 text-slate-500">Yuklanmoqda...</div>;
@@ -166,7 +163,7 @@ export default function MessengerPage() {
               const isActive = activeChat?.id === chat.id;
               return (
                 <div key={chat.id} onClick={() => {setActiveChat(chat); fetchMessages(chat.id);}} className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors ${isActive ? 'bg-[#2b5278]' : 'hover:bg-[#202b36]'}`}>
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white bg-blue-500 overflow-hidden">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white bg-blue-500 overflow-hidden flex-shrink-0">
                     {chat.avatar_url ? <img src={chat.avatar_url} className="w-full h-full object-cover"/> : chat.name.charAt(0)}
                   </div>
                   <div className={`flex-1 min-w-0 border-b pb-2 ${isActive ? 'border-transparent' : 'border-[#0e1621]'}`}>
@@ -199,7 +196,6 @@ export default function MessengerPage() {
                 <Search className="w-5 h-5 cursor-pointer hover:text-white" />
                 <Phone className="w-5 h-5 cursor-pointer hover:text-white" />
                 
-                {/* 3 ta nuqta ishladi */}
                 <MoreVertical onClick={() => setShowChatMenu(!showChatMenu)} className="w-5 h-5 cursor-pointer hover:text-white" />
                 {showChatMenu && (
                   <div className="absolute right-0 top-10 w-48 bg-[#17212b] rounded-xl shadow-2xl border border-slate-800 py-2 z-50">
@@ -245,9 +241,7 @@ export default function MessengerPage() {
         )}
       </div>
 
-      {/* ========================================================== */}
       {/* MODALLAR: GURUH VA KANAL OCHISH (RASM YUKLASH BILAN) */}
-      {/* ========================================================== */}
       {(showNewGroupModal || showNewChannelModal) && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-[#17212b] w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6 border border-[#0e1621]">
