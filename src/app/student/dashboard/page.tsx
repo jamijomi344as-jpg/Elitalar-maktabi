@@ -100,8 +100,8 @@ export default function DashboardPage() {
            <h3 className="flex items-center text-emerald-100 font-bold mb-2 relative z-10"><TrendingUp className="w-5 h-5 mr-2"/> O'zlashtirish</h3>
            <p className="text-emerald-100 text-xs mb-4 relative z-10">Sinfdagi umumiy o'rningiz</p>
            <div className="text-5xl font-black text-white relative z-10 mb-2">{classRank}-o'rin</div>
-           {cpNeededForNext > 0 ? (
-             <p className="text-emerald-100 text-sm relative z-10 font-medium">{classRank - 1}-o'ringa chiqish uchun <b className="text-white">{cpNeededForNext} CP</b> kerak.</p>
+           {cpNeeded > 0 ? (
+             <p className="text-emerald-100 text-sm relative z-10 font-medium">{classRank - 1}-o'ringa chiqish uchun <b className="text-white">{cpNeeded} CP</b> kerak.</p>
            ) : (
              <p className="text-emerald-100 text-sm relative z-10 font-medium">Siz peshqadamsiz! 🔥</p>
            )}
