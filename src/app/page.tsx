@@ -18,7 +18,7 @@ export default function Home() {
     setError("");
     setIsLoading(true);
 
-    // BAZADAN QIDIRAMIZ (Hech qanday 123456 yo'q!)
+    // BAZADAN QIDIRAMIZ
     const { data, error: fetchError } = await supabase
       .from('profiles')
       .select('*')
@@ -32,7 +32,19 @@ export default function Home() {
       return;
     }
 
-    // ROLIGA QARAB YO'NALTIRAMIZ
+    // ==========================================
+    // MUVAFFAQIYATLI LOGIN - XOTIRAGA SAQLASH
+    // ==========================================
+    // Foydalanuvchining ID raqamini roliga qarab Local Storage'ga saqlaymiz:
+    if (data.role === 'student') {
+      localStorage.setItem('student_id', data.id);
+    } else if (data.role === 'teacher') {
+      localStorage.setItem('teacher_id', data.id);
+    } else if (data.role === 'director' || data.role === 'admin') {
+      localStorage.setItem('director_id', data.id);
+    }
+
+    // ROLIGA QARAB TEGISHLI SAHIFAGA YO'NALTIRAMIZ
     if (data.role === 'director' || data.role === 'admin') {
       router.push('/director/dashboard');
     } else if (data.role === 'teacher') {
