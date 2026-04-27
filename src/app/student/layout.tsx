@@ -194,6 +194,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       )}
 
       {/* FLOAT MUROJAAT TUGMASI VA MODALI */}
+      {!isMessenger && (
       <div className="fixed bottom-6 right-6 z-40">
         <button onClick={() => setShowFeedbackModal(true)} className="bg-blue-600 text-white text-sm font-bold px-5 py-3 rounded-full shadow-2xl hover:bg-blue-500 flex items-center gap-2 hover:scale-105 transition-all">
            <MessageSquare className="w-5 h-5"/> Murojaat yo'llash
