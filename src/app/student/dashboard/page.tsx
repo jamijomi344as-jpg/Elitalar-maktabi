@@ -5,7 +5,7 @@ import {
   LayoutDashboard, MessageCircle, Wallet, BookOpen, Trophy, Settings, LogOut, 
   BellRing, TrendingUp, User, GraduationCap, Award, FileText, CheckCircle2, 
   Circle, Clock, Send, AlertCircle, X, ShieldCheck, EyeOff, Eye, Search, Edit, 
-  MoreVertical, BellOff, Trash2, Ban, ArrowRight, ArrowDownLeft, ArrowUpRight
+  MoreVertical, BellOff, Trash2, Ban, ArrowRight, ArrowDownLeft, ArrowUpRight, MessageSquare
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -159,8 +159,9 @@ export default function StudentDashboard() {
         <div className="bg-[#17212b] p-10 rounded-[3rem] shadow-2xl w-full max-w-md border border-slate-800 animate-in zoom-in-95">
           <div className="w-20 h-20 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-6"><ShieldCheck className="w-10 h-10"/></div>
           <h2 className="text-3xl font-black text-center mb-2 text-white">O'QUVCHI KIRISH</h2>
+          <p className="text-center text-slate-500 font-bold text-xs uppercase mb-8">Elita Meta-Maktab tizimi</p>
           <form onSubmit={handleLogin} className="space-y-4 mt-8">
-            <input type="text" placeholder="ID (S-XXXX)" className="w-full p-5 bg-[#0e1621] text-white rounded-2xl outline-none font-black text-center uppercase border border-slate-700 focus:border-blue-500" onChange={(e) => setLoginForm({...loginForm, id: e.target.value.toUpperCase()})} />
+            <input type="text" placeholder="Sizning ID (S-XXXX)" className="w-full p-5 bg-[#0e1621] text-white rounded-2xl outline-none font-black text-center uppercase border border-slate-700 focus:border-blue-500" onChange={(e) => setLoginForm({...loginForm, id: e.target.value.toUpperCase()})} />
             <div className="relative">
               <input type={showPassword ? "text" : "password"} placeholder="Maxfiy Parol" className="w-full p-5 bg-[#0e1621] text-white rounded-2xl outline-none font-black text-center uppercase border border-slate-700 focus:border-blue-500" onChange={(e) => setLoginForm({...loginForm, password: e.target.value.toUpperCase()})} />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-500">{showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}</button>
@@ -181,7 +182,7 @@ export default function StudentDashboard() {
           <div className="w-10 h-10 bg-blue-600 rounded-[10px] flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20">E</div>
           <span className="text-2xl font-black text-white tracking-widest uppercase">ELITA</span>
         </div>
-        <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+        <nav className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
           <button onClick={() => setActiveMenu("asosiy")} className={`w-full flex items-center px-4 py-3.5 rounded-xl font-bold transition-all text-sm ${activeMenu === 'asosiy' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><LayoutDashboard className="w-5 h-5 mr-3" /> Asosiy</button>
           <button onClick={() => setActiveMenu("messenger")} className={`w-full flex items-center px-4 py-3.5 rounded-xl font-bold transition-all text-sm ${activeMenu === 'messenger' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><MessageCircle className="w-5 h-5 mr-3" /> Messenger</button>
           <button onClick={() => setActiveMenu("hamyon")} className={`w-full flex items-center px-4 py-3.5 rounded-xl font-bold transition-all text-sm ${activeMenu === 'hamyon' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><Wallet className="w-5 h-5 mr-3" /> Hamyon (PP)</button>
@@ -483,7 +484,7 @@ export default function StudentDashboard() {
               <div className="w-16 h-16 bg-blue-500/20 text-blue-500 rounded-2xl flex items-center justify-center mb-6"><Settings className="w-8 h-8"/></div>
               <h2 className="text-3xl font-black text-white mb-2">Sozlamalar</h2>
               <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-8">Shaxsiy parolingizni o'zgartiring</p>
-              <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Yangi parol yozing..." className="w-full p-5 bg-[#0e1621] border border-slate-700 focus:border-blue-500 rounded-2xl mb-6 font-black text-lg outline-none text-center text-white placeholder-slate-600" />
+              <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Yangi parol yozing..." className="w-full p-5 bg-[#0e1621] border-2 border-transparent focus:border-blue-500 rounded-2xl mb-6 font-black text-lg outline-none text-center text-white placeholder-slate-600" />
               <button onClick={handleChangePassword} disabled={isChanging} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center text-lg disabled:opacity-50">{isChanging ? "SAQLANMOQDA..." : "PAROLNI SAQLASH"}</button>
             </div>
           )}
