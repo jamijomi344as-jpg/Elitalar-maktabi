@@ -95,6 +95,7 @@ export default function DirectorDashboard() {
     if(!newClassInfo.name) return alert("Sinf nomini kiriting!");
     const { error } = await supabase.from('classes').insert([{ name: newClassInfo.name.toUpperCase(), max_limit: newClassInfo.limit }]);
     if(!error) { setShowClassModal(false); setNewClassInfo({name: "", limit: 24}); fetchData(); }
+    else { alert("Xatolik (Sinf qo'shish): " + error.message); }
   };
 
   const handleAddTeacher = async () => {
@@ -107,61 +108,68 @@ export default function DirectorDashboard() {
     if (!error) {
       alert(`Muvaffaqiyatli! ID: ${uniqueId} | Parol: ${pass}`);
       setShowTeacherModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); 
-    }
+    } else { alert("Xatolik (Ustoz qo'shish): " + error.message); }
   };
 
   const handleUpdateTeacher = async () => {
     const { error } = await supabase.from('profiles').update({ full_name: editingTeacher.full_name, bio: editingTeacher.bio, homeroom: editingTeacher.homeroom || null }).eq('id', editingTeacher.id);
-    if(!error) { setShowEditTeacherModal(false); fetchData(); }
+    if(!error) { setShowEditTeacherModal(false); fetchData(); } else { alert("Xatolik: " + error.message); }
   };
 
   const handleDeleteTeacher = async (id: string) => {
-    if(confirm("Ushbu o'qituvchini tizimdan butunlay o'chirmoqchimisiz?")) { await supabase.from('profiles').delete().eq('id', id); fetchData(); }
+    if(confirm("Ushbu o'qituvchini tizimdan butunlay o'chirmoqchimisiz?")) { 
+      const { error } = await supabase.from('profiles').delete().eq('id', id); 
+      if(!error) fetchData(); else alert("Xatolik: " + error.message);
+    }
   };
 
   const handleAddStudent = async () => {
+    if(!newPerson.fullName || !newPerson.className) return alert("To'ldiring!");
     const pass = generatePassword();
     const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
     const { error } = await supabase.from('profiles').insert([{ id, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className, password: pass }]);
-    if(!error) { alert(`O'quvchi qo'shildi!\nID: ${id}\nParol: ${pass}`); setShowStudentModal(false); fetchData(); }
+    if(!error) { 
+      alert(`O'quvchi qo'shildi!\nID: ${id}\nParol: ${pass}`); 
+      setShowStudentModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); 
+    } else { alert("Xatolik (O'quvchi qo'shish): " + error.message); }
   };
 
   const handleUpdateStudent = async () => {
     const { error } = await supabase.from('profiles').update({ full_name: editingStudent.full_name, class_name: editingStudent.class_name }).eq('id', editingStudent.id);
-    if(!error) { setShowEditStudentModal(false); fetchData(); }
+    if(!error) { setShowEditStudentModal(false); fetchData(); } else { alert("Xatolik: " + error.message); }
   };
 
   const handleDeleteStudent = async (id: string, name: string) => {
-    if(confirm(`Diqqat! ${name} maktabdan butunlay o'chirib yuboriladi. Davom etasizmi?`)) { await supabase.from('profiles').delete().eq('id', id); fetchData(); }
+    if(confirm(`Diqqat! ${name} maktabdan butunlay o'chirib yuboriladi. Davom etasizmi?`)) { 
+      const { error } = await supabase.from('profiles').delete().eq('id', id); 
+      if(!error) fetchData(); else alert("Xatolik: " + error.message);
+    }
   };
 
   const handleDeleteFeedback = async (id: string) => {
-    if(confirm("Bu murojaatni o'chirib yuborasizmi?")) { await supabase.from('feedbacks').delete().eq('id', id); fetchData(); }
+    if(confirm("Bu murojaatni o'chirib yuborasizmi?")) { 
+      const { error } = await supabase.from('feedbacks').delete().eq('id', id); 
+      if(!error) fetchData(); else alert("Xatolik: " + error.message);
+    }
   };
 
   // ==========================================
-  // DARS JADVALINI SAQLASH (YANGI CHORAK BILAN)
+  // DARS JADVALINI SAQLASH 
   // ==========================================
   const handleSaveLesson = async () => {
-    // Oldin bu katakda dars bormi tekshiramiz
+    if(!lessonForm.subject || !lessonForm.teacher_id) return alert("Fan va Ustozni tanlang!");
+
     const existing = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === currentCell?.day && t.lesson_number === currentCell?.lesson && t.term === selectedTerm);
 
     if (existing) {
-       // Update
-       await supabase.from('timetable').update({ subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room, start_date: termStartDate, end_date: termEndDate }).eq('id', existing.id);
+       const { error } = await supabase.from('timetable').update({ subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room, start_date: termStartDate, end_date: termEndDate }).eq('id', existing.id);
+       if(error) alert("Xatolik: " + error.message);
     } else {
-       // Insert
-       await supabase.from('timetable').insert([{ 
-         class_name: selectedClassForTimetable, 
-         day_of_week: currentCell?.day, 
-         lesson_number: currentCell?.lesson, 
-         subject: lessonForm.subject, 
-         teacher_id: lessonForm.teacher_id, 
-         room: lessonForm.room,
-         term: selectedTerm,
-         start_date: termStartDate,
-         end_date: termEndDate
+       const { error } = await supabase.from('timetable').insert([{ 
+         class_name: selectedClassForTimetable, day_of_week: currentCell?.day, lesson_number: currentCell?.lesson, 
+         subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room, term: selectedTerm, start_date: termStartDate, end_date: termEndDate
        }]);
+       if(error) alert("Xatolik: " + error.message);
     }
     setShowLessonModal(false); 
     fetchData();
@@ -170,7 +178,8 @@ export default function DirectorDashboard() {
   const deleteLesson = async () => {
     const existing = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === currentCell?.day && t.lesson_number === currentCell?.lesson && t.term === selectedTerm);
     if(existing) {
-       await supabase.from('timetable').delete().eq('id', existing.id);
+       const { error } = await supabase.from('timetable').delete().eq('id', existing.id);
+       if(error) alert("Xatolik: " + error.message);
     }
     setShowLessonModal(false); 
     fetchData();
@@ -189,9 +198,9 @@ export default function DirectorDashboard() {
       await supabase.from('notifications').insert([{ user_id: replyModal.sender_id, title: "Direktordan javob keldi", message: replyText }]);
     }
 
-    alert("Javob foydalanuvchi paneliga yuborildi!");
-    setReplyModal(null);
-    setReplyText("");
+    if(fError) alert("Xatolik: " + fError.message);
+    else { alert("Javob foydalanuvchi paneliga yuborildi!"); setReplyModal(null); setReplyText(""); }
+    
     setIsReplying(false);
     fetchData(); 
   };
@@ -337,7 +346,7 @@ export default function DirectorDashboard() {
                       <table className="w-full text-left">
                         <thead>
                           <tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50">
-                            <th className="p-4">O'quvchi ID</th><th className="p-4">F.I.SH</th><th className="p-4 text-center">Balans (PP)</th><th className="p-4 text-right">Amallar</th>
+                            <th className="p-4">O'quvchi ID / Parol</th><th className="p-4">F.I.SH</th><th className="p-4 text-center">Balans (PP)</th><th className="p-4 text-right">Amallar</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -346,7 +355,10 @@ export default function DirectorDashboard() {
                           ) : (
                             allStudents.filter(s => s.class_name === selectedClassView).map((student) => (
                               <tr key={student.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                                <td className="p-4 font-black text-indigo-600 w-32">{student.id}</td>
+                                <td className="p-4">
+                                  <div className="font-black text-indigo-600">{student.id}</div>
+                                  <div className="text-[10px] font-mono font-bold text-amber-600 uppercase flex items-center gap-1"><Key className="w-3 h-3"/> {student.password}</div>
+                                </td>
                                 <td className="p-4 font-bold text-slate-900">{student.full_name}</td>
                                 <td className="p-4 text-center"><span className="bg-amber-100 text-amber-600 px-3 py-1 rounded-lg font-black text-sm">{student.pp_balance || 0} PP</span></td>
                                 <td className="p-4 text-right">
@@ -387,7 +399,7 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* 4. DARS JADVALI (YANGILANGAN - CHORAK BILAN) */}
+            {/* 4. DARS JADVALI (YANGILANGAN - FILTR BILAN) */}
             {activeMenu === "timetable" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
@@ -397,7 +409,6 @@ export default function DirectorDashboard() {
                    </div>
                    
                    <div className="flex flex-wrap gap-4 items-center">
-                     {/* SINF TANLASH */}
                      <div className="flex bg-slate-100 p-1.5 rounded-2xl">
                        {classes.map(c => (
                          <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-5 py-2.5 rounded-xl font-black text-sm transition-all ${selectedClassForTimetable === c.name ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -406,13 +417,9 @@ export default function DirectorDashboard() {
                        ))}
                      </div>
 
-                     {/* CHORAK VA SANALAR (YANGI) */}
                      <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 p-1.5 rounded-2xl">
                         <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="bg-white px-4 py-2.5 rounded-xl font-black text-sm outline-none text-indigo-700 shadow-sm cursor-pointer">
-                           <option value="1-chorak">1-chorak</option>
-                           <option value="2-chorak">2-chorak</option>
-                           <option value="3-chorak">3-chorak</option>
-                           <option value="4-chorak">4-chorak</option>
+                           <option value="1-chorak">1-chorak</option><option value="2-chorak">2-chorak</option><option value="3-chorak">3-chorak</option><option value="4-chorak">4-chorak</option>
                         </select>
                         <div className="flex items-center gap-2 px-3">
                            <input type="text" value={termStartDate} onChange={e=>setTermStartDate(e.target.value)} className="w-24 text-xs font-bold text-center p-1.5 bg-white border border-indigo-100 rounded-md outline-none" title="Boshlanish sanasi"/>
@@ -442,7 +449,6 @@ export default function DirectorDashboard() {
                           <tr key={num}>
                             <td className="p-4 border-b border-r border-slate-100 text-center font-black text-slate-400 bg-slate-50/30 text-lg">{num}</td>
                             {days.map(day => {
-                              // Aynan shu sinf, shu kun, shu soat va SHU CHORAKDAGI darsni izlaymiz
                               const lesson = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === day && t.lesson_number === num && t.term === selectedTerm);
                               return (
                                 <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-32 w-44 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
@@ -473,34 +479,7 @@ export default function DirectorDashboard() {
                 <div className="absolute top-0 right-0 p-10 opacity-10"><Calculator className="w-64 h-64"/></div>
                 <div className="relative z-10 max-w-2xl">
                   <h2 className="text-5xl font-black italic tracking-tighter mb-6">ELITA IQTISODIYOTI</h2>
-                  <p className="text-slate-400 text-lg font-medium leading-relaxed mb-10">
-                    Sizning maktabingizda moliya va rag'batlantirish tizimi to'liq avtomatlashtirilgan. 
-                    Har oyning birinchi sanasida tizim sinflar o'rnini aniqlaydi va **100,000 PP** jamg'armani o'quvchilarning o'rtacha bahosiga qarab taqsimlaydi.
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-6 mb-12">
-                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
-                        <p className="text-indigo-400 font-black text-xs uppercase tracking-widest mb-1">1-o'rin (Elita)</p>
-                        <p className="text-3xl font-black italic">40,000 PP</p>
-                     </div>
-                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
-                        <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-1">2-o'rin</p>
-                        <p className="text-3xl font-black italic">30,000 PP</p>
-                     </div>
-                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
-                        <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-1">3-o'rin</p>
-                        <p className="text-3xl font-black italic">18,000 PP</p>
-                     </div>
-                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-md">
-                        <p className="text-red-400 font-black text-xs uppercase tracking-widest mb-1">4-o'rin</p>
-                        <p className="text-3xl font-black italic">12,000 PP</p>
-                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-[2.5rem]">
-                     <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center"><CheckCircle2/></div>
-                     <p className="text-emerald-400 font-bold">Avtomatik tarqatish yoqilgan. Keyingi to'lov: 1-may.</p>
-                  </div>
+                  <p className="text-slate-400 text-lg font-medium leading-relaxed mb-10">Sizning maktabingizda moliya va rag'batlantirish tizimi to'liq avtomatlashtirilgan. Har oyning birinchi sanasida tizim sinflar o'rnini aniqlaydi va **100,000 PP** jamg'armani o'quvchilarning o'rtacha bahosiga qarab taqsimlaydi.</p>
                 </div>
               </div>
             )}
@@ -514,53 +493,39 @@ export default function DirectorDashboard() {
       {replyModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setReplyModal(null)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-              <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
-                 <h3 className="text-xl font-black text-indigo-900">Murojaatga Javob Yozish</h3>
-                 <button onClick={() => setReplyModal(null)} className="text-indigo-400 hover:text-indigo-700"><X/></button>
-              </div>
+              <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center"><h3 className="text-xl font-black text-indigo-900">Murojaatga Javob Yozish</h3><button onClick={() => setReplyModal(null)} className="text-indigo-400 hover:text-indigo-700"><X/></button></div>
               <div className="p-8 space-y-4">
-                 
-                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{replyModal.is_anonymous ? "Yashirin foydalanuvchi:" : replyModal.sender_name + ":"}</span>
-                    <p className="text-sm font-medium text-slate-700">{replyModal.message}</p>
-                 </div>
-                 
-                 <textarea 
-                    rows={4} 
-                    placeholder="Sizning javobingiz..." 
-                    className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-bold outline-none resize-none"
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                 ></textarea>
-
-                 <button onClick={handleSendReply} disabled={isReplying} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center disabled:opacity-50">
-                    {isReplying ? "YUBORILMOQDA..." : <><Send className="w-5 h-5 mr-2"/> JAVOBNI YUBORISH</>}
-                 </button>
+                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{replyModal.is_anonymous ? "Yashirin foydalanuvchi:" : replyModal.sender_name + ":"}</span><p className="text-sm font-medium text-slate-700">{replyModal.message}</p></div>
+                 <textarea rows={4} placeholder="Sizning javobingiz..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-bold outline-none resize-none" value={replyText} onChange={e => setReplyText(e.target.value)}></textarea>
+                 <button onClick={handleSendReply} disabled={isReplying} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center disabled:opacity-50">{isReplying ? "YUBORILMOQDA..." : <><Send className="w-5 h-5 mr-2"/> JAVOBNI YUBORISH</>}</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* BOSHQA BARCHA MODALLAR SHU YERDA (O'ZGARISHSZ) */}
-      {/* ... */}
-      
+      {/* DARS QO'SHISH MODALI (FILTRLI USTOZ TANLASH) */}
       {showLessonModal && currentCell && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowLessonModal(false)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
               <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
-                 <div>
-                   <h3 className="text-xl font-black text-indigo-900">{currentCell.day}, {currentCell.lesson}-soat</h3>
-                   <p className="text-indigo-600 font-bold text-xs uppercase tracking-widest mt-1">{selectedTerm}</p>
-                 </div>
+                 <div><h3 className="text-xl font-black text-indigo-900">{currentCell.day}, {currentCell.lesson}-soat</h3><p className="text-indigo-600 font-bold text-xs uppercase tracking-widest mt-1">{selectedTerm}</p></div>
                  <button onClick={() => setShowLessonModal(false)} className="bg-white p-2 rounded-full text-indigo-400 hover:text-indigo-600"><X/></button>
               </div>
               <div className="p-8 space-y-4">
-                 <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.subject} onChange={e => setLessonForm({...lessonForm, subject: e.target.value})}>
+                 
+                 <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.subject} onChange={e => setLessonForm({...lessonForm, subject: e.target.value, teacher_id: ""})}>
                     <option value="">Fanni Tanlang</option>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
+                 
+                 {/* SHU YERDA FILTR ISHLAYDI: Faqat tepadagi fanga mos o'qituvchilar chiqadi */}
                  <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.teacher_id} onChange={e => setLessonForm({...lessonForm, teacher_id: e.target.value})}>
-                    <option value="">Ustozni Tanlang</option>{teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                    <option value="">Ustozni Tanlang</option>
+                    {teachers
+                      .filter(t => !lessonForm.subject || t.bio === lessonForm.subject)
+                      .map(t => <option key={t.id} value={t.id}>{t.full_name} ({t.bio})</option>)
+                    }
                  </select>
+
                  <input type="text" placeholder="Xona (Masalan: 12-xona)" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.room} onChange={e => setLessonForm({...lessonForm, room: e.target.value})} />
                  <div className="flex gap-3 pt-4">
                     <button onClick={deleteLesson} className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-black hover:bg-red-500 hover:text-white transition-all text-xs">O'CHIRISH</button>
@@ -570,7 +535,47 @@ export default function DirectorDashboard() {
            </div>
         </div>
       )}
-      {/* ... qolgan yopilish teglar */}
+
+      {/* QOLGAN MODALLAR (O'qituvchi, O'quvchi qo'shish va hk) ... (O'ZGARISHSZ QOLDI) */}
+      {showTeacherModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowTeacherModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+              <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center"><h3 className="text-xl font-black">Yangi O'qituvchi</h3><button onClick={() => setShowTeacherModal(false)}><X/></button></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" placeholder="F.I.SH (Masalan: Alimov B.)" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-indigo-600" value={newPerson.fullName} onChange={e => setNewPerson({...newPerson, fullName: e.target.value})} />
+                 <select className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none text-slate-500" value={newPerson.subject} onChange={e => setNewPerson({...newPerson, subject: e.target.value})}><option value="">Fanni Tanlang</option>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                 <select className="w-full p-4 bg-blue-50 text-blue-600 rounded-2xl font-bold outline-none border-2 border-blue-100" value={newPerson.homeroom} onChange={e => setNewPerson({...newPerson, homeroom: e.target.value})}><option value="">Sinf Rahbarligi (Ixtiyoriy)</option>{classes.map(c => <option key={c.name} value={c.name}>{c.name} Rahbari</option>)}</select>
+                 <button onClick={handleAddTeacher} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all mt-4">BAZAGA QO'SHISH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showClassModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowClassModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-slate-900 text-white flex justify-between items-center"><h3 className="text-xl font-black italic">Yangi Sinf Ochish</h3></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" placeholder="Sinf Nomi (Masalan: 9-A)" className="w-full p-4 bg-slate-100 rounded-2xl font-black text-center uppercase text-2xl outline-none" value={newClassInfo.name} onChange={e => setNewClassInfo({...newClassInfo, name: e.target.value})} />
+                 <input type="number" placeholder="O'quvchilar Limiti" className="w-full p-4 bg-slate-100 rounded-2xl font-bold text-center outline-none" value={newClassInfo.limit} onChange={e => setNewClassInfo({...newClassInfo, limit: Number(e.target.value)})} />
+                 <button onClick={handleAddClass} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-xl transition-all">SINFNI YARATISH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {showStudentModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowStudentModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center"><h3 className="text-xl font-black text-emerald-900">Yangi O'quvchi ({newPerson.className})</h3><button onClick={() => setShowStudentModal(false)}><X/></button></div>
+              <div className="p-8 space-y-4">
+                 <input type="text" placeholder="O'quvchi F.I.SH" className="w-full p-4 bg-slate-100 rounded-2xl font-bold outline-none" value={newPerson.fullName} onChange={e => setNewPerson({...newPerson, fullName: e.target.value})} />
+                 <button onClick={handleAddStudent} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-xl hover:bg-emerald-700 transition-all">MAKTAGBA QO'SHISH</button>
+              </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 }
