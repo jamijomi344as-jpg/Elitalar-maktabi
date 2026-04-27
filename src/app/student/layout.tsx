@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, MessageCircle, Wallet, BookOpen, Trophy, Settings, LogOut, Sun, Moon, Bell, Menu, MessageSquare, X, ShieldCheck } from "lucide-react";
+import { 
+  LayoutDashboard, MessageCircle, Wallet, BookOpen, Trophy, Settings, LogOut, 
+  Sun, Moon, Bell, Menu, MessageSquare, X 
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
@@ -25,11 +28,10 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const [feedbackForm, setFeedbackForm] = useState({ message: "", isAnonymous: false });
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
 
-  // 1. BRAUZER XOTIRASIDAN O'QUVCHINI ANIQLASH VA MALUMOTLARNI YUKLASH
   useEffect(() => {
     const studentId = localStorage.getItem('student_id');
     if (!studentId) {
-      router.push('/'); // ID yo'q bo'lsa Asosiy Loginga haydaydi
+      router.push('/'); 
       return;
     }
 
@@ -43,7 +45,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
     loadGlobalData();
 
-    // JONLI KANAL (REAL-TIME NOTIFICATIONS)
     const notifChannel = supabase.channel('realtime-notifs')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${studentId}` }, (payload) => {
          setNotifications((prev) => [payload.new, ...prev]);
@@ -52,7 +53,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     return () => { supabase.removeChannel(notifChannel); }
   }, [router]);
 
-  // 2. OQ/QORA MAVZUNI SOZLASh
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark" || (!savedTheme && document.documentElement.classList.contains("dark"))) {
@@ -61,8 +61,15 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   }, []);
 
   const toggleTheme = () => {
-    if (isDarkMode) { document.documentElement.classList.remove("dark"); localStorage.setItem("theme", "light"); setIsDarkMode(false); } 
-    else { document.documentElement.classList.add("dark"); localStorage.setItem("theme", "dark"); setIsDarkMode(true); }
+    if (isDarkMode) { 
+      document.documentElement.classList.remove("dark"); 
+      localStorage.setItem("theme", "light"); 
+      setIsDarkMode(false); 
+    } else { 
+      document.documentElement.classList.add("dark"); 
+      localStorage.setItem("theme", "dark"); 
+      setIsDarkMode(true); 
+    }
   };
 
   const handleLogout = () => {
@@ -76,7 +83,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   };
 
   const markAllAsRead = async () => {
-    await supabase.from('notifications').update({ is_read: true }).eq('user_id', student.id).eq('is_read', false);
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', student?.id).eq('is_read', false);
     setNotifications(notifications.map(n => ({...n, is_read: true})));
     setShowNotifDropdown(false);
   };
@@ -93,7 +100,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     if (newPassword.length < 4) return alert("Parol qisqa!");
     setIsChanging(true);
     await supabase.from('profiles').update({ password: newPassword }).eq('id', student.id);
-    alert("Parol yangilandi! Endi yangi parol bilan kirasiz."); setNewPassword(""); setShowSettingsModal(false);
+    alert("Parol yangilandi!"); setNewPassword(""); setShowSettingsModal(false);
     setIsChanging(false);
   };
 
@@ -105,7 +112,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-[#0e1621] font-sans overflow-hidden text-slate-900 dark:text-slate-200 transition-colors duration-300">
       
-      {/* SIDEBAR */}
       <aside className={`bg-white dark:bg-[#0e1621] border-r border-slate-200 dark:border-slate-800/50 flex flex-col h-screen flex-shrink-0 z-40 transition-all duration-300 overflow-hidden absolute md:relative ${isSidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full border-none"}`}>
         <div className="h-20 flex items-center px-6 border-b border-slate-200 dark:border-slate-800/50 flex-shrink-0 w-72">
           <div className="w-10 h-10 bg-blue-600 rounded-[10px] flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20 mr-3">E</div>
@@ -120,11 +126,10 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </nav>
         <div className="p-4 border-t border-slate-200 dark:border-slate-800/50 space-y-2 w-72">
            <button onClick={() => setShowSettingsModal(true)} className="w-full flex items-center px-4 py-3.5 rounded-xl font-bold transition-all text-sm hover:bg-slate-100 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"><Settings className="w-5 h-5 mr-3" /> Sozlamalar</button>
-           <button onClick={handleLogout} className="w-full flex items-center px-4 py-3.5 rounded-xl text-red-500 dark:text-red-400 font-bold hover:bg-red-50 dark:hover:bg-red-500/10 text-sm"><LogOut className="w-5 h-5 mr-3" /> Chiqish</button>
+           <button onClick={handleLogout} className="w-full flex items-center px-4 py-3.5 rounded-xl text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-500/10 text-sm"><LogOut className="w-5 h-5 mr-3" /> Chiqish</button>
         </div>
       </aside>
 
-      {/* HEADER VA CONTENT QISMI */}
       <div className="flex-1 h-full flex flex-col overflow-hidden relative">
         <header className="h-20 bg-white dark:bg-[#0e1621]/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/50 px-4 md:px-8 flex justify-between items-center flex-shrink-0 z-30 transition-colors duration-300">
            <div className="flex items-center gap-4">
@@ -178,9 +183,8 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </main>
       </div>
 
-      {/* SOZLAMALAR MODALI */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSettingsModal(false)}>
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSettingsModal(false)}>
            <div className="bg-white dark:bg-[#17212b] p-10 rounded-[3rem] w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95" onClick={e=>e.stopPropagation()}>
               <div className="flex justify-between items-center mb-6">
                  <h2 className="text-3xl font-black text-slate-900 dark:text-white">Sozlamalar</h2>
@@ -193,20 +197,21 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </div>
       )}
 
-      {/* FLOAT MUROJAAT TUGMASI VA MODALI */}
+      {/* Murojaat tugmasi (Messengerda yashiriladi) */}
       {!isMessenger && (
-      <div className="fixed bottom-6 right-6 z-40">
-        <button onClick={() => setShowFeedbackModal(true)} className="bg-blue-600 text-white text-sm font-bold px-5 py-3 rounded-full shadow-2xl hover:bg-blue-500 flex items-center gap-2 hover:scale-105 transition-all">
-           <MessageSquare className="w-5 h-5"/> Murojaat yo'llash
-        </button>
-      </div>
+        <div className="fixed bottom-6 right-6 z-40">
+          <button onClick={() => setShowFeedbackModal(true)} className="bg-blue-600 text-white text-sm font-bold px-5 py-3 rounded-full shadow-2xl hover:bg-blue-500 flex items-center gap-2 hover:scale-105 transition-all">
+             <MessageSquare className="w-5 h-5"/> Murojaat yo'llash
+          </button>
+        </div>
+      )}
 
       {showFeedbackModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowFeedbackModal(false)}>
-           <div className="bg-white dark:bg-[#17212b] rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowFeedbackModal(false)}>
+           <div className="bg-white dark:bg-[#17212b] rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
               <div className="p-8 bg-slate-50 dark:bg-[#0e1621] flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
                  <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center"><MessageSquare className="w-5 h-5 mr-3 text-blue-600 dark:text-blue-500"/> Murojaat yo'llash</h3>
-                 <button onClick={() => setShowFeedbackModal(false)} className="text-slate-400 hover:text-slate-900 dark:hover:text-white"><X/></button>
+                 <button onClick={() => setShowFeedbackModal(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white"><X/></button>
               </div>
               <div className="p-8 space-y-4">
                  <textarea rows={4} placeholder="Fikringizni yozing..." className="w-full p-4 bg-white dark:bg-[#0e1621] border border-slate-200 dark:border-slate-800 focus:border-blue-500 rounded-2xl font-medium outline-none resize-none text-slate-900 dark:text-white" value={feedbackForm.message} onChange={e => setFeedbackForm({...feedbackForm, message: e.target.value})}></textarea>
@@ -219,6 +224,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
            </div>
         </div>
       )}
+
     </div>
   );
 }
