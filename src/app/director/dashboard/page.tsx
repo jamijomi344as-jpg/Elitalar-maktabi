@@ -56,12 +56,17 @@ export default function DirectorDashboard() {
   const [currentCell, setCurrentCell] = useState<{ day: string, lesson: number } | null>(null);
   const [lessonForm, setLessonForm] = useState({ subject: "", teacher_id: "", room: "" });
 
-  const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika", "Tarix", "Tarbiya", "Jismoniy tarbiya"];
+  // ==========================================
+  // YANGILANGAN VA TO'LIQ FANLAR RO'YXATI
+  // ==========================================
+  const subjectsBase = [
+    "Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Rus tili", 
+    "Kimyo", "Biologiya", "Fizika", "Informatika", "O'zbekiston tarixi", "Jahon tarixi", 
+    "Geografiya", "Tarbiya", "Davlat va huquq asoslari", "Iqtisodiyot", 
+    "Jismoniy tarbiya", "Chizmachilik", "Texnologiya", "Sinf soati", "Kelajak soati"
+  ].sort(); // Alifbo tartibida saralab qo'yish (tanlashda oson bo'lishi uchun)
+
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-  
-  // ==========================================
-  // MUHIM O'ZGARISH: Faqat 6 soat qoldirildi!
-  // ==========================================
   const lessonNumbers = [1, 2, 3, 4, 5, 6]; 
 
   const generatePassword = () => Math.random().toString(36).slice(-6).toUpperCase();
@@ -148,7 +153,7 @@ export default function DirectorDashboard() {
 
     if(insertData.length > 0) {
       await supabase.from('timetable').insert(insertData);
-      alert("Algoritm jadvalni to'liq 6 soat qilib taqsimlab berdi!");
+      alert("Algoritm jadvalni muvaffaqiyatli tuzdi!");
     } else {
       alert("Jadval tuza olmadim. Yoki joylar yetarli emas, yoki xatolik yuz berdi.");
     }
@@ -269,7 +274,6 @@ export default function DirectorDashboard() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             
-            {/* O'QITUVCHI / O'QUVCHI / BOSHQARUV QISMLARI QISQARTIRILMADI */}
             {activeMenu === "boshqaruv" && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
