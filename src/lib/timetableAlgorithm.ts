@@ -9,8 +9,7 @@ export type TimetableCell = { subject: string; teacherId: string } | null;
 export type Timetable = Record<string, Record<number, Record<string, TimetableCell>>>;
 
 const DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-// 7-soat butunlay olib tashlandi, faqat 6 soat!
-const PERIODS = [1, 2, 3, 4, 5, 6]; 
+const PERIODS = [1, 2, 3, 4, 5, 6]; // Faqat 6 soat qoldirilgan
 
 export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   const timetable: Timetable = {};
@@ -27,7 +26,7 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     }
   }
 
-  // Optimal jadval tuzish uchun darslar aralashtiriladi
+  // Darslarni aralashtiramiz
   allLessons = allLessons.sort(() => Math.random() - 0.5);
 
   const finalSchedule: any[] = [];
@@ -35,12 +34,43 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   for (const lesson of allLessons) {
     let placed = false;
 
-    for (const day of DAYS) {
+    // 1-QOIDA: Kunlarni tartiblash (Sochish va Muvozanat algoritmi)
+    const sortedDays = [...DAYS].sort((dayA, dayB) => {
+      let subjCountA = 0; let subjCountB = 0;
+      let totalCountA = 0; let totalCountB = 0;
+
+      for (const p of PERIODS) {
+        if (timetable[dayA][p][lesson.className]) totalCountA++;
+        if (timetable[dayB][p][lesson.className]) totalCountB++;
+        if (timetable[dayA][p][lesson.className]?.subject === lesson.subject) subjCountA++;
+        if (timetable[dayB][p][lesson.className]?.subject === lesson.subject) subjCountB++;
+      }
+
+      // 1. Eng avvalo: Shu fandan darsi YO'Q kunlarga ustunlik beramiz (Turli kunlarga sochish uchun)
+      if (subjCountA !== subjCountB) {
+        return subjCountA - subjCountB; 
+      }
+      // 2. Agar fanlar soni teng bo'lsa, darsi umuman KAMOQ kunni tanlaymiz (Kunlik 5 soat muvozanati uchun)
+      return totalCountA - totalCountB;
+    });
+
+    for (const day of sortedDays) {
       if (placed) break;
 
-      // ==========================================
-      // YAngi QOIDA: Ustoz bir kunda maksimal 4 soat dars o'tadi
-      // ==========================================
+      // Bu kunda ushbu fandan qaysi soatlarda dars borligini topamiz
+      let existingPeriodsWithSubject: number[] = [];
+      for (const p of PERIODS) {
+        if (timetable[day][p][lesson.className]?.subject === lesson.subject) {
+          existingPeriodsWithSubject.push(p);
+        }
+      }
+
+      // 2-QOIDA: Algebra / Geometriya maksimal 1 soat, Boshqalari maksimal 2 soat
+      const isMath = lesson.subject.toLowerCase().includes("algebra") || lesson.subject.toLowerCase().includes("geometriya");
+      if (isMath && existingPeriodsWithSubject.length >= 1) continue;
+      if (!isMath && existingPeriodsWithSubject.length >= 2) continue;
+
+      // 3-QOIDA: O'qituvchi kuniga maksimal 4 soat dars o'tadi
       let teacherDailyHours = 0;
       for (const p of PERIODS) {
         for (const cls in timetable[day][p]) {
@@ -49,16 +79,27 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
           }
         }
       }
-      // Agar o'qituvchining bu kundagi darsi 4 soatga yetgan bo'lsa, bu kunni o'tkazib yuboramiz!
       if (teacherDailyHours >= 4) continue;
 
       for (const period of PERIODS) {
         if (placed) break;
 
-        // Sinf bu soatda bo'shmi?
+        // Sinf shu soatda bo'shmi?
         if (timetable[day][period][lesson.className]) continue;
-        
-        // Ustoz boshqa sinfda band emasmi?
+
+        // ==========================================
+        // 4-QOIDA: KETMA-KETLIK (Consecutive rule)
+        // Agar bir kunda shu fandan 1 ta bo'lsa, ikkinchisi faqat yoniga qo'yilishi shart!
+        // ==========================================
+        if (existingPeriodsWithSubject.length === 1) {
+          const existingPeriod = existingPeriodsWithSubject[0];
+          // Agar tanlanayotgan soat va oldingi dars soati orasi 1 ga teng bo'lmasa (yonma-yon bo'lmasa)
+          if (Math.abs(existingPeriod - period) !== 1) {
+            continue; // Boshqa dars aralashmasligi uchun buni o'tkazib yuboramiz
+          }
+        }
+
+        // O'qituvchi boshqa sinfda dars o'tmayaptimi?
         let teacherBusy = false;
         for (const cls in timetable[day][period]) {
           if (timetable[day][period][cls]?.teacherId === lesson.teacherId) {
@@ -67,10 +108,10 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         }
         if (teacherBusy) continue;
 
-        // YAngi QOIDA: Darslar orasi (Oyna) 2 soatdan oshib ketmadimi?
+        // 5-QOIDA: O'qituvchining oynasi 2 soatdan oshmadimi?
         if (!isTeacherGapValid(timetable, day, period, lesson.teacherId)) continue;
 
-        // Barcha qoidalardan o'tdi -> Joylaymiz!
+        // HAMMA QOIDALARDAN O'TDI -> JADVALGA Yozamiz!
         timetable[day][period][lesson.className] = { subject: lesson.subject, teacherId: lesson.teacherId };
         finalSchedule.push({
           class_name: lesson.className,
@@ -83,8 +124,9 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         placed = true;
       }
     }
+
     if (!placed) {
-      console.warn(`Ogohlantirish: ${lesson.className} ga ${lesson.subject} darsini tiqishga joy yetmadi!`);
+      console.warn(`Diqqat: ${lesson.className} ga ${lesson.subject} darsini qo'yishni iloji bo'lmadi (Qoidalar haddan tashqari qat'iy).`);
     }
   }
 
@@ -103,10 +145,8 @@ function isTeacherGapValid(timetable: Timetable, targetDay: string, targetPeriod
     if (hasLesson) teacherPeriods.push(p);
   }
 
-  // Agar bu kun hali hech qanday darsi bo'lmasa, ixtiyoriy vaqtga qo'yish mumkin (oyna qoidasi buzilmaydi)
   if (teacherPeriods.length === 0) return true;
 
-  // Darslarni ketma-ketlikda taxlaymiz
   const proposedPeriods = [...teacherPeriods, targetPeriod].sort((a, b) => a - b);
   let maxGap = 0;
   
@@ -115,6 +155,5 @@ function isTeacherGapValid(timetable: Timetable, targetDay: string, targetPeriod
     if (gap > maxGap) maxGap = gap;
   }
 
-  // Oyna maksimal 2 soat bo'lishiga ruxsat!
   return maxGap <= 2; 
 }
