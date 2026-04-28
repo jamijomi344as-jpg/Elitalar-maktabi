@@ -4,13 +4,19 @@ import { useState, useEffect } from "react";
 import { 
   Users, UserPlus, Shield, Calendar, Calculator, 
   Crown, LayoutDashboard, CheckCircle2, X, PlusCircle, 
-  School, Edit, Trash2, Search, ArrowLeft, MessageSquare, Send, CheckCircle, Key, Clock
+  School, Edit, Trash2, Search, ArrowLeft, MessageSquare, 
+  Send, CheckCircle, Key, Clock, Wand2, AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
+import { generateTimetable } from "@/lib/timetableAlgorithm"; // Algoritmni ulaymiz
 
 export default function DirectorDashboard() {
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "teachers" | "students" | "timetable" | "algorithm">("boshqaruv");
   const [isLoading, setIsLoading] = useState(true);
+
+  // ALGORITM UCHUN STATE
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
 
   // MODALLAR
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -80,7 +86,6 @@ export default function DirectorDashboard() {
 
   const getStudentsCount = (className: string) => allStudents.filter(s => s.class_name === className).length;
 
-  // CHORAK ALMASHGANDA SANALARNI AVTOMAT TO'G'RILASH
   useEffect(() => {
     if(selectedTerm === '1-chorak') { setTermStartDate("02.09.2025"); setTermEndDate("03.11.2025"); }
     else if(selectedTerm === '2-chorak') { setTermStartDate("10.11.2025"); setTermEndDate("27.12.2025"); }
@@ -89,75 +94,66 @@ export default function DirectorDashboard() {
   }, [selectedTerm]);
 
   // ==========================================
-  // AMALLAR (CRUD)
+  // DARS JADVALI ALGORITMI (AVTOMATIK)
   // ==========================================
-  const handleAddClass = async () => {
-    if(!newClassInfo.name) return alert("Sinf nomini kiriting!");
-    const { error } = await supabase.from('classes').insert([{ name: newClassInfo.name.toUpperCase(), max_limit: newClassInfo.limit }]);
-    if(!error) { setShowClassModal(false); setNewClassInfo({name: "", limit: 24}); fetchData(); }
-    else { alert("Xatolik (Sinf qo'shish): " + error.message); }
-  };
+  const handleAutoGenerate = async () => {
+    if(!confirm("Diqqat! Bu hozirgi barcha dars jadvallarini o'chirib, yangidan avtomatik jadval tuzadi. Bunga biroz vaqt ketishi mumkin. Davom etasizmi?")) return;
+    setIsGenerating(true);
 
-  const handleAddTeacher = async () => {
-    if(!newPerson.fullName || !newPerson.subject) return alert("Hamma joyni to'ldiring!");
-    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
-    const pass = generatePassword();
-    const assignedHomeroom = newPerson.homeroom === "" ? null : newPerson.homeroom;
+    // 1. Joriy chorak jadvallarini tozalash
+    await supabase.from('timetable').delete().eq('term', selectedTerm);
 
-    const { error } = await supabase.from('profiles').insert([{ id: uniqueId, role: 'teacher', full_name: newPerson.fullName, bio: newPerson.subject, password: pass, homeroom: assignedHomeroom }]);
-    if (!error) {
-      alert(`Muvaffaqiyatli! ID: ${uniqueId} | Parol: ${pass}`);
-      setShowTeacherModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); 
-    } else { alert("Xatolik (Ustoz qo'shish): " + error.message); }
-  };
+    // 2. Talablarni yig'ish (MOCK DATA o'rniga haqiqiy hisob-kitob qilish mumkin, hozircha har bir sinfga har bir fan 2 soatdan)
+    const requests: any[] = [];
+    classes.forEach(cls => {
+       teachers.forEach(t => {
+          if (t.bio) { // Ustozning fani bor bo'lsa
+             requests.push({ className: cls.name, subject: t.bio, teacherId: t.id, hoursPerWeek: 2 });
+          }
+       });
+    });
 
-  const handleUpdateTeacher = async () => {
-    const { error } = await supabase.from('profiles').update({ full_name: editingTeacher.full_name, bio: editingTeacher.bio, homeroom: editingTeacher.homeroom || null }).eq('id', editingTeacher.id);
-    if(!error) { setShowEditTeacherModal(false); fetchData(); } else { alert("Xatolik: " + error.message); }
-  };
+    // 3. Algoritmni ishga tushirish
+    const newSchedule = generateTimetable(requests);
 
-  const handleDeleteTeacher = async (id: string) => {
-    if(confirm("Ushbu o'qituvchini tizimdan butunlay o'chirmoqchimisiz?")) { 
-      const { error } = await supabase.from('profiles').delete().eq('id', id); 
-      if(!error) fetchData(); else alert("Xatolik: " + error.message);
+    // 4. Bazaga yozish
+    const insertData = newSchedule.map(s => ({
+       class_name: s.class_name, day_of_week: s.day_of_week, lesson_number: s.lesson_number,
+       subject: s.subject, teacher_id: s.teacher_id, room: s.room, term: selectedTerm, start_date: termStartDate, end_date: termEndDate
+    }));
+
+    if(insertData.length > 0) {
+      await supabase.from('timetable').insert(insertData);
+      alert("Algoritm muvaffaqiyatli ishladi va optimal dars jadvali tuzildi!");
+    } else {
+      alert("Algoritm jadval tuza olmadi. Ustozlar yoki sinflar ma'lumoti yetarli emas.");
     }
-  };
-
-  const handleAddStudent = async () => {
-    if(!newPerson.fullName || !newPerson.className) return alert("To'ldiring!");
-    const pass = generatePassword();
-    const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
-    const { error } = await supabase.from('profiles').insert([{ id, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className, password: pass }]);
-    if(!error) { 
-      alert(`O'quvchi qo'shildi!\nID: ${id}\nParol: ${pass}`); 
-      setShowStudentModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); 
-    } else { alert("Xatolik (O'quvchi qo'shish): " + error.message); }
-  };
-
-  const handleUpdateStudent = async () => {
-    const { error } = await supabase.from('profiles').update({ full_name: editingStudent.full_name, class_name: editingStudent.class_name }).eq('id', editingStudent.id);
-    if(!error) { setShowEditStudentModal(false); fetchData(); } else { alert("Xatolik: " + error.message); }
-  };
-
-  const handleDeleteStudent = async (id: string, name: string) => {
-    if(confirm(`Diqqat! ${name} maktabdan butunlay o'chirib yuboriladi. Davom etasizmi?`)) { 
-      const { error } = await supabase.from('profiles').delete().eq('id', id); 
-      if(!error) fetchData(); else alert("Xatolik: " + error.message);
-    }
-  };
-
-  const handleDeleteFeedback = async (id: string) => {
-    if(confirm("Bu murojaatni o'chirib yuborasizmi?")) { 
-      const { error } = await supabase.from('feedbacks').delete().eq('id', id); 
-      if(!error) fetchData(); else alert("Xatolik: " + error.message);
-    }
+    
+    setIsGenerating(false); fetchData();
   };
 
   // ==========================================
-  // DARS JADVALINI SAQLASH 
+  // DARS JADVALINI QO'LDA SAQLASH (KONFLIKT NAZORATI)
   // ==========================================
   const handleSaveLesson = async () => {
     if(!lessonForm.subject || !lessonForm.teacher_id) return alert("Fan va Ustozni tanlang!");
+
+    // KONFLIKT TEKSHIRUVI: Bu ustoz hozir boshqa sinfda dars o'tmayaptimi?
+    const isBusy = timetableData.find(t => 
+      t.term === selectedTerm && 
+      t.day_of_week === currentCell?.day && 
+      t.lesson_number === currentCell?.lesson && 
+      t.teacher_id === lessonForm.teacher_id && 
+      t.class_name !== selectedClassForTimetable
+    );
+
+    if (isBusy) {
+      const teacherName = teachers.find(t => t.id === lessonForm.teacher_id)?.full_name;
+      setConflictWarning(`🔴 DIQQAT KONFLIKT: Ustoz ${teacherName} ayni shu vaqtda ${isBusy.class_name} sinfida dars o'tadi. Iltimos, pastdan "(Bo'sh)" ustozni tanlang.`);
+      return; // Konflikt bo'lsa to'xtaymiz, bazaga yozilmaydi
+    }
+
+    setConflictWarning(null); // Hammasi joyida
 
     const existing = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === currentCell?.day && t.lesson_number === currentCell?.lesson && t.term === selectedTerm);
 
@@ -186,23 +182,52 @@ export default function DirectorDashboard() {
   };
 
   // ==========================================
-  // JAVOB YUBORISH ALGORITMI
+  // BOSHQA AMALLAR (CRUD)
   // ==========================================
+  const handleAddClass = async () => {
+    if(!newClassInfo.name) return alert("Sinf nomini kiriting!");
+    const { error } = await supabase.from('classes').insert([{ name: newClassInfo.name.toUpperCase(), max_limit: newClassInfo.limit }]);
+    if(!error) { setShowClassModal(false); setNewClassInfo({name: "", limit: 24}); fetchData(); }
+  };
+  const handleAddTeacher = async () => {
+    if(!newPerson.fullName || !newPerson.subject) return alert("Hamma joyni to'ldiring!");
+    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
+    const pass = generatePassword();
+    const assignedHomeroom = newPerson.homeroom === "" ? null : newPerson.homeroom;
+    const { error } = await supabase.from('profiles').insert([{ id: uniqueId, role: 'teacher', full_name: newPerson.fullName, bio: newPerson.subject, password: pass, homeroom: assignedHomeroom }]);
+    if (!error) { alert(`Muvaffaqiyatli! ID: ${uniqueId} | Parol: ${pass}`); setShowTeacherModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); }
+  };
+  const handleUpdateTeacher = async () => {
+    const { error } = await supabase.from('profiles').update({ full_name: editingTeacher.full_name, bio: editingTeacher.bio, homeroom: editingTeacher.homeroom || null }).eq('id', editingTeacher.id);
+    if(!error) { setShowEditTeacherModal(false); fetchData(); }
+  };
+  const handleDeleteTeacher = async (id: string) => {
+    if(confirm("Ushbu o'qituvchini tizimdan butunlay o'chirmoqchimisiz?")) { const { error } = await supabase.from('profiles').delete().eq('id', id); if(!error) fetchData(); }
+  };
+  const handleAddStudent = async () => {
+    if(!newPerson.fullName || !newPerson.className) return alert("To'ldiring!");
+    const pass = generatePassword();
+    const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { error } = await supabase.from('profiles').insert([{ id, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className, password: pass }]);
+    if(!error) { alert(`O'quvchi qo'shildi!\nID: ${id}\nParol: ${pass}`); setShowStudentModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); }
+  };
+  const handleUpdateStudent = async () => {
+    const { error } = await supabase.from('profiles').update({ full_name: editingStudent.full_name, class_name: editingStudent.class_name }).eq('id', editingStudent.id);
+    if(!error) { setShowEditStudentModal(false); fetchData(); }
+  };
+  const handleDeleteStudent = async (id: string, name: string) => {
+    if(confirm(`Diqqat! ${name} maktabdan butunlay o'chirib yuboriladi.`)) { const { error } = await supabase.from('profiles').delete().eq('id', id); if(!error) fetchData(); }
+  };
+  const handleDeleteFeedback = async (id: string) => {
+    if(confirm("Bu murojaatni o'chirib yuborasizmi?")) { const { error } = await supabase.from('feedbacks').delete().eq('id', id); if(!error) fetchData(); }
+  };
   const handleSendReply = async () => {
     if (!replyText.trim()) return alert("Javob matnini yozing!");
     setIsReplying(true);
-
     const { error: fError } = await supabase.from('feedbacks').update({ status: 'javob_berildi', answer: replyText }).eq('id', replyModal.id);
-
-    if (!fError && replyModal.sender_id) {
-      await supabase.from('notifications').insert([{ user_id: replyModal.sender_id, title: "Direktordan javob keldi", message: replyText }]);
-    }
-
-    if(fError) alert("Xatolik: " + fError.message);
-    else { alert("Javob foydalanuvchi paneliga yuborildi!"); setReplyModal(null); setReplyText(""); }
-    
-    setIsReplying(false);
-    fetchData(); 
+    if (!fError && replyModal.sender_id) await supabase.from('notifications').insert([{ user_id: replyModal.sender_id, title: "Direktordan javob keldi", message: replyText }]);
+    if(fError) alert("Xatolik: " + fError.message); else { alert("Javob foydalanuvchi paneliga yuborildi!"); setReplyModal(null); setReplyText(""); }
+    setIsReplying(false); fetchData(); 
   };
 
   return (
@@ -222,7 +247,6 @@ export default function DirectorDashboard() {
         </nav>
       </aside>
 
-      {/* CONTENT */}
       <main className="flex-1 overflow-y-auto p-8 lg:p-12">
         <header className="flex justify-between items-center mb-10">
           <div><h1 className="text-4xl font-black text-slate-900 tracking-tight">Direktor Paneli</h1><p className="text-slate-500 font-medium mt-1">Elita Meta-Education tizimi boshqaruvi</p></div>
@@ -233,7 +257,6 @@ export default function DirectorDashboard() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             
-            {/* 1. BOSHQARUV (Stats + Murojaatlar) */}
             {activeMenu === "boshqaruv" && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -259,11 +282,7 @@ export default function DirectorDashboard() {
                       <div className="text-center p-10 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-3xl">Hozircha murojaatlar yo'q.</div>
                     ) : (
                       feedbacks.map(f => (
-                        <div 
-                           key={f.id} 
-                           onClick={() => setReplyModal(f)} 
-                           className={`p-6 rounded-3xl border flex justify-between items-start gap-4 hover:shadow-md transition-shadow cursor-pointer ${f.status === 'javob_berildi' ? 'bg-white border-slate-200 opacity-60' : 'bg-slate-50 border-indigo-100'}`}
-                        >
+                        <div key={f.id} onClick={() => setReplyModal(f)} className={`p-6 rounded-3xl border flex justify-between items-start gap-4 hover:shadow-md transition-shadow cursor-pointer ${f.status === 'javob_berildi' ? 'bg-white border-slate-200 opacity-60' : 'bg-slate-50 border-indigo-100'}`}>
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <span className={`font-black text-sm px-3 py-1 rounded-lg ${f.is_anonymous ? 'bg-slate-800 text-white' : 'bg-blue-100 text-blue-700'}`}>
@@ -273,17 +292,13 @@ export default function DirectorDashboard() {
                               <span className="text-xs font-bold text-slate-400 ml-auto">{new Date(f.created_at).toLocaleString('uz-UZ')}</span>
                             </div>
                             <p className="text-slate-700 font-medium leading-relaxed">{f.message}</p>
-                            
                             {f.answer && (
                               <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 text-sm font-medium">
-                                <span className="font-bold text-emerald-600 block mb-1">Sizning javobingiz:</span>
-                                {f.answer}
+                                <span className="font-bold text-emerald-600 block mb-1">Sizning javobingiz:</span>{f.answer}
                               </div>
                             )}
                           </div>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteFeedback(f.id); }} className="p-3 text-red-400 hover:text-white hover:bg-red-500 rounded-xl transition-all flex-shrink-0">
-                             <Trash2 className="w-5 h-5"/>
-                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteFeedback(f.id); }} className="p-3 text-red-400 hover:text-white hover:bg-red-500 rounded-xl transition-all flex-shrink-0"><Trash2 className="w-5 h-5"/></button>
                         </div>
                       ))
                     )}
@@ -292,14 +307,11 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* 2. O'QITUVCHILAR */}
             {activeMenu === "teachers" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                   <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Crown className="text-indigo-600"/> Ustozlar Ro'yxati</h2>
-                  <button onClick={() => setShowTeacherModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
-                    <UserPlus className="w-5 h-5"/> Yangi O'qituvchi
-                  </button>
+                  <button onClick={() => setShowTeacherModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2"><UserPlus className="w-5 h-5"/> Yangi O'qituvchi</button>
                 </div>
                 <div className="overflow-x-auto p-4">
                   <table className="w-full text-left">
@@ -327,7 +339,6 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* 3. O'QUVCHILAR & SINFLAR */}
             {activeMenu === "students" && (
               <div className="space-y-8 animate-in slide-in-from-bottom-4">
                 {selectedClassView ? (
@@ -341,7 +352,6 @@ export default function DirectorDashboard() {
                         <PlusCircle className="w-5 h-5"/> Yangi O'quvchi
                       </button>
                     </div>
-                    
                     <div className="overflow-x-auto p-4">
                       <table className="w-full text-left">
                         <thead>
@@ -355,15 +365,12 @@ export default function DirectorDashboard() {
                           ) : (
                             allStudents.filter(s => s.class_name === selectedClassView).map((student) => (
                               <tr key={student.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                                <td className="p-4">
-                                  <div className="font-black text-indigo-600">{student.id}</div>
-                                  <div className="text-[10px] font-mono font-bold text-amber-600 uppercase flex items-center gap-1"><Key className="w-3 h-3"/> {student.password}</div>
-                                </td>
+                                <td className="p-4"><div className="font-black text-indigo-600">{student.id}</div><div className="text-[10px] font-mono font-bold text-amber-600 uppercase flex items-center gap-1"><Key className="w-3 h-3"/> {student.password}</div></td>
                                 <td className="p-4 font-bold text-slate-900">{student.full_name}</td>
                                 <td className="p-4 text-center"><span className="bg-amber-100 text-amber-600 px-3 py-1 rounded-lg font-black text-sm">{student.pp_balance || 0} PP</span></td>
                                 <td className="p-4 text-right">
-                                  <button onClick={() => { setEditingStudent(student); setShowEditStudentModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1" title="Tahrirlash"><Edit className="w-5 h-5"/></button>
-                                  <button onClick={() => handleDeleteStudent(student.id, student.full_name)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Maktabdan haydash"><Trash2 className="w-5 h-5"/></button>
+                                  <button onClick={() => { setEditingStudent(student); setShowEditStudentModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1"><Edit className="w-5 h-5"/></button>
+                                  <button onClick={() => handleDeleteStudent(student.id, student.full_name)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5"/></button>
                                 </td>
                               </tr>
                             ))
@@ -399,16 +406,23 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* 4. DARS JADVALI (YANGILANGAN - FILTR BILAN) */}
+            {/* ========================================== */}
+            {/* DARS JADVALI VA ALGORITM (YANGILANGAN QISM) */}
+            {/* ========================================== */}
             {activeMenu === "timetable" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                    <div>
                      <h2 className="text-2xl font-black text-slate-900">Dars Jadvali Konstruktori</h2>
-                     <p className="text-slate-400 font-medium">Sinf va chorakni tanlab jadval tuzing.</p>
+                     <p className="text-slate-400 font-medium">Avtomatik jadval tuzing yoki qo'lda tahrirlang.</p>
                    </div>
                    
                    <div className="flex flex-wrap gap-4 items-center">
+                     {/* AVTOMATIK TUZISH TUGMASI QO'SHILDI */}
+                     <button onClick={handleAutoGenerate} disabled={isGenerating} className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 transition-transform flex items-center disabled:opacity-50">
+                       <Wand2 className="w-5 h-5 mr-2"/> {isGenerating ? "Algoritm ishlayapti..." : "Avtomatik Tuzish"}
+                     </button>
+
                      <div className="flex bg-slate-100 p-1.5 rounded-2xl">
                        {classes.map(c => (
                          <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-5 py-2.5 rounded-xl font-black text-sm transition-all ${selectedClassForTimetable === c.name ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -451,7 +465,7 @@ export default function DirectorDashboard() {
                             {days.map(day => {
                               const lesson = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === day && t.lesson_number === num && t.term === selectedTerm);
                               return (
-                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-32 w-44 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
+                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setConflictWarning(null); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-32 w-44 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
                                   {lesson ? (
                                     <div className="h-full flex flex-col justify-center bg-indigo-50/80 rounded-xl p-3 border border-indigo-100">
                                       <p className="font-black text-slate-900 text-sm leading-tight">{lesson.subject}</p>
@@ -473,7 +487,6 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* 5. ALGORITM & MOLIYA */}
             {activeMenu === "algorithm" && (
               <div className="bg-slate-900 rounded-[3.5rem] p-12 text-white shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-10 opacity-10"><Calculator className="w-64 h-64"/></div>
@@ -503,7 +516,7 @@ export default function DirectorDashboard() {
         </div>
       )}
 
-      {/* DARS QO'SHISH MODALI (FILTRLI USTOZ TANLASH) */}
+      {/* DARS QO'SHISH MODALI (QIZIL KONFLIKT OGOHLANTIRISHI BILAN) */}
       {showLessonModal && currentCell && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowLessonModal(false)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -513,16 +526,33 @@ export default function DirectorDashboard() {
               </div>
               <div className="p-8 space-y-4">
                  
-                 <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.subject} onChange={e => setLessonForm({...lessonForm, subject: e.target.value, teacher_id: ""})}>
+                 {/* QIZIL KONFLIKT XABARNOMASI */}
+                 {conflictWarning && (
+                   <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-bold flex items-start gap-3 animate-in slide-in-from-top-2">
+                     <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />
+                     <div>
+                       {conflictWarning}
+                     </div>
+                   </div>
+                 )}
+
+                 <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.subject} onChange={e => {setLessonForm({...lessonForm, subject: e.target.value, teacher_id: ""}); setConflictWarning(null);}}>
                     <option value="">Fanni Tanlang</option>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
                  
-                 {/* SHU YERDA FILTR ISHLAYDI: Faqat tepadagi fanga mos o'qituvchilar chiqadi */}
-                 <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.teacher_id} onChange={e => setLessonForm({...lessonForm, teacher_id: e.target.value})}>
+                 {/* USTOZLARNI TANLASH VA BANDLIK HOLATINI KO'RSATISH */}
+                 <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.teacher_id} onChange={e => {setLessonForm({...lessonForm, teacher_id: e.target.value}); setConflictWarning(null);}}>
                     <option value="">Ustozni Tanlang</option>
                     {teachers
                       .filter(t => !lessonForm.subject || t.bio === lessonForm.subject)
-                      .map(t => <option key={t.id} value={t.id}>{t.full_name} ({t.bio})</option>)
+                      .map(t => {
+                        const isBusy = timetableData.find(time => time.term === selectedTerm && time.day_of_week === currentCell.day && time.lesson_number === currentCell.lesson && time.teacher_id === t.id && time.class_name !== selectedClassForTimetable);
+                        return (
+                          <option key={t.id} value={t.id} className={isBusy ? "text-red-500 font-bold" : "text-green-600"}>
+                             {t.full_name} {isBusy ? `(🔴 Band: ${isBusy.class_name} da)` : `(🟢 Bo'sh)`}
+                          </option>
+                        );
+                      })
                     }
                  </select>
 
@@ -536,7 +566,7 @@ export default function DirectorDashboard() {
         </div>
       )}
 
-      {/* QOLGAN MODALLAR (O'qituvchi, O'quvchi qo'shish va hk) ... (O'ZGARISHSZ QOLDI) */}
+      {/* QOLGAN MODALLAR (O'qituvchi, O'quvchi qo'shish va hk) */}
       {showTeacherModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowTeacherModal(false)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
