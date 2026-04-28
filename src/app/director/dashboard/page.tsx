@@ -5,18 +5,22 @@ import {
   Users, UserPlus, Shield, Calendar, Calculator, 
   Crown, LayoutDashboard, CheckCircle2, X, PlusCircle, 
   School, Edit, Trash2, Search, ArrowLeft, MessageSquare, 
-  Send, CheckCircle, Key, Clock, Wand2, AlertTriangle
+  Send, CheckCircle, Key, Clock, Wand2, AlertTriangle, Settings2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
-import { generateTimetable } from "@/lib/timetableAlgorithm"; // Algoritmni ulaymiz
+import { generateTimetable } from "@/lib/timetableAlgorithm";
 
 export default function DirectorDashboard() {
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "teachers" | "students" | "timetable" | "algorithm">("boshqaruv");
   const [isLoading, setIsLoading] = useState(true);
 
-  // ALGORITM UCHUN STATE
+  // ALGORITM VA YUKLAMA UCHUN
   const [isGenerating, setIsGenerating] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  
+  const [showWorkloadModal, setShowWorkloadModal] = useState(false);
+  const [workloads, setWorkloads] = useState<any[]>([]); // Dars soatlari (Yuklama)
+  const [workloadForm, setWorkloadForm] = useState({ class_name: "", subject: "", teacher_id: "", hours: 2 });
 
   // MODALLAR
   const [showTeacherModal, setShowTeacherModal] = useState(false);
@@ -25,9 +29,8 @@ export default function DirectorDashboard() {
   const [showEditTeacherModal, setShowEditTeacherModal] = useState(false);
   const [showEditStudentModal, setShowEditStudentModal] = useState(false);
   const [showLessonModal, setShowLessonModal] = useState(false);
-
-  // MUROJAAT JAVOBI UCHUN STATE
   const [replyModal, setReplyModal] = useState<any>(null);
+
   const [replyText, setReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(false);
 
@@ -44,7 +47,7 @@ export default function DirectorDashboard() {
   const [newPerson, setNewPerson] = useState({ fullName: "", subject: "", homeroom: "", className: "" });
   const [newClassInfo, setNewClassInfo] = useState({ name: "", limit: 24 });
 
-  // DARS JADVALI VA CHORAKLAR UCHUN
+  // DARS JADVALI
   const [selectedClassForTimetable, setSelectedClassForTimetable] = useState<string | null>(null);
   const [selectedTerm, setSelectedTerm] = useState("1-chorak");
   const [termStartDate, setTermStartDate] = useState("02.09.2025");
@@ -55,30 +58,27 @@ export default function DirectorDashboard() {
 
   const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika", "Tarix", "Tarbiya", "Jismoniy tarbiya"];
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-  const lessonNumbers = [1, 2, 3, 4, 5, 6, 7];
+  const lessonNumbers = [1, 2, 3, 4, 5, 6]; // 7-soat olib tashlandi
 
   const generatePassword = () => Math.random().toString(36).slice(-6).toUpperCase();
 
-  // ==========================================
-  // YUKLASH
-  // ==========================================
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    const savedWorkloads = localStorage.getItem('elita_workloads');
+    if (savedWorkloads) setWorkloads(JSON.parse(savedWorkloads));
+  }, []);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const { data: tData } = await supabase.from('profiles').select('*').eq('role', 'teacher').order('created_at', { ascending: false });
       setTeachers(tData || []);
-
       const { data: cData } = await supabase.from('classes').select('*').order('name');
       setClasses(cData || []);
-
       const { data: sData } = await supabase.from('profiles').select('*').eq('role', 'student').order('full_name');
       setAllStudents(sData || []);
-
       const { data: fData } = await supabase.from('feedbacks').select('*').order('created_at', { ascending: false });
       setFeedbacks(fData || []);
-
       const { data: timeData } = await supabase.from('timetable').select('*');
       setTimetableData(timeData || []);
     } catch (err) { console.error(err); } finally { setIsLoading(false); }
@@ -94,29 +94,50 @@ export default function DirectorDashboard() {
   }, [selectedTerm]);
 
   // ==========================================
-  // DARS JADVALI ALGORITMI (AVTOMATIK)
+  // YUKLAMA (O'QUV REJA) QO'SHISH/O'CHIRISH
+  // ==========================================
+  const handleAddWorkload = () => {
+    if (!workloadForm.class_name || !workloadForm.subject || !workloadForm.teacher_id || workloadForm.hours <= 0) {
+      return alert("Barcha maydonlarni to'g'ri to'ldiring!");
+    }
+    const newW = { id: Date.now().toString(), ...workloadForm };
+    const updated = [...workloads, newW];
+    setWorkloads(updated);
+    localStorage.setItem('elita_workloads', JSON.stringify(updated));
+    setWorkloadForm({...workloadForm, teacher_id: "", subject: "", hours: 2}); // Formni tozalash
+  };
+
+  const handleDeleteWorkload = (id: string) => {
+    const updated = workloads.filter(w => w.id !== id);
+    setWorkloads(updated);
+    localStorage.setItem('elita_workloads', JSON.stringify(updated));
+  };
+
+  // ==========================================
+  // DARS JADVALI ALGORITMI (YUKLAMALAR ASOSIDA)
   // ==========================================
   const handleAutoGenerate = async () => {
-    if(!confirm("Diqqat! Bu hozirgi barcha dars jadvallarini o'chirib, yangidan avtomatik jadval tuzadi. Bunga biroz vaqt ketishi mumkin. Davom etasizmi?")) return;
+    if (workloads.length === 0) {
+      alert("XATOLIK: Jadval tuzish uchun avval 'Dars Yuklamalari' tugmasi orqali o'qituvchilarning dars soatlarini kiritib chiqing!");
+      setShowWorkloadModal(true);
+      return;
+    }
+
+    if(!confirm("Diqqat! Bu joriy chorakdagi jadvallarni o'chirib, belgilangan yuklamalar (soatlar) asosida yangi jadval tuzadi. Davom etasizmi?")) return;
     setIsGenerating(true);
 
-    // 1. Joriy chorak jadvallarini tozalash
     await supabase.from('timetable').delete().eq('term', selectedTerm);
 
-    // 2. Talablarni yig'ish (MOCK DATA o'rniga haqiqiy hisob-kitob qilish mumkin, hozircha har bir sinfga har bir fan 2 soatdan)
-    const requests: any[] = [];
-    classes.forEach(cls => {
-       teachers.forEach(t => {
-          if (t.bio) { // Ustozning fani bor bo'lsa
-             requests.push({ className: cls.name, subject: t.bio, teacherId: t.id, hoursPerWeek: 2 });
-          }
-       });
-    });
+    // Yuklamalarni algoritm tushunadigan formatga o'tkazish
+    const requests = workloads.map(w => ({
+       className: w.class_name, 
+       subject: w.subject, 
+       teacherId: w.teacher_id, 
+       hoursPerWeek: w.hours 
+    }));
 
-    // 3. Algoritmni ishga tushirish
     const newSchedule = generateTimetable(requests);
 
-    // 4. Bazaga yozish
     const insertData = newSchedule.map(s => ({
        class_name: s.class_name, day_of_week: s.day_of_week, lesson_number: s.lesson_number,
        subject: s.subject, teacher_id: s.teacher_id, room: s.room, term: selectedTerm, start_date: termStartDate, end_date: termEndDate
@@ -124,9 +145,9 @@ export default function DirectorDashboard() {
 
     if(insertData.length > 0) {
       await supabase.from('timetable').insert(insertData);
-      alert("Algoritm muvaffaqiyatli ishladi va optimal dars jadvali tuzildi!");
+      alert("Algoritm muvaffaqiyatli ishladi! O'quv rejasi asosida jadval tayyor.");
     } else {
-      alert("Algoritm jadval tuza olmadi. Ustozlar yoki sinflar ma'lumoti yetarli emas.");
+      alert("Algoritm jadval tuza olmadi. Biron xatolik bor.");
     }
     
     setIsGenerating(false); fetchData();
@@ -138,7 +159,6 @@ export default function DirectorDashboard() {
   const handleSaveLesson = async () => {
     if(!lessonForm.subject || !lessonForm.teacher_id) return alert("Fan va Ustozni tanlang!");
 
-    // KONFLIKT TEKSHIRUVI: Bu ustoz hozir boshqa sinfda dars o'tmayaptimi?
     const isBusy = timetableData.find(t => 
       t.term === selectedTerm && 
       t.day_of_week === currentCell?.day && 
@@ -149,41 +169,32 @@ export default function DirectorDashboard() {
 
     if (isBusy) {
       const teacherName = teachers.find(t => t.id === lessonForm.teacher_id)?.full_name;
-      setConflictWarning(`🔴 DIQQAT KONFLIKT: Ustoz ${teacherName} ayni shu vaqtda ${isBusy.class_name} sinfida dars o'tadi. Iltimos, pastdan "(Bo'sh)" ustozni tanlang.`);
-      return; // Konflikt bo'lsa to'xtaymiz, bazaga yozilmaydi
+      setConflictWarning(`🔴 KONFLIKT: Ustoz ${teacherName} ayni shu vaqtda ${isBusy.class_name} sinfida dars o'tadi.`);
+      return; 
     }
 
-    setConflictWarning(null); // Hammasi joyida
+    setConflictWarning(null); 
 
     const existing = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === currentCell?.day && t.lesson_number === currentCell?.lesson && t.term === selectedTerm);
 
     if (existing) {
-       const { error } = await supabase.from('timetable').update({ subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room, start_date: termStartDate, end_date: termEndDate }).eq('id', existing.id);
-       if(error) alert("Xatolik: " + error.message);
+       await supabase.from('timetable').update({ subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room, start_date: termStartDate, end_date: termEndDate }).eq('id', existing.id);
     } else {
-       const { error } = await supabase.from('timetable').insert([{ 
+       await supabase.from('timetable').insert([{ 
          class_name: selectedClassForTimetable, day_of_week: currentCell?.day, lesson_number: currentCell?.lesson, 
          subject: lessonForm.subject, teacher_id: lessonForm.teacher_id, room: lessonForm.room, term: selectedTerm, start_date: termStartDate, end_date: termEndDate
        }]);
-       if(error) alert("Xatolik: " + error.message);
     }
-    setShowLessonModal(false); 
-    fetchData();
+    setShowLessonModal(false); fetchData();
   };
 
   const deleteLesson = async () => {
     const existing = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === currentCell?.day && t.lesson_number === currentCell?.lesson && t.term === selectedTerm);
-    if(existing) {
-       const { error } = await supabase.from('timetable').delete().eq('id', existing.id);
-       if(error) alert("Xatolik: " + error.message);
-    }
-    setShowLessonModal(false); 
-    fetchData();
+    if(existing) await supabase.from('timetable').delete().eq('id', existing.id);
+    setShowLessonModal(false); fetchData();
   };
 
-  // ==========================================
-  // BOSHQA AMALLAR (CRUD)
-  // ==========================================
+  // CRUD...
   const handleAddClass = async () => {
     if(!newClassInfo.name) return alert("Sinf nomini kiriting!");
     const { error } = await supabase.from('classes').insert([{ name: newClassInfo.name.toUpperCase(), max_limit: newClassInfo.limit }]);
@@ -202,7 +213,7 @@ export default function DirectorDashboard() {
     if(!error) { setShowEditTeacherModal(false); fetchData(); }
   };
   const handleDeleteTeacher = async (id: string) => {
-    if(confirm("Ushbu o'qituvchini tizimdan butunlay o'chirmoqchimisiz?")) { const { error } = await supabase.from('profiles').delete().eq('id', id); if(!error) fetchData(); }
+    if(confirm("Ushbu o'qituvchini tizimdan o'chirmoqchimisiz?")) { await supabase.from('profiles').delete().eq('id', id); fetchData(); }
   };
   const handleAddStudent = async () => {
     if(!newPerson.fullName || !newPerson.className) return alert("To'ldiring!");
@@ -216,17 +227,17 @@ export default function DirectorDashboard() {
     if(!error) { setShowEditStudentModal(false); fetchData(); }
   };
   const handleDeleteStudent = async (id: string, name: string) => {
-    if(confirm(`Diqqat! ${name} maktabdan butunlay o'chirib yuboriladi.`)) { const { error } = await supabase.from('profiles').delete().eq('id', id); if(!error) fetchData(); }
+    if(confirm(`Diqqat! ${name} o'chiriladi.`)) { await supabase.from('profiles').delete().eq('id', id); fetchData(); }
   };
   const handleDeleteFeedback = async (id: string) => {
-    if(confirm("Bu murojaatni o'chirib yuborasizmi?")) { const { error } = await supabase.from('feedbacks').delete().eq('id', id); if(!error) fetchData(); }
+    if(confirm("Bu murojaatni o'chirasizmi?")) { await supabase.from('feedbacks').delete().eq('id', id); fetchData(); }
   };
   const handleSendReply = async () => {
-    if (!replyText.trim()) return alert("Javob matnini yozing!");
+    if (!replyText.trim()) return alert("Javob yozing!");
     setIsReplying(true);
     const { error: fError } = await supabase.from('feedbacks').update({ status: 'javob_berildi', answer: replyText }).eq('id', replyModal.id);
     if (!fError && replyModal.sender_id) await supabase.from('notifications').insert([{ user_id: replyModal.sender_id, title: "Direktordan javob keldi", message: replyText }]);
-    if(fError) alert("Xatolik: " + fError.message); else { alert("Javob foydalanuvchi paneliga yuborildi!"); setReplyModal(null); setReplyText(""); }
+    if(!fError) { alert("Javob yuborildi!"); setReplyModal(null); setReplyText(""); }
     setIsReplying(false); fetchData(); 
   };
 
@@ -247,6 +258,7 @@ export default function DirectorDashboard() {
         </nav>
       </aside>
 
+      {/* CONTENT */}
       <main className="flex-1 overflow-y-auto p-8 lg:p-12">
         <header className="flex justify-between items-center mb-10">
           <div><h1 className="text-4xl font-black text-slate-900 tracking-tight">Direktor Paneli</h1><p className="text-slate-500 font-medium mt-1">Elita Meta-Education tizimi boshqaruvi</p></div>
@@ -257,26 +269,17 @@ export default function DirectorDashboard() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             
+            {/* O'QITUVCHI / O'QUVCHI / BOSHQARUV QISMLARI QISQARTIRILMADI */}
             {activeMenu === "boshqaruv" && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                    <Crown className="w-10 h-10 text-indigo-600 mb-4"/><h3 className="text-slate-400 font-bold text-sm uppercase">O'qituvchilar</h3><p className="text-5xl font-black text-slate-900 mt-2">{teachers.length}</p>
-                  </div>
-                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                    <School className="w-10 h-10 text-blue-600 mb-4"/><h3 className="text-slate-400 font-bold text-sm uppercase">Jami Sinflar</h3><p className="text-5xl font-black text-slate-900 mt-2">{classes.length}</p>
-                  </div>
-                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                    <Calculator className="w-10 h-10 text-emerald-600 mb-4"/><h3 className="text-slate-400 font-bold text-sm uppercase">Oylik Byudjet</h3><p className="text-5xl font-black text-slate-900 mt-2">100K <span className="text-xl">PP</span></p>
-                  </div>
+                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><Crown className="w-10 h-10 text-indigo-600 mb-4"/><h3 className="text-slate-400 font-bold text-sm uppercase">O'qituvchilar</h3><p className="text-5xl font-black text-slate-900 mt-2">{teachers.length}</p></div>
+                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><School className="w-10 h-10 text-blue-600 mb-4"/><h3 className="text-slate-400 font-bold text-sm uppercase">Jami Sinflar</h3><p className="text-5xl font-black text-slate-900 mt-2">{classes.length}</p></div>
+                  <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"><Calculator className="w-10 h-10 text-emerald-600 mb-4"/><h3 className="text-slate-400 font-bold text-sm uppercase">Oylik Byudjet</h3><p className="text-5xl font-black text-slate-900 mt-2">100K <span className="text-xl">PP</span></p></div>
                 </div>
 
                 <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
-                  <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><MessageSquare className="text-indigo-600"/> Kelib tushgan Murojaatlar</h2>
-                    <span className="bg-indigo-100 text-indigo-600 font-black px-3 py-1 rounded-full text-sm">{feedbacks.length} ta</span>
-                  </div>
-                  
+                  <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50"><h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><MessageSquare className="text-indigo-600"/> Kelib tushgan Murojaatlar</h2><span className="bg-indigo-100 text-indigo-600 font-black px-3 py-1 rounded-full text-sm">{feedbacks.length} ta</span></div>
                   <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">
                     {feedbacks.length === 0 ? (
                       <div className="text-center p-10 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-3xl">Hozircha murojaatlar yo'q.</div>
@@ -284,19 +287,9 @@ export default function DirectorDashboard() {
                       feedbacks.map(f => (
                         <div key={f.id} onClick={() => setReplyModal(f)} className={`p-6 rounded-3xl border flex justify-between items-start gap-4 hover:shadow-md transition-shadow cursor-pointer ${f.status === 'javob_berildi' ? 'bg-white border-slate-200 opacity-60' : 'bg-slate-50 border-indigo-100'}`}>
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className={`font-black text-sm px-3 py-1 rounded-lg ${f.is_anonymous ? 'bg-slate-800 text-white' : 'bg-blue-100 text-blue-700'}`}>
-                                {f.is_anonymous ? 'Yashirin Murojaat' : f.sender_name}
-                              </span>
-                              {f.status === 'javob_berildi' && <span className="text-xs font-bold text-emerald-500 flex items-center"><CheckCircle className="w-3 h-3 mr-1"/> Javob berilgan</span>}
-                              <span className="text-xs font-bold text-slate-400 ml-auto">{new Date(f.created_at).toLocaleString('uz-UZ')}</span>
-                            </div>
+                            <div className="flex items-center gap-3 mb-2"><span className={`font-black text-sm px-3 py-1 rounded-lg ${f.is_anonymous ? 'bg-slate-800 text-white' : 'bg-blue-100 text-blue-700'}`}>{f.is_anonymous ? 'Yashirin Murojaat' : f.sender_name}</span>{f.status === 'javob_berildi' && <span className="text-xs font-bold text-emerald-500 flex items-center"><CheckCircle className="w-3 h-3 mr-1"/> Javob berilgan</span>}<span className="text-xs font-bold text-slate-400 ml-auto">{new Date(f.created_at).toLocaleString('uz-UZ')}</span></div>
                             <p className="text-slate-700 font-medium leading-relaxed">{f.message}</p>
-                            {f.answer && (
-                              <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 text-sm font-medium">
-                                <span className="font-bold text-emerald-600 block mb-1">Sizning javobingiz:</span>{f.answer}
-                              </div>
-                            )}
+                            {f.answer && <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-emerald-800 text-sm font-medium"><span className="font-bold text-emerald-600 block mb-1">Sizning javobingiz:</span>{f.answer}</div>}
                           </div>
                           <button onClick={(e) => { e.stopPropagation(); handleDeleteFeedback(f.id); }} className="p-3 text-red-400 hover:text-white hover:bg-red-500 rounded-xl transition-all flex-shrink-0"><Trash2 className="w-5 h-5"/></button>
                         </div>
@@ -309,28 +302,16 @@ export default function DirectorDashboard() {
 
             {activeMenu === "teachers" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
-                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                  <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Crown className="text-indigo-600"/> Ustozlar Ro'yxati</h2>
-                  <button onClick={() => setShowTeacherModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2"><UserPlus className="w-5 h-5"/> Yangi O'qituvchi</button>
-                </div>
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50"><h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Crown className="text-indigo-600"/> Ustozlar Ro'yxati</h2><button onClick={() => setShowTeacherModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2"><UserPlus className="w-5 h-5"/> Yangi O'qituvchi</button></div>
                 <div className="overflow-x-auto p-4">
                   <table className="w-full text-left">
-                    <thead>
-                      <tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50">
-                        <th className="p-4">ID / Parol</th><th className="p-4">To'liq F.I.SH</th><th className="p-4">Mutaxassisligi</th><th className="p-4">Sinf Rahbarligi</th><th className="p-4 text-right">Amallar</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50"><th className="p-4">ID / Parol</th><th className="p-4">F.I.SH</th><th className="p-4">Mutaxassisligi</th><th className="p-4">Sinf Rahbarligi</th><th className="p-4 text-right">Amallar</th></tr></thead>
                     <tbody>
                       {teachers.map(t => (
                         <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
                           <td className="p-4"><div className="font-black text-indigo-600 text-sm">{t.id}</div><div className="text-[10px] font-mono font-bold text-amber-600 uppercase flex items-center gap-1"><Key className="w-3 h-3"/> {t.password}</div></td>
-                          <td className="p-4 font-bold text-slate-900">{t.full_name}</td>
-                          <td className="p-4 text-sm text-slate-500 font-medium">{t.bio}</td>
-                          <td className="p-4"><span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${t.homeroom ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>{t.homeroom || "Yo'q"}</span></td>
-                          <td className="p-4 text-right">
-                            <button onClick={() => { setEditingTeacher(t); setShowEditTeacherModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1"><Edit className="w-5 h-5"/></button>
-                            <button onClick={() => handleDeleteTeacher(t.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5"/></button>
-                          </td>
+                          <td className="p-4 font-bold text-slate-900">{t.full_name}</td><td className="p-4 text-sm text-slate-500 font-medium">{t.bio}</td><td className="p-4"><span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${t.homeroom ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>{t.homeroom || "Yo'q"}</span></td>
+                          <td className="p-4 text-right"><button onClick={() => { setEditingTeacher(t); setShowEditTeacherModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1"><Edit className="w-5 h-5"/></button><button onClick={() => handleDeleteTeacher(t.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5"/></button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -344,21 +325,12 @@ export default function DirectorDashboard() {
                 {selectedClassView ? (
                   <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
                     <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                        <button onClick={() => setSelectedClassView(null)} className="p-3 bg-white shadow-sm border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors"><ArrowLeft className="w-5 h-5"/></button>
-                        <h2 className="text-3xl font-black text-slate-900">{selectedClassView} Sinf O'quvchilari</h2>
-                      </div>
-                      <button onClick={() => { setNewPerson({...newPerson, className: selectedClassView}); setShowStudentModal(true); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
-                        <PlusCircle className="w-5 h-5"/> Yangi O'quvchi
-                      </button>
+                      <div className="flex items-center gap-4"><button onClick={() => setSelectedClassView(null)} className="p-3 bg-white shadow-sm border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors"><ArrowLeft className="w-5 h-5"/></button><h2 className="text-3xl font-black text-slate-900">{selectedClassView} Sinf O'quvchilari</h2></div>
+                      <button onClick={() => { setNewPerson({...newPerson, className: selectedClassView}); setShowStudentModal(true); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2"><PlusCircle className="w-5 h-5"/> Yangi O'quvchi</button>
                     </div>
                     <div className="overflow-x-auto p-4">
                       <table className="w-full text-left">
-                        <thead>
-                          <tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50">
-                            <th className="p-4">O'quvchi ID / Parol</th><th className="p-4">F.I.SH</th><th className="p-4 text-center">Balans (PP)</th><th className="p-4 text-right">Amallar</th>
-                          </tr>
-                        </thead>
+                        <thead><tr className="text-slate-400 text-xs font-black uppercase tracking-widest border-b border-slate-50"><th className="p-4">O'quvchi ID / Parol</th><th className="p-4">F.I.SH</th><th className="p-4 text-center">Balans (PP)</th><th className="p-4 text-right">Amallar</th></tr></thead>
                         <tbody>
                           {allStudents.filter(s => s.class_name === selectedClassView).length === 0 ? (
                             <tr><td colSpan={4} className="text-center p-12 text-slate-400 font-bold border-2 border-dashed border-slate-50 rounded-3xl m-4">Bu sinfda o'quvchilar yo'q.</td></tr>
@@ -366,12 +338,8 @@ export default function DirectorDashboard() {
                             allStudents.filter(s => s.class_name === selectedClassView).map((student) => (
                               <tr key={student.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                                 <td className="p-4"><div className="font-black text-indigo-600">{student.id}</div><div className="text-[10px] font-mono font-bold text-amber-600 uppercase flex items-center gap-1"><Key className="w-3 h-3"/> {student.password}</div></td>
-                                <td className="p-4 font-bold text-slate-900">{student.full_name}</td>
-                                <td className="p-4 text-center"><span className="bg-amber-100 text-amber-600 px-3 py-1 rounded-lg font-black text-sm">{student.pp_balance || 0} PP</span></td>
-                                <td className="p-4 text-right">
-                                  <button onClick={() => { setEditingStudent(student); setShowEditStudentModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1"><Edit className="w-5 h-5"/></button>
-                                  <button onClick={() => handleDeleteStudent(student.id, student.full_name)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5"/></button>
-                                </td>
+                                <td className="p-4 font-bold text-slate-900">{student.full_name}</td><td className="p-4 text-center"><span className="bg-amber-100 text-amber-600 px-3 py-1 rounded-lg font-black text-sm">{student.pp_balance || 0} PP</span></td>
+                                <td className="p-4 text-right"><button onClick={() => { setEditingStudent(student); setShowEditStudentModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1"><Edit className="w-5 h-5"/></button><button onClick={() => handleDeleteStudent(student.id, student.full_name)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 className="w-5 h-5"/></button></td>
                               </tr>
                             ))
                           )}
@@ -381,10 +349,7 @@ export default function DirectorDashboard() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-3xl font-black text-slate-900">Maktab Sinflari</h2>
-                      <button onClick={() => setShowClassModal(true)} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2"><PlusCircle className="w-5 h-5"/> Yangi Sinf Ochish</button>
-                    </div>
+                    <div className="flex justify-between items-center"><h2 className="text-3xl font-black text-slate-900">Maktab Sinflari</h2><button onClick={() => setShowClassModal(true)} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2"><PlusCircle className="w-5 h-5"/> Yangi Sinf Ochish</button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {classes.map(cls => {
                         const count = getStudentsCount(cls.name);
@@ -392,11 +357,9 @@ export default function DirectorDashboard() {
                         return (
                           <div key={cls.name} className={`bg-white p-8 rounded-[3rem] shadow-sm border transition-all hover:shadow-md ${isFull ? 'border-red-100 bg-red-50/10' : 'border-slate-100'}`}>
                             <div className="flex justify-between items-center mb-6 cursor-pointer group" onClick={() => setSelectedClassView(cls.name)}>
-                              <h3 className="text-4xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors flex items-center">{cls.name} <Search className="w-6 h-6 ml-3 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400"/></h3>
-                              <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${isFull ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>{isFull ? "TO'LGAN" : "BO'SH JOY BOR"}</div>
+                              <h3 className="text-4xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors flex items-center">{cls.name} <Search className="w-6 h-6 ml-3 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400"/></h3><div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${isFull ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>{isFull ? "TO'LGAN" : "BO'SH JOY BOR"}</div>
                             </div>
-                            <div className="flex justify-between text-xs font-black text-slate-400 uppercase tracking-widest mb-8"><span>O'quvchilar</span><span>{count} / {cls.max_limit}</span></div>
-                            <button onClick={() => setSelectedClassView(cls.name)} className="w-full py-4 bg-slate-50 text-slate-600 rounded-2xl font-black hover:bg-indigo-600 hover:text-white transition-all">SINFNI KO'RISH</button>
+                            <div className="flex justify-between text-xs font-black text-slate-400 uppercase tracking-widest mb-8"><span>O'quvchilar</span><span>{count} / {cls.max_limit}</span></div><button onClick={() => setSelectedClassView(cls.name)} className="w-full py-4 bg-slate-50 text-slate-600 rounded-2xl font-black hover:bg-indigo-600 hover:text-white transition-all">SINFNI KO'RISH</button>
                           </div>
                         );
                       })}
@@ -407,29 +370,26 @@ export default function DirectorDashboard() {
             )}
 
             {/* ========================================== */}
-            {/* DARS JADVALI VA ALGORITM (YANGILANGAN QISM) */}
+            {/* DARS JADVALI VA YUKLAMALAR (YANGILANGAN) */}
             {/* ========================================== */}
             {activeMenu === "timetable" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                    <div>
                      <h2 className="text-2xl font-black text-slate-900">Dars Jadvali Konstruktori</h2>
-                     <p className="text-slate-400 font-medium">Avtomatik jadval tuzing yoki qo'lda tahrirlang.</p>
+                     <p className="text-slate-400 font-medium">O'quv rejasi asosida jadval tuzing yoki tahrirlang.</p>
                    </div>
                    
                    <div className="flex flex-wrap gap-4 items-center">
-                     {/* AVTOMATIK TUZISH TUGMASI QO'SHILDI */}
-                     <button onClick={handleAutoGenerate} disabled={isGenerating} className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 transition-transform flex items-center disabled:opacity-50">
-                       <Wand2 className="w-5 h-5 mr-2"/> {isGenerating ? "Algoritm ishlayapti..." : "Avtomatik Tuzish"}
+                     
+                     {/* YUKLAMA (O'QUV REJA) TUGMASI */}
+                     <button onClick={() => setShowWorkloadModal(true)} className="px-6 py-3 bg-slate-100 text-indigo-700 font-black rounded-2xl shadow-sm hover:bg-slate-200 transition-all flex items-center">
+                       <Settings2 className="w-5 h-5 mr-2"/> Dars Yuklamalari (Soatlar)
                      </button>
 
-                     <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-                       {classes.map(c => (
-                         <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-5 py-2.5 rounded-xl font-black text-sm transition-all ${selectedClassForTimetable === c.name ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                           {c.name}
-                         </button>
-                       ))}
-                     </div>
+                     <button onClick={handleAutoGenerate} disabled={isGenerating} className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 transition-transform flex items-center disabled:opacity-50">
+                       <Wand2 className="w-5 h-5 mr-2"/> {isGenerating ? "Jadval tuzilmoqda..." : "Avtomatik Tuzish"}
+                     </button>
 
                      <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 p-1.5 rounded-2xl">
                         <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="bg-white px-4 py-2.5 rounded-xl font-black text-sm outline-none text-indigo-700 shadow-sm cursor-pointer">
@@ -441,6 +401,16 @@ export default function DirectorDashboard() {
                            <input type="text" value={termEndDate} onChange={e=>setTermEndDate(e.target.value)} className="w-24 text-xs font-bold text-center p-1.5 bg-white border border-indigo-100 rounded-md outline-none" title="Tugash sanasi"/>
                         </div>
                      </div>
+                   </div>
+                </div>
+
+                <div className="bg-slate-50/80 px-8 py-4 border-b border-slate-100">
+                   <div className="flex bg-white p-1.5 rounded-2xl shadow-sm overflow-x-auto custom-scrollbar">
+                     {classes.map(c => (
+                       <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-6 py-3 rounded-xl font-black text-sm whitespace-nowrap transition-all ${selectedClassForTimetable === c.name ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                         {c.name}
+                       </button>
+                     ))}
                    </div>
                 </div>
 
@@ -465,12 +435,11 @@ export default function DirectorDashboard() {
                             {days.map(day => {
                               const lesson = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === day && t.lesson_number === num && t.term === selectedTerm);
                               return (
-                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setConflictWarning(null); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-32 w-44 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
+                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setConflictWarning(null); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-28 w-40 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
                                   {lesson ? (
                                     <div className="h-full flex flex-col justify-center bg-indigo-50/80 rounded-xl p-3 border border-indigo-100">
                                       <p className="font-black text-slate-900 text-sm leading-tight">{lesson.subject}</p>
                                       <p className="text-[10px] font-bold text-indigo-500 mt-2 uppercase line-clamp-1">{teachers.find(t=>t.id === lesson.teacher_id)?.full_name || "Noma'lum"}</p>
-                                      <span className="absolute bottom-2 right-2 text-[9px] font-black text-slate-400 uppercase">{lesson.room}</span>
                                     </div>
                                   ) : (
                                     <div className="flex items-center justify-center opacity-0 group-hover:opacity-100"><PlusCircle className="text-indigo-300 w-6 h-6"/></div>
@@ -490,10 +459,7 @@ export default function DirectorDashboard() {
             {activeMenu === "algorithm" && (
               <div className="bg-slate-900 rounded-[3.5rem] p-12 text-white shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-10 opacity-10"><Calculator className="w-64 h-64"/></div>
-                <div className="relative z-10 max-w-2xl">
-                  <h2 className="text-5xl font-black italic tracking-tighter mb-6">ELITA IQTISODIYOTI</h2>
-                  <p className="text-slate-400 text-lg font-medium leading-relaxed mb-10">Sizning maktabingizda moliya va rag'batlantirish tizimi to'liq avtomatlashtirilgan. Har oyning birinchi sanasida tizim sinflar o'rnini aniqlaydi va **100,000 PP** jamg'armani o'quvchilarning o'rtacha bahosiga qarab taqsimlaydi.</p>
-                </div>
+                <div className="relative z-10 max-w-2xl"><h2 className="text-5xl font-black italic tracking-tighter mb-6">ELITA IQTISODIYOTI</h2><p className="text-slate-400 text-lg font-medium leading-relaxed mb-10">Sizning maktabingizda moliya va rag'batlantirish tizimi to'liq avtomatlashtirilgan. Har oyning birinchi sanasida tizim sinflar o'rnini aniqlaydi va **100,000 PP** jamg'armani o'quvchilarning o'rtacha bahosiga qarab taqsimlaydi.</p></div>
               </div>
             )}
           </div>
@@ -501,16 +467,61 @@ export default function DirectorDashboard() {
       </main>
 
       {/* ======================================= */}
-      {/* JAVOB YUBORISH MODALI */}
+      {/* YUKLAMALAR (O'QUV REJA) MODALI */}
       {/* ======================================= */}
-      {replyModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setReplyModal(null)}>
-           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-              <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center"><h3 className="text-xl font-black text-indigo-900">Murojaatga Javob Yozish</h3><button onClick={() => setReplyModal(null)} className="text-indigo-400 hover:text-indigo-700"><X/></button></div>
-              <div className="p-8 space-y-4">
-                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{replyModal.is_anonymous ? "Yashirin foydalanuvchi:" : replyModal.sender_name + ":"}</span><p className="text-sm font-medium text-slate-700">{replyModal.message}</p></div>
-                 <textarea rows={4} placeholder="Sizning javobingiz..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-bold outline-none resize-none" value={replyText} onChange={e => setReplyText(e.target.value)}></textarea>
-                 <button onClick={handleSendReply} disabled={isReplying} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center disabled:opacity-50">{isReplying ? "YUBORILMOQDA..." : <><Send className="w-5 h-5 mr-2"/> JAVOBNI YUBORISH</>}</button>
+      {showWorkloadModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowWorkloadModal(false)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                 <div>
+                   <h3 className="text-2xl font-black text-indigo-900">Dars Yuklamalari (O'quv reja)</h3>
+                   <p className="text-indigo-600 font-bold text-sm mt-1">Avtomatik jadval mana shu qoidalar asosida tuziladi.</p>
+                 </div>
+                 <button onClick={() => setShowWorkloadModal(false)} className="bg-white p-2 rounded-full text-indigo-400 hover:text-indigo-600"><X/></button>
+              </div>
+              
+              <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[120px]">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Sinf</label>
+                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold" value={workloadForm.class_name} onChange={e=>setWorkloadForm({...workloadForm, class_name: e.target.value})}><option value="">Sinf...</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}</select>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Fan</label>
+                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold" value={workloadForm.subject} onChange={e=>setWorkloadForm({...workloadForm, subject: e.target.value, teacher_id: ""})}><option value="">Fan...</option>{subjectsBase.map(s=><option key={s} value={s}>{s}</option>)}</select>
+                </div>
+                <div className="flex-[2] min-w-[180px]">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">O'qituvchi</label>
+                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold" value={workloadForm.teacher_id} onChange={e=>setWorkloadForm({...workloadForm, teacher_id: e.target.value})}>
+                    <option value="">O'qituvchi...</option>
+                    {teachers.filter(t => !workloadForm.subject || t.bio === workloadForm.subject).map(t=><option key={t.id} value={t.id}>{t.full_name} ({t.bio})</option>)}
+                  </select>
+                </div>
+                <div className="w-24">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Soat/Hafta</label>
+                  <input type="number" min="1" max="6" className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-center" value={workloadForm.hours} onChange={e=>setWorkloadForm({...workloadForm, hours: Number(e.target.value)})} />
+                </div>
+                <button onClick={handleAddWorkload} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md font-bold flex items-center justify-center"><PlusCircle className="w-5 h-5"/></button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 bg-white">
+                {workloads.length === 0 ? (
+                  <div className="text-center p-10 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-3xl">Hali hech qanday dars yuklamasi kiritilmagan. Yuqoridan qo'shing.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {workloads.map(w => (
+                      <div key={w.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                        <div className="flex items-center gap-4">
+                           <span className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center font-black">{w.class_name}</span>
+                           <div>
+                             <p className="font-black text-slate-900">{w.subject} <span className="text-slate-400 font-medium text-sm ml-2">({teachers.find(t=>t.id===w.teacher_id)?.full_name})</span></p>
+                             <p className="text-xs font-bold text-indigo-500 mt-1">Haftasiga {w.hours} soat</p>
+                           </div>
+                        </div>
+                        <button onClick={() => handleDeleteWorkload(w.id)} className="p-3 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-colors"><Trash2 className="w-5 h-5"/></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
            </div>
         </div>
@@ -526,13 +537,10 @@ export default function DirectorDashboard() {
               </div>
               <div className="p-8 space-y-4">
                  
-                 {/* QIZIL KONFLIKT XABARNOMASI */}
                  {conflictWarning && (
                    <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-bold flex items-start gap-3 animate-in slide-in-from-top-2">
                      <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />
-                     <div>
-                       {conflictWarning}
-                     </div>
+                     <div>{conflictWarning}</div>
                    </div>
                  )}
 
@@ -540,12 +548,9 @@ export default function DirectorDashboard() {
                     <option value="">Fanni Tanlang</option>{subjectsBase.map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
                  
-                 {/* USTOZLARNI TANLASH VA BANDLIK HOLATINI KO'RSATISH */}
                  <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.teacher_id} onChange={e => {setLessonForm({...lessonForm, teacher_id: e.target.value}); setConflictWarning(null);}}>
                     <option value="">Ustozni Tanlang</option>
-                    {teachers
-                      .filter(t => !lessonForm.subject || t.bio === lessonForm.subject)
-                      .map(t => {
+                    {teachers.filter(t => !lessonForm.subject || t.bio === lessonForm.subject).map(t => {
                         const isBusy = timetableData.find(time => time.term === selectedTerm && time.day_of_week === currentCell.day && time.lesson_number === currentCell.lesson && time.teacher_id === t.id && time.class_name !== selectedClassForTimetable);
                         return (
                           <option key={t.id} value={t.id} className={isBusy ? "text-red-500 font-bold" : "text-green-600"}>
@@ -566,7 +571,21 @@ export default function DirectorDashboard() {
         </div>
       )}
 
-      {/* QOLGAN MODALLAR (O'qituvchi, O'quvchi qo'shish va hk) */}
+      {/* JAVOB YUBORISH MODALI ... */}
+      {replyModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setReplyModal(null)}>
+           <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+              <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center"><h3 className="text-xl font-black text-indigo-900">Murojaatga Javob Yozish</h3><button onClick={() => setReplyModal(null)} className="text-indigo-400 hover:text-indigo-700"><X/></button></div>
+              <div className="p-8 space-y-4">
+                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-4"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{replyModal.is_anonymous ? "Yashirin foydalanuvchi:" : replyModal.sender_name + ":"}</span><p className="text-sm font-medium text-slate-700">{replyModal.message}</p></div>
+                 <textarea rows={4} placeholder="Sizning javobingiz..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-bold outline-none resize-none" value={replyText} onChange={e => setReplyText(e.target.value)}></textarea>
+                 <button onClick={handleSendReply} disabled={isReplying} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all flex items-center justify-center disabled:opacity-50">{isReplying ? "YUBORILMOQDA..." : <><Send className="w-5 h-5 mr-2"/> JAVOBNI YUBORISH</>}</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* QOLGAN MODALLAR (O'qituvchi, O'quvchi qo'shish) ... */}
       {showTeacherModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowTeacherModal(false)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
