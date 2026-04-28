@@ -5,7 +5,7 @@ import {
   Users, UserPlus, Shield, Calendar, Calculator, 
   Crown, LayoutDashboard, CheckCircle2, X, PlusCircle, 
   School, Edit, Trash2, Search, ArrowLeft, MessageSquare, 
-  Send, CheckCircle, Key, Clock, Wand2, AlertTriangle, Settings2
+  Send, CheckCircle, Key, Clock, Wand2, AlertTriangle, Settings2, FileText
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 import { generateTimetable } from "@/lib/timetableAlgorithm";
@@ -14,12 +14,12 @@ export default function DirectorDashboard() {
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "teachers" | "students" | "timetable" | "algorithm">("boshqaruv");
   const [isLoading, setIsLoading] = useState(true);
 
-  // ALGORITM VA YUKLAMA UCHUN
+  // ALGORITM VA YUKLAMALAR UCHUN STATE
   const [isGenerating, setIsGenerating] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   
   const [showWorkloadModal, setShowWorkloadModal] = useState(false);
-  const [workloads, setWorkloads] = useState<any[]>([]); // Dars soatlari (Yuklama)
+  const [workloads, setWorkloads] = useState<any[]>([]); // Dars soatlari taqsimoti
   const [workloadForm, setWorkloadForm] = useState({ class_name: "", subject: "", teacher_id: "", hours: 2 });
 
   // MODALLAR
@@ -58,7 +58,11 @@ export default function DirectorDashboard() {
 
   const subjectsBase = ["Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Kimyo", "Biologiya", "Fizika", "Informatika", "Tarix", "Tarbiya", "Jismoniy tarbiya"];
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-  const lessonNumbers = [1, 2, 3, 4, 5, 6]; // 7-soat olib tashlandi
+  
+  // ==========================================
+  // MUHIM O'ZGARISH: Faqat 6 soat qoldirildi!
+  // ==========================================
+  const lessonNumbers = [1, 2, 3, 4, 5, 6]; 
 
   const generatePassword = () => Math.random().toString(36).slice(-6).toUpperCase();
 
@@ -104,7 +108,7 @@ export default function DirectorDashboard() {
     const updated = [...workloads, newW];
     setWorkloads(updated);
     localStorage.setItem('elita_workloads', JSON.stringify(updated));
-    setWorkloadForm({...workloadForm, teacher_id: "", subject: "", hours: 2}); // Formni tozalash
+    setWorkloadForm({...workloadForm, teacher_id: "", subject: "", hours: 2}); 
   };
 
   const handleDeleteWorkload = (id: string) => {
@@ -114,21 +118,20 @@ export default function DirectorDashboard() {
   };
 
   // ==========================================
-  // DARS JADVALI ALGORITMI (YUKLAMALAR ASOSIDA)
+  // AVTOMATIK DARS JADVALI YARATISH
   // ==========================================
   const handleAutoGenerate = async () => {
     if (workloads.length === 0) {
-      alert("XATOLIK: Jadval tuzish uchun avval 'Dars Yuklamalari' tugmasi orqali o'qituvchilarning dars soatlarini kiritib chiqing!");
+      alert("XATOLIK: Jadval tuzish uchun avval 'Dars Yuklamalari' tugmasi orqali qaysi o'qituvchi qaysi sinfga necha soat kirishini belgilab chiqing!");
       setShowWorkloadModal(true);
       return;
     }
 
-    if(!confirm("Diqqat! Bu joriy chorakdagi jadvallarni o'chirib, belgilangan yuklamalar (soatlar) asosida yangi jadval tuzadi. Davom etasizmi?")) return;
+    if(!confirm("Diqqat! Joriy chorakdagi jadvallar o'chirib yuboriladi va o'qituvchilar yuklamasiga qarab yoziladi. Davom etasizmi?")) return;
     setIsGenerating(true);
 
     await supabase.from('timetable').delete().eq('term', selectedTerm);
 
-    // Yuklamalarni algoritm tushunadigan formatga o'tkazish
     const requests = workloads.map(w => ({
        className: w.class_name, 
        subject: w.subject, 
@@ -145,17 +148,14 @@ export default function DirectorDashboard() {
 
     if(insertData.length > 0) {
       await supabase.from('timetable').insert(insertData);
-      alert("Algoritm muvaffaqiyatli ishladi! O'quv rejasi asosida jadval tayyor.");
+      alert("Algoritm jadvalni to'liq 6 soat qilib taqsimlab berdi!");
     } else {
-      alert("Algoritm jadval tuza olmadi. Biron xatolik bor.");
+      alert("Jadval tuza olmadim. Yoki joylar yetarli emas, yoki xatolik yuz berdi.");
     }
     
     setIsGenerating(false); fetchData();
   };
 
-  // ==========================================
-  // DARS JADVALINI QO'LDA SAQLASH (KONFLIKT NAZORATI)
-  // ==========================================
   const handleSaveLesson = async () => {
     if(!lessonForm.subject || !lessonForm.teacher_id) return alert("Fan va Ustozni tanlang!");
 
@@ -370,10 +370,10 @@ export default function DirectorDashboard() {
             )}
 
             {/* ========================================== */}
-            {/* DARS JADVALI VA YUKLAMALAR (YANGILANGAN) */}
+            {/* DARS JADVALI VA YUKLAMALAR */}
             {/* ========================================== */}
             {activeMenu === "timetable" && (
-              <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col">
+              <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden min-h-[700px] flex flex-col animate-in fade-in">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                    <div>
                      <h2 className="text-2xl font-black text-slate-900">Dars Jadvali Konstruktori</h2>
@@ -382,14 +382,21 @@ export default function DirectorDashboard() {
                    
                    <div className="flex flex-wrap gap-4 items-center">
                      
-                     {/* YUKLAMA (O'QUV REJA) TUGMASI */}
-                     <button onClick={() => setShowWorkloadModal(true)} className="px-6 py-3 bg-slate-100 text-indigo-700 font-black rounded-2xl shadow-sm hover:bg-slate-200 transition-all flex items-center">
-                       <Settings2 className="w-5 h-5 mr-2"/> Dars Yuklamalari (Soatlar)
+                     <button onClick={() => setShowWorkloadModal(true)} className="px-6 py-3 border border-indigo-100 text-indigo-700 bg-indigo-50 font-black rounded-2xl shadow-sm hover:bg-indigo-100 transition-all flex items-center gap-2">
+                       <FileText className="w-5 h-5"/> Yuklamalarni Kiritish
                      </button>
 
-                     <button onClick={handleAutoGenerate} disabled={isGenerating} className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 transition-transform flex items-center disabled:opacity-50">
-                       <Wand2 className="w-5 h-5 mr-2"/> {isGenerating ? "Jadval tuzilmoqda..." : "Avtomatik Tuzish"}
+                     <button onClick={handleAutoGenerate} disabled={isGenerating} className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 transition-transform flex items-center gap-2 disabled:opacity-50">
+                       <Wand2 className="w-5 h-5"/> {isGenerating ? "Jadval tuzilmoqda..." : "Avtomatik Tuzish"}
                      </button>
+
+                     <div className="flex bg-slate-100 p-1.5 rounded-2xl">
+                       {classes.map(c => (
+                         <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-5 py-2.5 rounded-xl font-black text-sm transition-all ${selectedClassForTimetable === c.name ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                           {c.name}
+                         </button>
+                       ))}
+                     </div>
 
                      <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 p-1.5 rounded-2xl">
                         <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="bg-white px-4 py-2.5 rounded-xl font-black text-sm outline-none text-indigo-700 shadow-sm cursor-pointer">
@@ -401,16 +408,6 @@ export default function DirectorDashboard() {
                            <input type="text" value={termEndDate} onChange={e=>setTermEndDate(e.target.value)} className="w-24 text-xs font-bold text-center p-1.5 bg-white border border-indigo-100 rounded-md outline-none" title="Tugash sanasi"/>
                         </div>
                      </div>
-                   </div>
-                </div>
-
-                <div className="bg-slate-50/80 px-8 py-4 border-b border-slate-100">
-                   <div className="flex bg-white p-1.5 rounded-2xl shadow-sm overflow-x-auto custom-scrollbar">
-                     {classes.map(c => (
-                       <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-6 py-3 rounded-xl font-black text-sm whitespace-nowrap transition-all ${selectedClassForTimetable === c.name ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
-                         {c.name}
-                       </button>
-                     ))}
                    </div>
                 </div>
 
@@ -435,11 +432,12 @@ export default function DirectorDashboard() {
                             {days.map(day => {
                               const lesson = timetableData.find(t => t.class_name === selectedClassForTimetable && t.day_of_week === day && t.lesson_number === num && t.term === selectedTerm);
                               return (
-                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setConflictWarning(null); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-28 w-40 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
+                                <td key={day+num} onClick={() => { setCurrentCell({day, lesson: num}); setLessonForm({subject: lesson?.subject || "", teacher_id: lesson?.teacher_id || "", room: lesson?.room || ""}); setConflictWarning(null); setShowLessonModal(true); }} className={`p-2 border-b border-slate-100 h-32 w-44 cursor-pointer transition-all hover:bg-indigo-50/50 group relative`}>
                                   {lesson ? (
                                     <div className="h-full flex flex-col justify-center bg-indigo-50/80 rounded-xl p-3 border border-indigo-100">
                                       <p className="font-black text-slate-900 text-sm leading-tight">{lesson.subject}</p>
                                       <p className="text-[10px] font-bold text-indigo-500 mt-2 uppercase line-clamp-1">{teachers.find(t=>t.id === lesson.teacher_id)?.full_name || "Noma'lum"}</p>
+                                      <span className="absolute bottom-2 right-2 text-[9px] font-black text-slate-400 uppercase">{lesson.room}</span>
                                     </div>
                                   ) : (
                                     <div className="flex items-center justify-center opacity-0 group-hover:opacity-100"><PlusCircle className="text-indigo-300 w-6 h-6"/></div>
@@ -471,50 +469,50 @@ export default function DirectorDashboard() {
       {/* ======================================= */}
       {showWorkloadModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowWorkloadModal(false)}>
-           <div className="bg-white rounded-[3rem] w-full max-w-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+           <div className="bg-white rounded-[3rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
               <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
                  <div>
-                   <h3 className="text-2xl font-black text-indigo-900">Dars Yuklamalari (O'quv reja)</h3>
-                   <p className="text-indigo-600 font-bold text-sm mt-1">Avtomatik jadval mana shu qoidalar asosida tuziladi.</p>
+                   <h3 className="text-2xl font-black text-indigo-900">O'quv Rejasi (Yuklamalar)</h3>
+                   <p className="text-indigo-600 font-bold text-sm mt-1">Sinflarga o'qituvchilarni biriktiring. Algoritm shu reja asosida ishlaydi.</p>
                  </div>
                  <button onClick={() => setShowWorkloadModal(false)} className="bg-white p-2 rounded-full text-indigo-400 hover:text-indigo-600"><X/></button>
               </div>
               
               <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4 items-end">
                 <div className="flex-1 min-w-[120px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Sinf</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Qaysi Sinfga?</label>
                   <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold" value={workloadForm.class_name} onChange={e=>setWorkloadForm({...workloadForm, class_name: e.target.value})}><option value="">Sinf...</option>{classes.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}</select>
                 </div>
                 <div className="flex-1 min-w-[120px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Fan</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Qaysi Fan?</label>
                   <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold" value={workloadForm.subject} onChange={e=>setWorkloadForm({...workloadForm, subject: e.target.value, teacher_id: ""})}><option value="">Fan...</option>{subjectsBase.map(s=><option key={s} value={s}>{s}</option>)}</select>
                 </div>
                 <div className="flex-[2] min-w-[180px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">O'qituvchi</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Kim Kiradi (Ustoz)?</label>
                   <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold" value={workloadForm.teacher_id} onChange={e=>setWorkloadForm({...workloadForm, teacher_id: e.target.value})}>
                     <option value="">O'qituvchi...</option>
                     {teachers.filter(t => !workloadForm.subject || t.bio === workloadForm.subject).map(t=><option key={t.id} value={t.id}>{t.full_name} ({t.bio})</option>)}
                   </select>
                 </div>
-                <div className="w-24">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Soat/Hafta</label>
+                <div className="w-32">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Haftada Necha Soat?</label>
                   <input type="number" min="1" max="6" className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-center" value={workloadForm.hours} onChange={e=>setWorkloadForm({...workloadForm, hours: Number(e.target.value)})} />
                 </div>
-                <button onClick={handleAddWorkload} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md font-bold flex items-center justify-center"><PlusCircle className="w-5 h-5"/></button>
+                <button onClick={handleAddWorkload} className="p-3 px-6 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md font-black flex items-center justify-center gap-2">QO'SHISH <PlusCircle className="w-5 h-5"/></button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 bg-white">
                 {workloads.length === 0 ? (
                   <div className="text-center p-10 text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-3xl">Hali hech qanday dars yuklamasi kiritilmagan. Yuqoridan qo'shing.</div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {workloads.map(w => (
                       <div key={w.id} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                         <div className="flex items-center gap-4">
                            <span className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center font-black">{w.class_name}</span>
                            <div>
                              <p className="font-black text-slate-900">{w.subject} <span className="text-slate-400 font-medium text-sm ml-2">({teachers.find(t=>t.id===w.teacher_id)?.full_name})</span></p>
-                             <p className="text-xs font-bold text-indigo-500 mt-1">Haftasiga {w.hours} soat</p>
+                             <p className="text-xs font-bold text-indigo-500 mt-1">Haftasiga {w.hours} soat dars o'tadi</p>
                            </div>
                         </div>
                         <button onClick={() => handleDeleteWorkload(w.id)} className="p-3 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-colors"><Trash2 className="w-5 h-5"/></button>
@@ -537,6 +535,7 @@ export default function DirectorDashboard() {
               </div>
               <div className="p-8 space-y-4">
                  
+                 {/* QIZIL KONFLIKT XABARNOMASI */}
                  {conflictWarning && (
                    <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-2xl text-sm font-bold flex items-start gap-3 animate-in slide-in-from-top-2">
                      <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />
