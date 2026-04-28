@@ -241,7 +241,16 @@ export default function DirectorDashboard() {
     await supabase.from('profiles').update({ full_name: editingStudent.full_name, class_name: editingStudent.class_name }).eq('id', editingStudent.id);
     showToast("Saqlandi!"); setShowEditStudentModal(false); fetchData(); 
   };
-  const handleDeleteStudent = (id: string) => { setConfirmDialog({ message: "O'quvchi o'chiriladi. Davom etamizmi?", onConfirm: async () => { setConfirmDialog(null); await supabase.from('profiles').delete().eq('id', id); fetchData(); }}); };
+  const handleDeleteStudent = (id: string) => {
+    setConfirmDialog({
+      message: "O'quvchi o'chiriladi. Davom etamizmi?",
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        await supabase.from('profiles').delete().eq('id', id);
+        fetchData();
+      }
+    });
+  };
   const handleDeleteFeedback = (id: string) => { setConfirmDialog({ message: "Murojaatni o'chirasizmi?", onConfirm: async () => { setConfirmDialog(null); await supabase.from('feedbacks').delete().eq('id', id); fetchData(); }}); };
   const handleSendReply = async () => {
     if (!replyText.trim()) return showToast("Javob yozing!", "error");
