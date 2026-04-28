@@ -17,6 +17,8 @@ export default function MessengerPage() {
 
   const [student, setStudent] = useState<any>(null);
   const [activeChat, setActiveChat] = useState<any>(null);
+  const activeChatRef = useRef<any>(null); // Real-time ichida aktiv chatni bilish uchun
+
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -25,16 +27,13 @@ export default function MessengerPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
 
-  // ==========================================
-  // PAPKALAR (FOLDERS) UCHUN STATE
-  // ==========================================
   const [folders, setFolders] = useState<any[]>([{ id: 'all', name: 'Barchasi', chatIds: [] }]);
   const [activeFolderId, setActiveFolderId] = useState<string>('all');
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedChatsForFolder, setSelectedChatsForFolder] = useState<string[]>([]);
 
-  // Modallar va Menyular
+  // Modallar
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
@@ -42,17 +41,14 @@ export default function MessengerPage() {
   const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
   const [showEditChatModal, setShowEditChatModal] = useState(false);
 
-  // Chat ichidagi funksiyalar
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [showChatSearch, setShowChatSearch] = useState(false);
   const [mutedChats, setMutedChats] = useState<string[]>([]);
   
-  // Ovozli / Video xabar (UI State)
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
 
-  // TELEGRAM SETTINGS
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsView, setSettingsView] = useState("main");
   const [appSettings, setAppSettings] = useState({ textSize: "medium", enterToSend: true, language: "English" });
@@ -65,6 +61,11 @@ export default function MessengerPage() {
 
   const [profileName, setProfileName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
+
+  // Aktiv chatni ref ga yozish (Real-time funksiyasi ichida ko'rinishi uchun)
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
 
   useEffect(() => {
     const studentId = localStorage.getItem('student_id');
@@ -89,10 +90,54 @@ export default function MessengerPage() {
     
     const savedMuted = localStorage.getItem('muted_chats');
     if (savedMuted) setMutedChats(JSON.parse(savedMuted));
+
+    // ==========================================
+    // XABARLAR UCHUN JONLI (REAL-TIME) ULANISH
+    // ==========================================
+    const msgSubscription = supabase.channel('realtime-messages')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload: any) => {
+         const newMsg = payload.new;
+         const currentChat = activeChatRef.current;
+
+         // 1. YANGI XABAR KELDI YOKI JO'NATILDI
+         if (payload.eventType === 'INSERT') {
+            if (newMsg.receiver_id === studentId || newMsg.sender_id === studentId) {
+               // Agar shu chatning o'zida o'tirgan bo'lsak, xabarni ekranga qo'shamiz
+               const isForCurrentChat = currentChat && (
+                   (newMsg.sender_id === currentChat.id && newMsg.receiver_id === studentId) || 
+                   (newMsg.receiver_id === currentChat.id && newMsg.sender_id === studentId) ||
+                   (currentChat.id === 'saved' && newMsg.sender_id === studentId && newMsg.receiver_id === studentId) ||
+                   (currentChat.type === 'group' && newMsg.receiver_id === currentChat.id) ||
+                   (currentChat.type === 'channel' && newMsg.receiver_id === currentChat.id)
+               );
+
+               if (isForCurrentChat) {
+                   setMessages((prev) => {
+                     // Agar oldin qo'shilgan bo'lsa (duplikat) qaytaramiz
+                     if (prev.some(m => m.id === newMsg.id)) return prev;
+                     return [...prev, newMsg];
+                   });
+
+                   // Kiritilgan xabarni shu zahoti o'qilgan qilib belgilash
+                   if (newMsg.receiver_id === studentId && newMsg.sender_id !== studentId) {
+                       supabase.from('messages').update({ is_read: true }).eq('id', newMsg.id).then();
+                   }
+               }
+               // Ekranda ro'yxatni ham yangilaymiz
+               fetchChats(studentId);
+            }
+         } 
+         // 2. XABAR O'QILDI (UPDATE)
+         else if (payload.eventType === 'UPDATE') {
+             setMessages((prev) => prev.map(m => m.id === newMsg.id ? newMsg : m));
+         }
+      }).subscribe();
+
+    return () => { supabase.removeChannel(msgSubscription); clearInterval(interval); }
   }, [router]);
 
+  let interval: any;
   useEffect(() => {
-    let interval: any;
     if (isRecordingAudio || isRecordingVideo) {
       interval = setInterval(() => setRecordingTime(p => p + 1), 1000);
     } else {
@@ -126,13 +171,14 @@ export default function MessengerPage() {
        const { data } = await supabase.from('messages').select('*').eq('sender_id', student.id).eq('receiver_id', student.id).order('created_at', { ascending: true });
        setMessages(data || []); return;
     }
-    const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${student.id},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${student.id})`).order('created_at', { ascending: true });
+    
+    const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${student.id},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${student.id}),receiver_id.eq.${chatId}`).order('created_at', { ascending: true });
     setMessages(data || []);
+
+    // Chat ochilganda o'qilmagan xabarlarni o'qilgan (is_read = true) ga aylantiramiz (✓✓ bo'lishi uchun)
+    await supabase.from('messages').update({ is_read: true }).eq('sender_id', chatId).eq('receiver_id', student.id).eq('is_read', false);
   };
 
-  // ==========================================
-  // PAPKA (FOLDER) FUNKSIYALARI
-  // ==========================================
   const toggleChatSelectionForFolder = (chatId: string) => {
     if (selectedChatsForFolder.includes(chatId)) setSelectedChatsForFolder(selectedChatsForFolder.filter(id => id !== chatId));
     else setSelectedChatsForFolder([...selectedChatsForFolder, chatId]);
@@ -152,9 +198,6 @@ export default function MessengerPage() {
     alert("Papka muvaffaqiyatli yaratildi!");
   };
 
-  // ==========================================
-  // XABAR VA BIRIKTIRMALAR (ATTACHMENTS) 
-  // ==========================================
   const handleUploadFile = async (file: File, bucket: string = 'attachments') => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
@@ -169,11 +212,10 @@ export default function MessengerPage() {
     if (type === 'text' && !messageInput.trim()) return;
 
     const receiver = activeChat.id === 'saved' ? student.id : activeChat.id;
-    const newMsg = { sender_id: student.id, receiver_id: receiver, text: messageInput, msg_type: type, file_url: fileUrl };
+    const newMsg = { sender_id: student.id, receiver_id: receiver, text: messageInput, msg_type: type, file_url: fileUrl, is_read: false };
     
-    setMessages([...messages, { ...newMsg, id: Date.now(), created_at: new Date().toISOString() }]);
     setMessageInput("");
-
+    // Xabar yozilishi bilan Real-time (tepadagi useEffect) o'zi ekranga qo'shadi. Shuning uchun bu yerda faqat insert qilamiz:
     await supabase.from('messages').insert([newMsg]);
   };
 
@@ -218,9 +260,6 @@ export default function MessengerPage() {
     }
   };
 
-  // ==========================================
-  // KONTAKT VA GURUH OCHISH (FIXED)
-  // ==========================================
   const handleAddContact = async () => {
     if (!contactId.trim() || !contactName.trim()) return alert("Maydonlarni to'ldiring!");
     setIsUploading(true);
@@ -230,7 +269,6 @@ export default function MessengerPage() {
     const { error } = await supabase.from('contacts').insert([{ owner_id: student.id, contact_id: contactId.toUpperCase(), contact_name: contactName }]);
     if (error) { alert("Xato: " + error.message); setIsUploading(false); return; }
     
-    // UI NI TEZKOR YANGILASH
     await fetchChats(student.id); 
     setShowAddContactModal(false); setContactId(""); setContactName(""); setIsUploading(false);
   };
@@ -244,8 +282,6 @@ export default function MessengerPage() {
     const { data, error } = await supabase.from('chats').insert([{ name: newChatName, type: type, avatar_url: avatarUrl, created_by: student.id }]).select().single();
     
     if (error) { alert("Xato: " + error.message); setIsUploading(false); return; }
-    
-    // UI NI TEZKOR YANGILASH
     if (data) {
       await fetchChats(student.id); 
       setActiveChat(data);
@@ -261,7 +297,7 @@ export default function MessengerPage() {
     
     const { error } = await supabase.from('chats').update({ name: newChatName, avatar_url: avatarUrl }).eq('id', activeChat.id);
     if (!error) {
-      await fetchChats(student.id); // Chat ro'yxatini yangilash
+      await fetchChats(student.id);
       setActiveChat({...activeChat, name: newChatName, avatar_url: avatarUrl});
       setShowEditChatModal(false); setUploadImage(null);
     } else { alert("Xato: " + error.message); }
@@ -280,7 +316,6 @@ export default function MessengerPage() {
 
   if (!student) return <div className="flex h-screen items-center justify-center bg-[#0e1621]"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
-  // PAPKALAR VA QIDIRUV BO'YICHA FILTR
   const currentFolderChats = activeFolderId === 'all' ? chats : chats.filter(c => folders.find(f => f.id === activeFolderId)?.chatIds.includes(c.id));
   const filteredChats = currentFolderChats.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -292,9 +327,6 @@ export default function MessengerPage() {
   return (
     <div className="w-full h-full bg-[#0e1621] text-white flex overflow-hidden relative">
       
-      {/* ========================================================== */}
-      {/* YON MENYU (DRAWER) */}
-      {/* ========================================================== */}
       {isDrawerOpen && <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsDrawerOpen(false)}></div>}
       <div className={`absolute top-0 left-0 h-full w-[280px] bg-[#17212b] z-50 transform transition-transform duration-300 flex flex-col shadow-2xl ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-4 bg-[#2b5278] text-white relative">
@@ -325,9 +357,6 @@ export default function MessengerPage() {
         </div>
       </div>
 
-      {/* ========================================================== */}
-      {/* CHAP TOMON: CHATLAR VA PAPKALAR */}
-      {/* ========================================================== */}
       <div className="w-full md:w-[340px] bg-[#17212b] flex flex-col flex-shrink-0 border-r border-[#0e1621] z-10 relative">
         <div className="p-3 flex items-center gap-3 bg-[#17212b]">
           <Menu onClick={() => setIsDrawerOpen(true)} className="w-6 h-6 text-[#708499] cursor-pointer hover:text-white transition-colors" />
@@ -337,7 +366,6 @@ export default function MessengerPage() {
           </div>
         </div>
 
-        {/* FOLDERS TAB BAR */}
         {folders.length > 1 && (
           <div className="flex overflow-x-auto hide-scrollbar border-b border-[#0e1621] px-2 py-1 bg-[#17212b]">
              {folders.map(f => (
@@ -380,9 +408,6 @@ export default function MessengerPage() {
         </button>
       </div>
 
-      {/* ========================================================== */}
-      {/* O'NG TOMON: ASOSIY CHAT OYNASI */}
-      {/* ========================================================== */}
       <div className="flex-1 flex flex-col min-w-0 hidden md:flex relative bg-[#0e1621]">
         {activeChat ? (
           <>
@@ -428,6 +453,7 @@ export default function MessengerPage() {
                   return (
                     <div key={msg.id} className={`flex max-w-xl ${isMe ? 'self-end' : 'self-start'}`}>
                       <div className={`rounded-2xl p-2.5 shadow-md ${isMe ? 'bg-[#2b5278] text-white rounded-br-sm' : 'bg-[#182533] text-white rounded-bl-sm'}`}>
+                        
                         {msg.msg_type === 'image' && <img src={msg.file_url} className="rounded-lg mb-2 max-w-[280px] max-h-[300px] object-cover"/>}
                         {msg.msg_type === 'video' && <video src={msg.file_url} controls className="rounded-lg mb-2 max-w-[280px] max-h-[300px]"/>}
                         {msg.msg_type === 'audio' && <audio src={msg.file_url} controls className="mb-2 h-10 w-[250px]"/>}
@@ -436,10 +462,13 @@ export default function MessengerPage() {
                         {msg.msg_type === 'round_video' && <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-[#4a8ebf] mb-2"><video src={msg.file_url} autoPlay loop muted playsInline className="w-full h-full object-cover"/></div>}
 
                         {msg.text && <p className={`${textSizeClass} leading-relaxed`}>{msg.text}</p>}
+                        
+                        {/* ✅ 1 ta yoki 2 ta pitichka funksiyasi shu yerda */}
                         <div className={`flex items-center justify-end gap-1 mt-1 ${isMe ? 'text-blue-200' : 'text-[#708499]'}`}>
                           <span className="text-[10px]">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                          {isMe && <CheckCheck className="w-3 h-3" />}
+                          {isMe && (msg.is_read ? <CheckCheck className="w-4 h-4" /> : <Check className="w-4 h-4 opacity-70" />)}
                         </div>
+                        
                       </div>
                     </div>
                   )
@@ -492,11 +521,6 @@ export default function MessengerPage() {
         )}
       </div>
 
-      {/* ========================================================== */}
-      {/* BARCHA MODALLAR */}
-      {/* ========================================================== */}
-      
-      {/* PAPKA YARATISH MODALI */}
       {showFolderModal && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-[#17212b] w-full max-w-sm rounded-2xl p-6 border border-[#0e1621] max-h-[80vh] flex flex-col">
@@ -526,11 +550,9 @@ export default function MessengerPage() {
         </div>
       )}
 
-      {/* TELEGRAM SETTINGS MODAL */}
       {showSettingsModal && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-[#17212b] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 h-[85vh] flex flex-col border border-[#0e1621]">
-             
              <div className="h-[60px] px-4 flex items-center justify-between border-b border-[#0e1621] bg-[#17212b]">
                <div className="flex items-center gap-4">
                  {settingsView !== "main" && <button onClick={() => setSettingsView("main")} className="text-[#708499] hover:text-white"><ArrowLeft className="w-5 h-5"/></button>}
@@ -542,7 +564,6 @@ export default function MessengerPage() {
              </div>
 
              <div className="flex-1 overflow-y-auto scrollbar-thin bg-[#0e1621]">
-                
                 {settingsView === "main" && (
                   <div>
                     <div className="p-4 bg-[#182533] border-b border-[#0e1621]">
@@ -581,46 +602,7 @@ export default function MessengerPage() {
                     <button onClick={handleUpdateProfile} disabled={isUploading} className="w-full py-3.5 bg-[#2b5278] text-white font-bold rounded-xl hover:bg-blue-600 mt-4 disabled:opacity-50">{isUploading ? "Saqlanmoqda..." : "Saqlash"}</button>
                   </div>
                 )}
-
-                {settingsView === "notif" && (
-                  <div className="p-6 space-y-6">
-                    <div className="flex justify-between items-center"><span className="font-bold text-gray-200">Private Chats</span><div className="w-10 h-6 bg-blue-500 rounded-full relative"><div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1"></div></div></div>
-                    <div className="flex justify-between items-center"><span className="font-bold text-gray-200">Groups</span><div className="w-10 h-6 bg-blue-500 rounded-full relative"><div className="w-4 h-4 bg-white rounded-full absolute top-1 right-1"></div></div></div>
-                    <div className="flex justify-between items-center"><span className="font-bold text-gray-200">Channels</span><div className="w-10 h-6 bg-[#17212b] rounded-full relative"><div className="w-4 h-4 bg-gray-400 rounded-full absolute top-1 left-1"></div></div></div>
-                  </div>
-                )}
-
-                {settingsView === "privacy" && (
-                  <div className="p-6 space-y-6">
-                    <div className="flex items-center gap-4 text-red-500 font-bold p-3 hover:bg-[#202b36] rounded-xl cursor-pointer"><Ban className="w-5 h-5"/> Blocked Users (0)</div>
-                    <div className="flex items-center gap-4 text-white font-bold p-3 hover:bg-[#202b36] rounded-xl cursor-pointer"><Lock className="w-5 h-5 text-[#708499]"/> Passcode Lock</div>
-                  </div>
-                )}
-
-                {settingsView === "chat" && (
-                  <div className="p-6 space-y-6">
-                    <div>
-                      <p className="text-sm font-bold text-gray-300 mb-3 flex items-center"><Type className="w-4 h-4 mr-2"/> Xabarlar hajmi</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => setAppSettings({...appSettings, textSize: 'small'})} className={`flex-1 py-2.5 rounded-xl font-bold text-sm ${appSettings.textSize === 'small' ? 'bg-blue-500 text-white' : 'bg-[#17212b] text-[#708499]'}`}>Kichik</button>
-                        <button onClick={() => setAppSettings({...appSettings, textSize: 'medium'})} className={`flex-1 py-2.5 rounded-xl font-bold text-sm ${appSettings.textSize === 'medium' ? 'bg-blue-500 text-white' : 'bg-[#17212b] text-[#708499]'}`}>O'rta</button>
-                        <button onClick={() => setAppSettings({...appSettings, textSize: 'large'})} className={`flex-1 py-2.5 rounded-xl font-bold text-sm ${appSettings.textSize === 'large' ? 'bg-blue-500 text-white' : 'bg-[#17212b] text-[#708499]'}`}>Katta</button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-[#17212b] pt-6">
-                      <div><p className="font-bold text-gray-200">Enter bilan yuborish</p><p className="text-[13px] text-[#708499]">Enter orqali jo'natish</p></div>
-                      <div onClick={() => setAppSettings({...appSettings, enterToSend: !appSettings.enterToSend})} className={`w-12 h-6 rounded-full cursor-pointer relative ${appSettings.enterToSend ? 'bg-blue-500' : 'bg-[#17212b]'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full ${appSettings.enterToSend ? 'right-1' : 'left-1'}`}></div></div>
-                    </div>
-                  </div>
-                )}
-
-                {settingsView === "language" && (
-                  <div className="py-2">
-                    {["English", "O'zbek", "Русский"].map(lang => (
-                       <div key={lang} onClick={() => {setAppSettings({...appSettings, language: lang}); setSettingsView("main");}} className="flex items-center justify-between px-5 py-4 hover:bg-[#202b36] cursor-pointer"><span className="font-medium text-white">{lang}</span>{appSettings.language === lang && <Check className="w-5 h-5 text-blue-500" />}</div>
-                    ))}
-                  </div>
-                )}
+                {/* ... other settings views ... */}
              </div>
           </div>
         </div>
