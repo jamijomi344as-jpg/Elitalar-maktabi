@@ -1,4 +1,3 @@
-// Dars talablari formati
 export type LessonRequest = {
   className: string;
   subject: string;
@@ -6,24 +5,20 @@ export type LessonRequest = {
   hoursPerWeek: number;
 };
 
-// Jadval formati
 export type TimetableCell = { subject: string; teacherId: string } | null;
 export type Timetable = Record<string, Record<number, Record<string, TimetableCell>>>;
 
 const DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-const PERIODS = [1, 2, 3, 4, 5, 6];
+const PERIODS = [1, 2, 3, 4, 5, 6, 7];
 
-// Avtomatik jadval tuzish algoritmi
 export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   const timetable: Timetable = {};
   
-  // Bo'sh jadval karkasini yaratish
   for (const day of DAYS) {
     timetable[day] = {};
     for (const period of PERIODS) { timetable[day][period] = {}; }
   }
 
-  // Hamma darslarni 1 soatlik qilib yoyib chiqish
   let allLessons: { className: string; subject: string; teacherId: string }[] = [];
   for (const req of lessonRequests) {
     for (let i = 0; i < req.hoursPerWeek; i++) {
@@ -31,12 +26,11 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     }
   }
 
-  // Darslarni aralashtirish (har safar turli xil optimal variant izlash uchun)
+  // Darslarni tasodifiy aralashtirish (Optimal variant topish osonlashadi)
   allLessons = allLessons.sort(() => Math.random() - 0.5);
 
   const finalSchedule: any[] = [];
 
-  // Ochko'z Algoritm (Greedy Placement)
   for (const lesson of allLessons) {
     let placed = false;
 
@@ -45,10 +39,10 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
       for (const period of PERIODS) {
         if (placed) break;
 
-        // 1-QOIDA: Sinf shu soatda bo'shmi?
+        // 1. Sinf shu soatda bo'shmi?
         if (timetable[day][period][lesson.className]) continue;
         
-        // 2-QOIDA: Ustoz shu soatda boshqa sinfda dars o'tyaptimi?
+        // 2. Ustoz shu soatda boshqa sinfda bandmi?
         let teacherBusy = false;
         for (const cls in timetable[day][period]) {
           if (timetable[day][period][cls]?.teacherId === lesson.teacherId) {
@@ -57,10 +51,10 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         }
         if (teacherBusy) continue;
 
-        // 3-QOIDA: O'qituvchining oynasi 2 soatdan oshib ketmasligi kerak
+        // 3. Ustozning bo'sh vaqti (oynasi) 2 soatdan oshib ketmadimi?
         if (!isTeacherGapValid(timetable, day, period, lesson.teacherId)) continue;
 
-        // Qoidalardan o'tsa, joylaymiz
+        // Barcha qoidalardan o'tsa -> Joylaymiz!
         timetable[day][period][lesson.className] = { subject: lesson.subject, teacherId: lesson.teacherId };
         finalSchedule.push({
           class_name: lesson.className,
@@ -73,19 +67,13 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         placed = true;
       }
     }
-
-    if (!placed) {
-      console.warn(`Diqqat: ${lesson.className} sinfining ${lesson.subject} darsini tiqishga joy topilmadi.`);
-    }
   }
 
   return finalSchedule;
 }
 
-// "Oyna" (Bo'sh soat) 2 soatdan oshib ketmasligini tekshiruvchi funksiya
 function isTeacherGapValid(timetable: Timetable, targetDay: string, targetPeriod: number, teacherId: string): boolean {
   const teacherPeriods: number[] = [];
-  
   for (const p of PERIODS) {
     let hasLesson = false;
     for (const cls in timetable[targetDay][p]) {
@@ -103,5 +91,5 @@ function isTeacherGapValid(timetable: Timetable, targetDay: string, targetPeriod
     if (gap > maxGap) maxGap = gap;
   }
 
-  return maxGap <= 2; // Oyna uzog'i 2 soat bo'lishiga ruxsat!
+  return maxGap <= 2; // Oyna uzog'i 2 soat bo'ladi
 }
