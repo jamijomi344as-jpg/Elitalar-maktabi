@@ -5,7 +5,8 @@ import {
   Search, MoreVertical, Paperclip, Send, Smile, Phone, Video, Users, CheckCheck, 
   Menu, Bookmark, User, Megaphone, Settings, Moon, Sun, ChevronDown, X, Trash2, 
   BellOff, Ban, Image as ImageIcon, Camera, MessageCircle, Edit2, Check, Bell, 
-  Lock, Folder, Sliders, Volume2, Battery, Languages, ArrowLeft, Type, Mic, Play, Pause, File as FileIcon, Music, StopCircle
+  Lock, Folder, Sliders, Volume2, Battery, Languages, ArrowLeft, Type, Mic, Play, 
+  File as FileIcon, CheckSquare, Square, FolderPlus
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,15 @@ export default function MessengerPage() {
   const [chats, setChats] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
+
+  // ==========================================
+  // PAPKALAR (FOLDERS) UCHUN STATE
+  // ==========================================
+  const [folders, setFolders] = useState<any[]>([{ id: 'all', name: 'Barchasi', chatIds: [] }]);
+  const [activeFolderId, setActiveFolderId] = useState<string>('all');
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [selectedChatsForFolder, setSelectedChatsForFolder] = useState<string[]>([]);
 
   // Modallar va Menyular
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -63,6 +73,9 @@ export default function MessengerPage() {
     const savedTheme = localStorage.getItem("theme");
     setIsDarkMode(savedTheme === "dark" || document.documentElement.classList.contains("dark"));
 
+    const savedFolders = localStorage.getItem(`folders_${studentId}`);
+    if (savedFolders) setFolders(JSON.parse(savedFolders));
+
     const loadData = async () => {
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', studentId).single();
       if(profile) {
@@ -70,7 +83,7 @@ export default function MessengerPage() {
         setProfileName(profile.full_name);
         setProfileUsername(profile.username || "");
       }
-      fetchChats(studentId);
+      await fetchChats(studentId);
     };
     loadData();
     
@@ -83,8 +96,7 @@ export default function MessengerPage() {
     if (isRecordingAudio || isRecordingVideo) {
       interval = setInterval(() => setRecordingTime(p => p + 1), 1000);
     } else {
-      setRecordingTime(0);
-      clearInterval(interval);
+      setRecordingTime(0); clearInterval(interval);
     }
     return () => clearInterval(interval);
   }, [isRecordingAudio, isRecordingVideo]);
@@ -95,13 +107,16 @@ export default function MessengerPage() {
   };
 
   const fetchChats = async (userId: string) => {
-    const { data: contacts } = await supabase.from('contacts').select('*').eq('owner_id', userId);
+    const { data: contactsData } = await supabase.from('contacts').select('*').eq('owner_id', userId);
     const { data: groupChannels } = await supabase.from('chats').select('*').order('created_at', { ascending: false });
     
     let allChats: any[] = [];
     allChats.push({ id: 'saved', name: "Saqlangan xabarlar", type: "saved", avatar_url: null, created_by: userId, isOnline: true });
 
-    if (contacts) contacts.forEach(c => allChats.push({ id: c.contact_id, name: c.contact_name, type: "personal", avatar_url: null, isOnline: Math.random() > 0.5 }));
+    if (contactsData) {
+      setContacts(contactsData);
+      contactsData.forEach(c => allChats.push({ id: c.contact_id, name: c.contact_name, type: "personal", avatar_url: null, isOnline: Math.random() > 0.5 }));
+    }
     if (groupChannels) allChats = [...allChats, ...groupChannels];
     setChats(allChats);
   };
@@ -115,6 +130,31 @@ export default function MessengerPage() {
     setMessages(data || []);
   };
 
+  // ==========================================
+  // PAPKA (FOLDER) FUNKSIYALARI
+  // ==========================================
+  const toggleChatSelectionForFolder = (chatId: string) => {
+    if (selectedChatsForFolder.includes(chatId)) setSelectedChatsForFolder(selectedChatsForFolder.filter(id => id !== chatId));
+    else setSelectedChatsForFolder([...selectedChatsForFolder, chatId]);
+  };
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return alert("Papka nomini kiriting!");
+    if (selectedChatsForFolder.length === 0) return alert("Kamida 1 ta chatni tanlang!");
+
+    const newFolder = { id: Date.now().toString(), name: newFolderName, chatIds: selectedChatsForFolder };
+    const updatedFolders = [...folders, newFolder];
+    
+    setFolders(updatedFolders);
+    localStorage.setItem(`folders_${student.id}`, JSON.stringify(updatedFolders));
+    
+    setShowFolderModal(false); setNewFolderName(""); setSelectedChatsForFolder([]);
+    alert("Papka muvaffaqiyatli yaratildi!");
+  };
+
+  // ==========================================
+  // XABAR VA BIRIKTIRMALAR (ATTACHMENTS) 
+  // ==========================================
   const handleUploadFile = async (file: File, bucket: string = 'attachments') => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
@@ -178,14 +218,20 @@ export default function MessengerPage() {
     }
   };
 
+  // ==========================================
+  // KONTAKT VA GURUH OCHISH (FIXED)
+  // ==========================================
   const handleAddContact = async () => {
     if (!contactId.trim() || !contactName.trim()) return alert("Maydonlarni to'ldiring!");
     setIsUploading(true);
     const { data: exist } = await supabase.from('profiles').select('id').eq('id', contactId.toUpperCase()).single();
     if (!exist) { alert("Bunday ID raqamli odam topilmadi!"); setIsUploading(false); return; }
 
-    await supabase.from('contacts').insert([{ owner_id: student.id, contact_id: contactId.toUpperCase(), contact_name: contactName }]);
-    fetchChats(student.id);
+    const { error } = await supabase.from('contacts').insert([{ owner_id: student.id, contact_id: contactId.toUpperCase(), contact_name: contactName }]);
+    if (error) { alert("Xato: " + error.message); setIsUploading(false); return; }
+    
+    // UI NI TEZKOR YANGILASH
+    await fetchChats(student.id); 
     setShowAddContactModal(false); setContactId(""); setContactName(""); setIsUploading(false);
   };
 
@@ -196,10 +242,29 @@ export default function MessengerPage() {
     if (uploadImage) { try { avatarUrl = await handleUploadFile(uploadImage, 'avatars'); } catch (err) { setIsUploading(false); return; } }
     
     const { data, error } = await supabase.from('chats').insert([{ name: newChatName, type: type, avatar_url: avatarUrl, created_by: student.id }]).select().single();
-    if (!error && data) {
-      setChats([data, ...chats]); setActiveChat(data);
+    
+    if (error) { alert("Xato: " + error.message); setIsUploading(false); return; }
+    
+    // UI NI TEZKOR YANGILASH
+    if (data) {
+      await fetchChats(student.id); 
+      setActiveChat(data);
       setShowCreateGroupModal(false); setShowCreateChannelModal(false); setNewChatName(""); setUploadImage(null);
     }
+    setIsUploading(false);
+  };
+
+  const handleUpdateChat = async () => {
+    setIsUploading(true);
+    let avatarUrl = activeChat.avatar_url;
+    if (uploadImage) { try { avatarUrl = await handleUploadFile(uploadImage, 'avatars'); } catch (err) { setIsUploading(false); return; } }
+    
+    const { error } = await supabase.from('chats').update({ name: newChatName, avatar_url: avatarUrl }).eq('id', activeChat.id);
+    if (!error) {
+      await fetchChats(student.id); // Chat ro'yxatini yangilash
+      setActiveChat({...activeChat, name: newChatName, avatar_url: avatarUrl});
+      setShowEditChatModal(false); setUploadImage(null);
+    } else { alert("Xato: " + error.message); }
     setIsUploading(false);
   };
 
@@ -213,50 +278,23 @@ export default function MessengerPage() {
     setIsUploading(false);
   };
 
-  // ==========================================
-  // MANA SHU FUNKSIYA YETISHMAY QOLGAN EDI (QO'SHILDI)
-  // ==========================================
-  const handleUpdateChat = async () => {
-    setIsUploading(true);
-    let avatarUrl = activeChat.avatar_url;
-    
-    // Agar yangi rasm tanlangan bo'lsa, avval uni yuklaymiz
-    if (uploadImage) { 
-      try { 
-        avatarUrl = await handleUploadFile(uploadImage, 'avatars'); 
-      } catch (err) { 
-        setIsUploading(false); 
-        return; 
-      } 
-    }
-    
-    // Chatni yangilaymiz
-    const { error } = await supabase.from('chats').update({ name: newChatName, avatar_url: avatarUrl }).eq('id', activeChat.id);
-    
-    if (!error) {
-      const updatedChat = {...activeChat, name: newChatName, avatar_url: avatarUrl};
-      setActiveChat(updatedChat);
-      setChats(chats.map(c => c.id === activeChat.id ? updatedChat : c));
-      setShowEditChatModal(false); 
-      setUploadImage(null);
-    } else {
-      alert("Xato: " + error.message);
-    }
-    setIsUploading(false);
-  };
-
   if (!student) return <div className="flex h-screen items-center justify-center bg-[#0e1621]"><div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
-  const filteredChats = chats.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // PAPKALAR VA QIDIRUV BO'YICHA FILTR
+  const currentFolderChats = activeFolderId === 'all' ? chats : chats.filter(c => folders.find(f => f.id === activeFolderId)?.chatIds.includes(c.id));
+  const filteredChats = currentFolderChats.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
   const isOwner = activeChat && activeChat.created_by === student.id && (activeChat.type === 'group' || activeChat.type === 'channel');
   const textSizeClass = appSettings.textSize === "small" ? "text-[13px]" : appSettings.textSize === "large" ? "text-[17px]" : "text-[15px]";
   const formatTime = (secs: number) => { const m = Math.floor(secs/60); const s = secs%60; return `${m}:${s < 10 ? '0' : ''}${s}`; };
-
   const displayMessages = showChatSearch && chatSearchQuery ? messages.filter(m => m.text?.toLowerCase().includes(chatSearchQuery.toLowerCase())) : messages;
 
   return (
     <div className="w-full h-full bg-[#0e1621] text-white flex overflow-hidden relative">
       
+      {/* ========================================================== */}
+      {/* YON MENYU (DRAWER) */}
+      {/* ========================================================== */}
       {isDrawerOpen && <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsDrawerOpen(false)}></div>}
       <div className={`absolute top-0 left-0 h-full w-[280px] bg-[#17212b] z-50 transform transition-transform duration-300 flex flex-col shadow-2xl ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-4 bg-[#2b5278] text-white relative">
@@ -280,14 +318,18 @@ export default function MessengerPage() {
         <div className="flex-1 overflow-y-auto py-2 text-[#708499]">
            <div onClick={() => {setShowCreateGroupModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Users className="w-5 h-5" /> <span className="font-medium text-[15px]">Yangi Guruh</span></div>
            <div onClick={() => {setShowCreateChannelModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Megaphone className="w-5 h-5" /> <span className="font-medium text-[15px]">Yangi Kanal</span></div>
+           <div onClick={() => {setShowFolderModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><FolderPlus className="w-5 h-5" /> <span className="font-medium text-[15px]">Yangi Papka (Folder)</span></div>
            <div className="h-[1px] bg-[#0e1621] my-1 mx-2"></div>
            <div onClick={() => {setActiveChat(chats.find(c => c.id === 'saved')); fetchMessages('saved'); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Bookmark className="w-5 h-5" /> <span className="font-medium text-[15px]">Saqlangan Xabarlar</span></div>
            <div onClick={() => {setSettingsView("main"); setShowSettingsModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Settings className="w-5 h-5" /> <span className="font-medium text-[15px]">Sozlamalar</span></div>
         </div>
       </div>
 
+      {/* ========================================================== */}
+      {/* CHAP TOMON: CHATLAR VA PAPKALAR */}
+      {/* ========================================================== */}
       <div className="w-full md:w-[340px] bg-[#17212b] flex flex-col flex-shrink-0 border-r border-[#0e1621] z-10 relative">
-        <div className="p-3 flex items-center gap-3">
+        <div className="p-3 flex items-center gap-3 bg-[#17212b]">
           <Menu onClick={() => setIsDrawerOpen(true)} className="w-6 h-6 text-[#708499] cursor-pointer hover:text-white transition-colors" />
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#708499]" />
@@ -295,27 +337,42 @@ export default function MessengerPage() {
           </div>
         </div>
 
+        {/* FOLDERS TAB BAR */}
+        {folders.length > 1 && (
+          <div className="flex overflow-x-auto hide-scrollbar border-b border-[#0e1621] px-2 py-1 bg-[#17212b]">
+             {folders.map(f => (
+                <button key={f.id} onClick={() => setActiveFolderId(f.id)} className={`px-4 py-1.5 text-[13px] font-bold whitespace-nowrap border-b-2 transition-colors ${activeFolderId === f.id ? 'border-blue-500 text-blue-500' : 'border-transparent text-[#708499] hover:text-gray-300'}`}>
+                  {f.name}
+                </button>
+             ))}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto scrollbar-thin">
-          {filteredChats.map(chat => {
-            const isActive = activeChat?.id === chat.id;
-            const isSaved = chat.id === 'saved';
-            return (
-              <div key={chat.id} onClick={() => {setActiveChat(chat); fetchMessages(chat.id); setShowChatSearch(false);}} className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors ${isActive ? 'bg-[#2b5278]' : 'hover:bg-[#202b36]'}`}>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white overflow-hidden flex-shrink-0 ${isSaved ? 'bg-[#4a8ebf]' : 'bg-gradient-to-tr from-blue-500 to-indigo-500'}`}>
-                  {isSaved ? <Bookmark className="w-6 h-6"/> : chat.avatar_url ? <img src={chat.avatar_url} className="w-full h-full object-cover"/> : chat.name.charAt(0)}
-                </div>
-                <div className={`flex-1 min-w-0 border-b pb-2 ${isActive ? 'border-transparent' : 'border-[#0e1621]'}`}>
-                  <div className="flex justify-between items-center mb-0.5 mt-1">
-                    <h3 className={`font-bold text-[15px] truncate pr-2 text-white`}>{chat.name}</h3>
-                    {mutedChats.includes(chat.id) && <BellOff className="w-3 h-3 text-[#708499]"/>}
+          {filteredChats.length === 0 ? (
+             <p className="text-center text-[#708499] mt-10 text-sm">Hech narsa topilmadi.</p>
+          ) : (
+            filteredChats.map(chat => {
+              const isActive = activeChat?.id === chat.id;
+              const isSaved = chat.id === 'saved';
+              return (
+                <div key={chat.id} onClick={() => {setActiveChat(chat); fetchMessages(chat.id); setShowChatSearch(false);}} className={`flex items-center gap-3 p-2.5 cursor-pointer transition-colors ${isActive ? 'bg-[#2b5278]' : 'hover:bg-[#202b36]'}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white overflow-hidden flex-shrink-0 ${isSaved ? 'bg-[#4a8ebf]' : 'bg-gradient-to-tr from-blue-500 to-indigo-500'}`}>
+                    {isSaved ? <Bookmark className="w-6 h-6"/> : chat.avatar_url ? <img src={chat.avatar_url} className="w-full h-full object-cover"/> : chat.name.charAt(0)}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <p className="text-[13px] truncate pr-2 text-[#4a8ebf] capitalize">{chat.type}</p>
+                  <div className={`flex-1 min-w-0 border-b pb-2 ${isActive ? 'border-transparent' : 'border-[#0e1621]'}`}>
+                    <div className="flex justify-between items-center mb-0.5 mt-1">
+                      <h3 className={`font-bold text-[15px] truncate pr-2 text-white`}>{chat.name}</h3>
+                      {mutedChats.includes(chat.id) && <BellOff className="w-3 h-3 text-[#708499]"/>}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <p className="text-[13px] truncate pr-2 text-[#4a8ebf] capitalize">{chat.type}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
 
         <button onClick={() => setShowAddContactModal(true)} className="absolute bottom-6 right-6 w-14 h-14 bg-[#4a8ebf] hover:bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-20">
@@ -323,6 +380,9 @@ export default function MessengerPage() {
         </button>
       </div>
 
+      {/* ========================================================== */}
+      {/* O'NG TOMON: ASOSIY CHAT OYNASI */}
+      {/* ========================================================== */}
       <div className="flex-1 flex flex-col min-w-0 hidden md:flex relative bg-[#0e1621]">
         {activeChat ? (
           <>
@@ -368,7 +428,6 @@ export default function MessengerPage() {
                   return (
                     <div key={msg.id} className={`flex max-w-xl ${isMe ? 'self-end' : 'self-start'}`}>
                       <div className={`rounded-2xl p-2.5 shadow-md ${isMe ? 'bg-[#2b5278] text-white rounded-br-sm' : 'bg-[#182533] text-white rounded-bl-sm'}`}>
-                        
                         {msg.msg_type === 'image' && <img src={msg.file_url} className="rounded-lg mb-2 max-w-[280px] max-h-[300px] object-cover"/>}
                         {msg.msg_type === 'video' && <video src={msg.file_url} controls className="rounded-lg mb-2 max-w-[280px] max-h-[300px]"/>}
                         {msg.msg_type === 'audio' && <audio src={msg.file_url} controls className="mb-2 h-10 w-[250px]"/>}
@@ -376,7 +435,7 @@ export default function MessengerPage() {
                         {msg.msg_type === 'voice' && <div className="flex items-center gap-3 bg-black/20 p-2 rounded-full w-[200px] mb-1"><button className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center"><Play className="w-4 h-4 fill-white"/></button><div className="flex-1 h-1 bg-[#4a8ebf] rounded-full"></div><span className="text-[10px]">0:03</span></div>}
                         {msg.msg_type === 'round_video' && <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-[#4a8ebf] mb-2"><video src={msg.file_url} autoPlay loop muted playsInline className="w-full h-full object-cover"/></div>}
 
-                        <p className={`${textSizeClass} leading-relaxed`}>{msg.text}</p>
+                        {msg.text && <p className={`${textSizeClass} leading-relaxed`}>{msg.text}</p>}
                         <div className={`flex items-center justify-end gap-1 mt-1 ${isMe ? 'text-blue-200' : 'text-[#708499]'}`}>
                           <span className="text-[10px]">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                           {isMe && <CheckCheck className="w-3 h-3" />}
@@ -393,7 +452,7 @@ export default function MessengerPage() {
                 <div className="absolute inset-y-0 left-0 right-0 bg-[#17212b] z-20 flex items-center px-4 justify-between animate-in slide-in-from-right">
                    <div className="flex items-center text-red-500 font-bold gap-2 animate-pulse"><Mic className="w-5 h-5"/> {formatTime(recordingTime)}</div>
                    <div className="flex items-center gap-4">
-                     <button onClick={() => setIsRecordingAudio(false)} className="text-[#708499] hover:text-white">Bekor qilish</button>
+                     <button onClick={() => setIsRecordingAudio(false)} className="text-[#708499] hover:text-white">Bekor</button>
                      <button onClick={() => stopRecordingAndSend('voice')} className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 shadow-lg"><Send className="w-5 h-5 ml-1"/></button>
                    </div>
                 </div>
@@ -403,7 +462,7 @@ export default function MessengerPage() {
                 <div className="absolute inset-y-0 left-0 right-0 bg-[#17212b] z-20 flex items-center px-4 justify-between animate-in slide-in-from-right">
                    <div className="flex items-center text-red-500 font-bold gap-2 animate-pulse"><Video className="w-5 h-5"/> {formatTime(recordingTime)}</div>
                    <div className="flex items-center gap-4">
-                     <button onClick={() => setIsRecordingVideo(false)} className="text-[#708499] hover:text-white">Bekor qilish</button>
+                     <button onClick={() => setIsRecordingVideo(false)} className="text-[#708499] hover:text-white">Bekor</button>
                      <button onClick={() => stopRecordingAndSend('round_video')} className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 shadow-lg"><Send className="w-5 h-5 ml-1"/></button>
                    </div>
                 </div>
@@ -433,6 +492,41 @@ export default function MessengerPage() {
         )}
       </div>
 
+      {/* ========================================================== */}
+      {/* BARCHA MODALLAR */}
+      {/* ========================================================== */}
+      
+      {/* PAPKA YARATISH MODALI */}
+      {showFolderModal && (
+        <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-[#17212b] w-full max-w-sm rounded-2xl p-6 border border-[#0e1621] max-h-[80vh] flex flex-col">
+             <h3 className="font-bold text-xl mb-6 text-white flex items-center"><FolderPlus className="w-5 h-5 mr-2 text-blue-500"/> Yangi Papka</h3>
+             <input type="text" value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} placeholder="Papka nomi (Masalan: O'qituvchilar)" className="w-full bg-[#0e1621] rounded-xl p-4 text-white outline-none focus:border-blue-500 mb-4" />
+             
+             <p className="text-sm font-bold text-[#708499] mb-2">Chatlarni tanlang:</p>
+             <div className="flex-1 overflow-y-auto mb-4 space-y-2 pr-2 scrollbar-thin">
+                {chats.map(chat => (
+                  <div key={chat.id} onClick={() => toggleChatSelectionForFolder(chat.id)} className="flex items-center gap-3 p-2 bg-[#0e1621] rounded-xl cursor-pointer hover:bg-[#202b36] border border-transparent">
+                    <button className={`w-5 h-5 rounded flex items-center justify-center border ${selectedChatsForFolder.includes(chat.id) ? 'bg-blue-500 border-blue-500' : 'border-[#708499]'}`}>
+                      {selectedChatsForFolder.includes(chat.id) && <Check className="w-4 h-4 text-white"/>}
+                    </button>
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                      {chat.avatar_url ? <img src={chat.avatar_url} className="w-full h-full object-cover"/> : chat.name.charAt(0)}
+                    </div>
+                    <span className="text-sm font-bold text-white truncate">{chat.name}</span>
+                  </div>
+                ))}
+             </div>
+
+             <div className="flex gap-3 mt-auto">
+               <button onClick={() => {setShowFolderModal(false); setNewFolderName(""); setSelectedChatsForFolder([]);}} className="flex-1 py-3.5 text-[#708499] font-bold hover:bg-[#202b36] rounded-xl">Bekor qilish</button>
+               <button onClick={handleCreateFolder} className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Saqlash</button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TELEGRAM SETTINGS MODAL */}
       {showSettingsModal && (
         <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-[#17212b] w-full max-w-sm rounded-xl overflow-hidden shadow-2xl animate-in zoom-in-95 h-[85vh] flex flex-col border border-[#0e1621]">
@@ -448,6 +542,7 @@ export default function MessengerPage() {
              </div>
 
              <div className="flex-1 overflow-y-auto scrollbar-thin bg-[#0e1621]">
+                
                 {settingsView === "main" && (
                   <div>
                     <div className="p-4 bg-[#182533] border-b border-[#0e1621]">
@@ -538,7 +633,7 @@ export default function MessengerPage() {
              <input type="text" value={contactId} onChange={e=>setContactId(e.target.value)} placeholder="ID raqam (S-1122)" className="w-full bg-[#0e1621] rounded-xl p-4 text-white outline-none focus:border-blue-500 uppercase font-mono mb-3" />
              <input type="text" value={contactName} onChange={e=>setContactName(e.target.value)} placeholder="Kontakt nomi..." className="w-full bg-[#0e1621] rounded-xl p-4 text-white outline-none focus:border-blue-500 mb-6" />
              <div className="flex gap-3">
-               <button onClick={() => setShowAddContactModal(false)} className="flex-1 py-3 text-[#708499] font-bold hover:bg-[#202b36] rounded-xl">Bekor qilish</button>
+               <button onClick={() => setShowAddContactModal(false)} className="flex-1 py-3 text-[#708499] font-bold hover:bg-[#202b36] rounded-xl">Bekor</button>
                <button onClick={handleAddContact} disabled={isUploading} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50">Qo'shish</button>
              </div>
           </div>
