@@ -9,7 +9,7 @@ export type TimetableCell = { subject: string; teacherId: string } | null;
 export type Timetable = Record<string, Record<number, Record<string, TimetableCell>>>;
 
 const DAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
-const PERIODS = [1, 2, 3, 4, 5, 6, 7];
+const PERIODS = [1, 2, 3, 4, 5, 6]; // 7-soat olib tashlandi! Maksimal 6 soat.
 
 export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   const timetable: Timetable = {};
@@ -26,7 +26,7 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     }
   }
 
-  // Darslarni tasodifiy aralashtirish (Optimal variant topish osonlashadi)
+  // Optimal variant uchun darslarni aralashtiramiz
   allLessons = allLessons.sort(() => Math.random() - 0.5);
 
   const finalSchedule: any[] = [];
@@ -39,7 +39,7 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
       for (const period of PERIODS) {
         if (placed) break;
 
-        // 1. Sinf shu soatda bo'shmi?
+        // 1. Sinf shu soatda bo'shmi? (Kuniga 6 soat)
         if (timetable[day][period][lesson.className]) continue;
         
         // 2. Ustoz shu soatda boshqa sinfda bandmi?
@@ -51,10 +51,10 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         }
         if (teacherBusy) continue;
 
-        // 3. Ustozning bo'sh vaqti (oynasi) 2 soatdan oshib ketmadimi?
+        // 3. Oyna 2 soatdan oshmadimi?
         if (!isTeacherGapValid(timetable, day, period, lesson.teacherId)) continue;
 
-        // Barcha qoidalardan o'tsa -> Joylaymiz!
+        // Joylaymiz!
         timetable[day][period][lesson.className] = { subject: lesson.subject, teacherId: lesson.teacherId };
         finalSchedule.push({
           class_name: lesson.className,
@@ -91,5 +91,5 @@ function isTeacherGapValid(timetable: Timetable, targetDay: string, targetPeriod
     if (gap > maxGap) maxGap = gap;
   }
 
-  return maxGap <= 2; // Oyna uzog'i 2 soat bo'ladi
+  return maxGap <= 2;
 }
