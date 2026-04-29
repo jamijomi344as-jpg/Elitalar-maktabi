@@ -13,23 +13,21 @@ export default function StudentDashboard() {
   const [currentStudent, setCurrentStudent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "homeworks">("boshqaruv");
+  
+  // ✅ XATONING OLDINI OLISH: Faqat Client-side da ishlashini kafolatlash
+  const [isMounted, setIsMounted] = useState(false);
 
-  // ==========================================
-  // XAVFSIZLIK: FAQAT ASOSIY LOGINDAN KIRGANLAR UCHUN
-  // ==========================================
   useEffect(() => {
-    // 1. Brauzer xotirasidan ID va Rolni olamiz
+    setIsMounted(true);
     const sId = localStorage.getItem('user_id');
     const role = localStorage.getItem('user_role');
 
-    // 2. Agar umuman kirmagan bo'lsa yoki roli 'student' bo'lmasa -> Orqaga (Asosiy loginga) haydaymiz!
     if (!sId || role !== 'student') {
       localStorage.clear();
       router.push('/');
       return;
     }
 
-    // 3. Hamma narsa to'g'ri bo'lsa, bazadan o'quvchini yuklaymiz
     fetchStudentData(sId);
   }, [router]);
 
@@ -38,7 +36,6 @@ export default function StudentDashboard() {
     try {
       const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
       
-      // Bazada bunday o'quvchi topilmasa
       if (error || !profile) {
          localStorage.clear();
          router.push('/');
@@ -46,7 +43,6 @@ export default function StudentDashboard() {
       }
 
       setCurrentStudent(profile);
-      // Qolgan ma'lumotlarni (jadval, baholar) shu yerda yuklaysiz...
 
     } catch (error) {
       console.error("Xatolik:", error);
@@ -55,13 +51,14 @@ export default function StudentDashboard() {
     }
   };
 
-  // TIZIMDAN CHIQISH (LogOut)
   const handleLogout = () => {
     localStorage.clear();
-    router.push('/'); // Asosiy loginga qaytaradi
+    router.push('/'); 
   };
 
-  // ✅ LOADING OYNASI (Ichki login oynasi butunlay yo'q qilingan!)
+  // Agar Next.js ni asabi buzilsa, render qilmay turish
+  if (!isMounted) return null;
+
   if (isLoading || !currentStudent) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 font-sans p-6">
