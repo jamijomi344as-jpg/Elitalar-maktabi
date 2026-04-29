@@ -1,120 +1,147 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Eye, EyeOff } from "lucide-react";
+import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 
-export default function Home() {
+export default function MainLogin() {
   const router = useRouter();
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Agar foydalanuvchi oldin kirgan bo'lsa, yana login so'ramasdan o'zining paneliga o'tkazib yuborish
+  useEffect(() => {
+    const role = localStorage.getItem('user_role');
+    if (role === 'director' || role === 'admin') router.push('/director/dashboard');
+    else if (role === 'teacher') router.push('/teacher/dashboard');
+    else if (role === 'student') router.push('/student/dashboard');
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setIsLoading(true);
-
-    // BAZADAN QIDIRAMIZ
-    const { data, error: fetchError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id.toUpperCase())
-      .eq('password', password)
-      .single();
-
-    if (fetchError || !data) {
-      setError("Foydalanuvchi ID yoki Parol noto'g'ri!");
-      setIsLoading(false);
+    if (!id || !password) {
+      setErrorMsg("Iltimos, ID va parolni to'liq kiriting.");
       return;
     }
 
-    // ==========================================
-    // MUVAFFAQIYATLI LOGIN - XOTIRAGA SAQLASH
-    // ==========================================
-    // Foydalanuvchining ID raqamini roliga qarab Local Storage'ga saqlaymiz:
-    if (data.role === 'student') {
-      localStorage.setItem('student_id', data.id);
-    } else if (data.role === 'teacher') {
-      localStorage.setItem('teacher_id', data.id);
-    } else if (data.role === 'director' || data.role === 'admin') {
-      localStorage.setItem('director_id', data.id);
-    }
+    setIsLoading(true);
+    setErrorMsg("");
 
-    // ROLIGA QARAB TEGISHLI SAHIFAGA YO'NALTIRAMIZ
-    if (data.role === 'director' || data.role === 'admin') {
-      router.push('/director/dashboard');
-    } else if (data.role === 'teacher') {
-      router.push('/teacher/dashboard');
-    } else if (data.role === 'student') {
-      router.push('/student/dashboard');
-    } else {
-      setError("Rol aniqlanmadi!");
+    try {
+      // Bazadan ID va Parol bo'yicha odamni qidirish
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id.toUpperCase().trim()) // Katta harfga o'tkazib, bo'shliqlarni olib tashlaymiz
+        .eq('password', password.trim())
+        .single();
+
+      if (error || !data) {
+        setErrorMsg("ID yoki Parol noto'g'ri. Qaytadan urinib ko'ring.");
+        setIsLoading(false);
+        return;
+      }
+
+      // XOTIRAGA SAQLASH (Boshqa sahifalar ham bu odamni tanishi uchun)
+      localStorage.setItem('user_id', data.id);
+      localStorage.setItem('user_role', data.role);
+
+      // ✅ ROLGA QARAB TO'G'RI SAHIFAGA YO'NALTIRISH
+      if (data.role === 'director' || data.role === 'admin') {
+        router.push('/director/dashboard');
+      } 
+      else if (data.role === 'teacher') {
+        localStorage.setItem('teacher_id', data.id); // Teacher sahifasi uchun maxsus kalit
+        router.push('/teacher/dashboard');
+      } 
+      else if (data.role === 'student') {
+        router.push('/student/dashboard');
+      } 
+      else {
+        setErrorMsg("Sizning rolingiz tizimda aniqlanmadi.");
+        setIsLoading(false);
+      }
+
+    } catch (err: any) {
+      setErrorMsg("Tarmoqda xatolik yuz berdi. Internetni tekshiring.");
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white p-8 md:p-10 rounded-[2rem] shadow-xl w-full max-w-md border border-slate-100">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter italic mb-2">ELITA</h1>
-          <p className="text-slate-500 font-bold text-sm">Yagona raqamli ta'lim tizimi</p>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      
+      {/* Orqa fondagi chiroyli effektlar */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md z-10 border-4 border-white/10 relative">
+        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+           <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-[2rem] flex items-center justify-center shadow-xl rotate-12 hover:rotate-0 transition-all duration-300">
+             <ShieldCheck className="w-12 h-12"/>
+           </div>
         </div>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-2xl mb-6 font-bold text-sm text-center border border-red-100">
-            {error}
+        <div className="mt-12 mb-8 text-center">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">ELITA META</h2>
+          <p className="text-slate-500 font-medium mt-2">Tizimga kirish uchun identifikatsiya</p>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl font-bold text-sm flex items-center">
+            {errorMsg}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className="block text-slate-700 font-black text-sm mb-2 ml-2">Foydalanuvchi ID</label>
-            <input
-              type="text"
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 pl-2">Shaxsiy ID Raqam</label>
+            <input 
+              type="text" 
+              placeholder="DIR-1000 yoki T-XXXX" 
+              className="w-full p-5 bg-slate-50 rounded-2xl outline-none border-2 border-slate-100 focus:border-indigo-500 focus:bg-white font-black text-slate-800 text-lg uppercase transition-all shadow-inner" 
               value={id}
               onChange={(e) => setId(e.target.value)}
-              placeholder="Masalan: T-1234 yoki S-5678"
-              className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 rounded-2xl outline-none font-black text-slate-900 uppercase transition-all"
-              required
             />
           </div>
 
           <div>
-            <label className="block text-slate-700 font-black text-sm mb-2 ml-2">Maxfiy Parol</label>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 pl-2">Maxfiy Parol</label>
             <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="••••••••" 
+                className="w-full p-5 bg-slate-50 rounded-2xl outline-none border-2 border-slate-100 focus:border-indigo-500 focus:bg-white font-black text-slate-800 text-lg pr-14 transition-all shadow-inner" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Parolingizni kiriting"
-                className="w-full p-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 rounded-2xl outline-none font-black text-slate-900 pr-12 transition-all"
-                required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)} 
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-2 cursor-pointer transition-colors"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-4 mt-2 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-indigo-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          <button 
+            disabled={isLoading} 
+            className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-600 transition-all text-lg disabled:opacity-70 mt-4 flex items-center justify-center gap-3 active:scale-95"
           >
-            {isLoading ? "Tizimga kirilmoqda..." : "Tizimga kirish →"}
+            {isLoading ? <><Loader2 className="w-6 h-6 animate-spin"/> TEKSHIRILMOQDA...</> : "TIZIMGA KIRISH"}
           </button>
         </form>
       </div>
+      
+      <p className="mt-8 text-slate-500 font-medium text-sm z-10 text-center">
+        Parolingizni unutdingizmi? <br className="md:hidden"/>
+        <span className="text-indigo-400 font-bold ml-1">Direktorga murojaat qiling.</span>
+      </p>
     </div>
   );
 }
