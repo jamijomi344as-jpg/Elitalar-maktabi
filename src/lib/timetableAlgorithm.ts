@@ -20,7 +20,6 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   }
 
   // 1. Darslarni "Blok"larga birlashtirish (Bir xil sinf va bir xil fanni biriktirish)
-  // Bu guruhlarga bo'lingan darslarni (masalan: 1-guruh va 2-guruh) bir soatda bo'lishini kafolatlaydi!
   type LessonBlock = { className: string; subject: string; hours: number; parts: { teacherId: string, groupType: string }[] };
   const blocksMap = new Map<string, LessonBlock>();
   
@@ -33,7 +32,8 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   }
 
   let allSlots: LessonBlock[] = [];
-  for (const block of blocksMap.values()) {
+  // ✅ XATO TUZATILDI: Map'dan olinayotgan qiymatlar Array'ga o'girildi
+  for (const block of Array.from(blocksMap.values())) {
     for (let i = 0; i < block.hours; i++) {
         allSlots.push({ ...block }); // Soatiga qarab ko'paytirish
     }
