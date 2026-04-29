@@ -19,7 +19,7 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     for (const period of PERIODS) { timetable[day][period] = {}; }
   }
 
-  // 1. Darslarni "Blok"larga birlashtirish (Bir xil sinf va bir xil fanni biriktirish)
+  // Darslarni "Blok"larga birlashtirish 
   type LessonBlock = { className: string; subject: string; hours: number; parts: { teacherId: string, groupType: string }[] };
   const blocksMap = new Map<string, LessonBlock>();
   
@@ -32,14 +32,12 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   }
 
   let allSlots: LessonBlock[] = [];
-  // ✅ XATO TUZATILDI: Map'dan olinayotgan qiymatlar Array'ga o'girildi
   for (const block of Array.from(blocksMap.values())) {
     for (let i = 0; i < block.hours; i++) {
-        allSlots.push({ ...block }); // Soatiga qarab ko'paytirish
+        allSlots.push({ ...block }); 
     }
   }
 
-  // Kelajak soati va odatiy darslarni alohida ajratib olamiz
   const kelajakSlots = allSlots.filter(s => s.subject === "Kelajak soati");
   const normalSlots = allSlots.filter(s => s.subject !== "Kelajak soati");
 
@@ -65,99 +63,89 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
   }
 
   // ==========================================
-  // 2-QADAM: QOLGAN DARSLARNI JOYLASHTIRISH
+  // 2-QADAM: QOLGAN DARSLAR (O'QUVCHILAR UCHUN OYNA QOLDIRMASLIK)
   // ==========================================
-  // Guruhga bo'lingan darslarni birinchi joylashtirish (chunki ular ko'proq ustozni band qiladi)
   normalSlots.sort((a, b) => b.parts.length - a.parts.length);
 
   for (const slot of normalSlots) {
     let placed = false;
 
-    // Kunlarni teng taqsimlash uchun saralash
     const sortedDays = [...DAYS].sort((dayA, dayB) => {
-      let subjCountA = 0; let subjCountB = 0;
-      let totalCountA = 0; let totalCountB = 0;
+      let countA = 0; let countB = 0;
+      let subjA = 0; let subjB = 0;
       for (const p of PERIODS) {
-        if (timetable[dayA][p][slot.className]) totalCountA += timetable[dayA][p][slot.className].length;
-        if (timetable[dayB][p][slot.className]) totalCountB += timetable[dayB][p][slot.className].length;
-        if (timetable[dayA][p][slot.className]?.some(c => c.subject === slot.subject)) subjCountA++;
-        if (timetable[dayB][p][slot.className]?.some(c => c.subject === slot.subject)) subjCountB++;
+        if (timetable[dayA][p][slot.className] && timetable[dayA][p][slot.className].length > 0) countA++;
+        if (timetable[dayB][p][slot.className] && timetable[dayB][p][slot.className].length > 0) countB++;
+        if (timetable[dayA][p][slot.className]?.some(c => c.subject === slot.subject)) subjA++;
+        if (timetable[dayB][p][slot.className]?.some(c => c.subject === slot.subject)) subjB++;
       }
-      if (subjCountA !== subjCountB) return subjCountA - subjCountB; 
-      return totalCountA - totalCountB;
+      if (subjA !== subjB) return subjA - subjB;
+      return countA - countB;
     });
 
     for (const day of sortedDays) {
       if (placed) break;
 
-      let existingPeriodsWithSubject: number[] = [];
-      for (const p of PERIODS) {
-        if (timetable[day][p][slot.className]?.some(c => c.subject === slot.subject)) {
-          existingPeriodsWithSubject.push(p);
-        }
+      // 🚨 O'QUVCHILAR UCHUN OYNA (BO'SHLIQ) QOLDIRMASLIK ALGORITMI
+      let nextPeriod = 1;
+      while (nextPeriod <= 6 && timetable[day][nextPeriod][slot.className] && timetable[day][nextPeriod][slot.className].length > 0) {
+        nextPeriod++;
       }
 
-      // Aniq fanlar bir kunda 1 martadan oshmasligi, qolganlar 2 martadan oshmasligi kerak
+      if (nextPeriod > 6) continue; // Bu kunda sinf uchun umuman joy qolmadi
+      if (day === "Du" && nextPeriod === 1) nextPeriod = 2; // Dushanba 1-soat "Kelajak soati"ga band!
+
+      const period = nextPeriod; // Dars faqatgina aynan shu navbatdagi soatga tushishi SHART
+
+      let subjCount = 0;
+      for(const p of PERIODS) {
+          if (timetable[day][p][slot.className]?.some(c => c.subject === slot.subject)) subjCount++;
+      }
       const isMath = slot.subject.toLowerCase().includes("algebra") || slot.subject.toLowerCase().includes("geometriya");
-      if (isMath && existingPeriodsWithSubject.length >= 1) continue; 
-      if (!isMath && existingPeriodsWithSubject.length >= 2) continue;
-
-      for (const period of PERIODS) {
-        if (placed) break;
-
-        // Dushanba 1-soatga umuman tegilmaydi!
-        if (day === "Du" && period === 1) continue;
-
-        // Ikkita ketma-ket fan bo'lsa, yonma-yon bo'lishi shart
-        if (existingPeriodsWithSubject.length === 1) {
-          if (Math.abs(existingPeriodsWithSubject[0] - period) !== 1) continue;
-        }
-
-        // Agar bu soatda sinf band bo'lsa, joylash mumkin emas
-        const classCell = timetable[day][period][slot.className] || [];
-        if (classCell.length > 0) continue; 
-
-        // IKKALA O'QITUVCHI HAM BO'SHLIGINI TEKSHIRISH
-        let teachersBusy = false;
-        for (const part of slot.parts) {
-            for (const cls in timetable[day][period]) {
-                if (timetable[day][period][cls]?.some(c => c.teacherId === part.teacherId)) {
-                    teachersBusy = true;
-                    break;
-                }
-            }
-            if (teachersBusy) break;
-
-            let teacherDailyHours = 0;
-            for (const p of PERIODS) {
-              for (const cls in timetable[day][p]) {
-                if (timetable[day][p][cls]?.some(c => c.teacherId === part.teacherId)) teacherDailyHours++;
-              }
-            }
-            if (teacherDailyHours >= 5) { teachersBusy = true; break; } // Kunlik 5 soat limit
-
-            if (!isTeacherGapValid(timetable, day, period, part.teacherId)) { teachersBusy = true; break; }
-        }
-
-        if (teachersBusy) continue;
-
-        // Agar hamma shartlardan o'tsa -> BUTUN BLOKNI (ikkala ustozni ham) bitta soatga yozamiz
-        if (!timetable[day][period][slot.className]) timetable[day][period][slot.className] = [];
-        
-        for (const part of slot.parts) {
-            timetable[day][period][slot.className].push({ subject: slot.subject, teacherId: part.teacherId, groupType: part.groupType });
-            finalSchedule.push({
-              class_name: slot.className,
-              day_of_week: day,
-              lesson_number: period,
-              subject: slot.subject,
-              teacher_id: part.teacherId,
-              group_type: part.groupType,
-              room: "Belgilanmagan"
-            });
-        }
-        placed = true;
+      if (isMath && subjCount >= 1) continue; 
+      if (!isMath && subjCount >= 2) continue;
+      
+      if (subjCount === 1) {
+         const prevPeriodHasIt = timetable[day][period - 1]?.[slot.className]?.some(c => c.subject === slot.subject);
+         if (!prevPeriodHasIt) continue; 
       }
+
+      let teachersBusy = false;
+      for (const part of slot.parts) {
+         for (const cls in timetable[day][period]) {
+            if (timetable[day][period][cls]?.some(c => c.teacherId === part.teacherId)) {
+               teachersBusy = true; break;
+            }
+         }
+         if (teachersBusy) break;
+
+         let teacherDailyHours = 0;
+         for (const p of PERIODS) {
+           for (const cls in timetable[day][p]) {
+             if (timetable[day][p][cls]?.some(c => c.teacherId === part.teacherId)) teacherDailyHours++;
+           }
+         }
+         if (teacherDailyHours >= 6) { teachersBusy = true; break; }
+
+         if (!isTeacherGapValid(timetable, day, period, part.teacherId)) { teachersBusy = true; break; }
+      }
+
+      if (teachersBusy) continue; // O'qituvchi band bo'lsa, ertasi kunga o'tib ko'radi
+
+      if (!timetable[day][period][slot.className]) timetable[day][period][slot.className] = [];
+      for (const part of slot.parts) {
+         timetable[day][period][slot.className].push({ subject: slot.subject, teacherId: part.teacherId, groupType: part.groupType });
+         finalSchedule.push({
+           class_name: slot.className,
+           day_of_week: day,
+           lesson_number: period,
+           subject: slot.subject,
+           teacher_id: part.teacherId,
+           group_type: part.groupType,
+           room: "Belgilanmagan"
+         });
+      }
+      placed = true;
     }
   }
 
