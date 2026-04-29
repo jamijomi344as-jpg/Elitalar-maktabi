@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
   Clock, ShieldCheck, Key, CheckCircle, LogOut, Settings, Eye, EyeOff, 
-  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, Edit, MessageSquare, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown
+  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, Edit, MessageSquare, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown, Loader2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -34,10 +34,7 @@ export default function TeacherDashboard() {
   const router = useRouter();
   const [currentTeacher, setCurrentTeacher] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "jurnal" | "ish_reja" | "homeroom" | "settings" | "messenger">("boshqaruv");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const [loginForm, setLoginForm] = useState({ id: "", password: "" });
-  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [myStudents, setMyStudents] = useState<any[]>([]); 
   const [myTimetable, setMyTimetable] = useState<any[]>([]); 
@@ -89,7 +86,6 @@ export default function TeacherDashboard() {
   const [ppRequestType, setPpRequestType] = useState("+1"); 
   const [isGrading, setIsGrading] = useState(false);
 
-  // ✅ MOVED INSIDE COMPONENT: These arrays are now accessible everywhere in the JSX
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
   const lessonNumbers = [1, 2, 3, 4, 5, 6];
   const groupTypes = ["Barchasi", "1-guruh", "2-guruh", "O'g'il bolalar", "Qizlar"];
@@ -110,32 +106,50 @@ export default function TeacherDashboard() {
     { label: "CHSB", sub: "Dj", type: "bsb" }
   ];
 
-  // LOGIN & LOAD
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); 
-    setIsLoading(true);
-    const { data } = await supabase.from('profiles').select('*').eq('id', loginForm.id).eq('password', loginForm.password).eq('role', 'teacher').single();
-    if (data) setCurrentTeacher(data); 
-    else alert("ID yoki Parol xato!");
-    setIsLoading(false);
-  };
-
+  // ==========================================
+  // XAVFSIZ VA TO'G'RIDAN-TO'G'RI YUKLASH TIZIMI
+  // ==========================================
   useEffect(() => { 
-    if (currentTeacher) { 
-      loadTeacherData(); 
-      loadContacts(); 
+    // Xotiradan faqat ID ni olamiz
+    const tId = localStorage.getItem('teacher_id') || localStorage.getItem('user_id'); 
+    if (!tId) {
+      // Agar ID bo'lmasa, uni to'g'ri bosh sahifaga (loginga) qaytaramiz
+      router.push('/'); 
+      return;
     }
-  }, [currentTeacher]);
+    fetchTeacherData(tId);
+  }, []);
 
-  const loadTeacherData = async () => {
+  const fetchTeacherData = async (tId: string) => {
     setIsLoading(true);
     try {
-      if (currentTeacher.homeroom) {
-        const { data: students } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', currentTeacher.homeroom).order('full_name');
+      // Bazadan profilni qidiramiz
+      const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', tId).single();
+      
+      // Agar bunday profil yo'q bo'lsa yoki xatolik bo'lsa
+      if (error || !profile) {
+         localStorage.clear();
+         router.push('/');
+         return;
+      }
+
+      // Agar boshqa rol egasi ustozlar paneliga adashib kirib qolgan bo'lsa
+      if (profile.role !== 'teacher') {
+         if (profile.role === 'director' || profile.role === 'admin') router.push('/director/dashboard');
+         else if (profile.role === 'student') router.push('/student/dashboard');
+         else router.push('/');
+         return;
+      }
+
+      setCurrentTeacher(profile); // Profil to'g'ri bo'lsa uni state'ga yozamiz
+      
+      // Endi qolgan ma'lumotlarni yuklaymiz
+      if (profile.homeroom) {
+        const { data: students } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', profile.homeroom).order('full_name');
         setMyStudents(students || []);
       }
       
-      const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', currentTeacher.id);
+      const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', profile.id);
       setMyTimetable(schedule || []);
       
       if (schedule) {
@@ -145,6 +159,9 @@ export default function TeacherDashboard() {
 
       const { data: classesData } = await supabase.from('classes').select('*').order('name');
       setAllClasses(classesData || []);
+
+      loadContacts(profile.id);
+
     } catch (error) { 
       console.error(error); 
     } finally { 
@@ -159,9 +176,15 @@ export default function TeacherDashboard() {
     handleSelectClassJournal(className);
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/');
+  };
+
   // MESSENGER
-  const loadContacts = async () => {
-    const { data } = await supabase.from('contacts').select('*').eq('owner_id', currentTeacher?.id);
+  const loadContacts = async (tId = currentTeacher?.id) => {
+    if(!tId) return;
+    const { data } = await supabase.from('contacts').select('*').eq('owner_id', tId);
     setContacts(data || []);
   };
   const loadMessages = async (contact_id: string) => {
@@ -231,7 +254,6 @@ export default function TeacherDashboard() {
   };
 
   const handleSaveFullPlan = async () => {
-    setIsLoading(true); 
     let inserted = 0;
     await supabase.from('homeworks').delete().eq('class_name', selectedClassForPlan).eq('subject', currentTeacher.bio);
 
@@ -250,17 +272,14 @@ export default function TeacherDashboard() {
       }
     }
     alert(`${inserted} ta dars rejasi saqlandi va o'quvchilarga yuborildi!`);
-    setIsLoading(false);
   };
 
   const handleSyncToClass = async () => {
     if(!targetClassForSync) return alert("Sinfni tanlang!");
     if(targetClassForSync === selectedClassForPlan) return alert("Boshqa sinfni tanlang!");
-    setIsLoading(true);
 
     const targetSchedule = myTimetable.filter(t => t.class_name === targetClassForSync && t.term === selectedTermPlan);
     if(targetSchedule.length === 0) { 
-      setIsLoading(false); 
       return alert("Ushbu sinf uchun dars jadvali yo'q!"); 
     }
     
@@ -280,7 +299,6 @@ export default function TeacherDashboard() {
 
     const currentTopics = Object.values(planForm).filter(p => p.topic !== "");
     if(currentTopics.length === 0) { 
-      setIsLoading(false); 
       return alert("Sinxronlash uchun avval mavzularni kiriting!"); 
     }
 
@@ -303,7 +321,6 @@ export default function TeacherDashboard() {
 
     alert(`Muvaffaqiyatli! ${inserted} ta mavzu ${targetClassForSync} sinfining ${selectedTermPlan} dars kunlariga moslab ko'chirildi!`);
     setShowSyncModal(false);
-    setIsLoading(false);
   };
 
   // JURNAL LOGIKASI
@@ -438,28 +455,13 @@ export default function TeacherDashboard() {
     return <div className="w-5 h-5 bg-red-500 text-white rounded-[4px] flex items-center justify-center font-bold text-[11px] shadow-sm">{num}</div>;
   };
 
-  // UI RENDERING
-  if (!currentTeacher) {
+  // ✅ BU YERDA IKKINCHI LOGIN OYNA BUTUNLAY OLIB TASHLANDI. FAQAT LOADING CHIQADI.
+  if (isLoading || !currentTeacher) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 font-sans p-6">
-        <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md border-8 border-indigo-900 animate-in zoom-in-95">
-          <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShieldCheck className="w-10 h-10"/>
-          </div>
-          <h2 className="text-3xl font-black text-center mb-2 text-slate-900">USTOZ KIRISH</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" placeholder="Sizning ID (T-XXXX)" className="w-full p-5 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-black text-center text-lg uppercase" onChange={(e) => setLoginForm({...loginForm, id: e.target.value.toUpperCase()})} />
-            <div className="relative">
-              <input type={showPassword ? "text" : "password"} placeholder="Maxfiy Parol" className="w-full p-5 bg-slate-100 rounded-2xl outline-none border-2 border-transparent focus:border-indigo-500 font-black text-center text-lg pr-14 uppercase" onChange={(e) => setLoginForm({...loginForm, password: e.target.value.toUpperCase()})} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-2 cursor-pointer">
-                {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-              </button>
-            </div>
-            <button disabled={isLoading} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition-all text-lg disabled:opacity-50">
-              {isLoading ? "KIRILMOQDA..." : "KIRISH"}
-            </button>
-          </form>
-        </div>
+      <div className="flex flex-col h-screen items-center justify-center bg-slate-50 font-sans p-6">
+         <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mb-4" />
+         <h2 className="text-2xl font-black text-slate-800">Ma'lumotlaringiz yuklanmoqda...</h2>
+         <p className="text-slate-500 font-medium mt-2">Iltimos, kuting</p>
       </div>
     );
   }
@@ -503,7 +505,7 @@ export default function TeacherDashboard() {
             <Settings className="w-5 h-5 mr-3" /> Sozlamalar
           </button>
         </nav>
-        <button onClick={() => setCurrentTeacher(null)} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4">
+        <button onClick={handleLogout} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4">
           <LogOut className="w-5 h-5 mr-2" /> Chiqish
         </button>
       </aside>
@@ -682,8 +684,8 @@ export default function TeacherDashboard() {
                     </table>
                   </div>
                   <div className="mt-8 flex justify-end">
-                    <button onClick={handleSaveFullPlan} disabled={isLoading} className="px-10 py-5 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center">
-                      {isLoading ? "SAQLANMOQDA..." : <><CheckCircle className="w-6 h-6 mr-3"/> O'QUVCHILARGA YUBORISH</>}
+                    <button onClick={handleSaveFullPlan} className="px-10 py-5 bg-indigo-600 text-white font-black text-lg rounded-2xl shadow-xl hover:bg-indigo-700 transition-all flex items-center">
+                      <CheckCircle className="w-6 h-6 mr-3"/> O'QUVCHILARGA YUBORISH
                     </button>
                   </div>
                 </div>
