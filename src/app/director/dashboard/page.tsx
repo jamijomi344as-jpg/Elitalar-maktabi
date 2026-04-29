@@ -22,7 +22,7 @@ export default function DirectorDashboard() {
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type }); 
-    setTimeout(() => setToast(null), 4000); 
+    setTimeout(() => setToast(null), 5000); 
   };
 
   // ALGORITM VA YUKLAMALAR
@@ -31,8 +31,10 @@ export default function DirectorDashboard() {
   
   const [showWorkloadModal, setShowWorkloadModal] = useState(false);
   const [workloads, setWorkloads] = useState<any[]>([]); 
-  const [workloadForm, setWorkloadForm] = useState<{ class_names: string[], subject: string, teacher_id: string, hours: number, group_type: string }>({ 
-    class_names: [], subject: "", teacher_id: "", hours: 2, group_type: "Barchasi" 
+  
+  // YANGI YUKLAMA FORMASI (2 ta ustoz bilan)
+  const [workloadForm, setWorkloadForm] = useState<{ class_names: string[], subject: string, split_mode: string, teacher_id: string, teacher_id_2: string, hours: number }>({ 
+    class_names: [], subject: "", split_mode: "Barchasi", teacher_id: "", teacher_id_2: "", hours: 2
   });
   const [showClassDropdown, setShowClassDropdown] = useState(false);
 
@@ -78,6 +80,7 @@ export default function DirectorDashboard() {
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
   const lessonNumbers = [1, 2, 3, 4, 5, 6]; 
   const groupTypes = ["Barchasi", "1-guruh", "2-guruh", "O'g'il bolalar", "Qizlar"];
+  const splitModes = ["Barchasi", "1 va 2-guruhlarga bo'lish", "O'g'il va Qiz bolalarga bo'lish"];
 
   const generatePassword = () => Math.random().toString(36).slice(-6).toUpperCase();
 
@@ -117,7 +120,7 @@ export default function DirectorDashboard() {
   }, [selectedTerm]);
 
   // ==========================================
-  // YUKLAMA QO'SHISH (MULTI-SELECT SINF)
+  // YUKLAMA QO'SHISH (MULTI-SELECT VA 2 TA USTOZ)
   // ==========================================
   const toggleClassInWorkload = (cName: string) => {
      const exists = workloadForm.class_names.includes(cName);
@@ -126,16 +129,34 @@ export default function DirectorDashboard() {
   };
 
   const handleAddWorkload = () => {
-    if (workloadForm.class_names.length === 0 || !workloadForm.subject || !workloadForm.teacher_id || workloadForm.hours <= 0) {
+    if (workloadForm.class_names.length === 0 || !workloadForm.subject || workloadForm.hours <= 0) {
       return showToast("Barcha maydonlarni to'ldiring va kamida 1 ta sinf tanlang!", "error");
     }
+    
+    if (workloadForm.split_mode === "Barchasi" && !workloadForm.teacher_id) {
+       return showToast("O'qituvchini tanlang!", "error");
+    }
+
+    if (workloadForm.split_mode !== "Barchasi" && (!workloadForm.teacher_id || !workloadForm.teacher_id_2)) {
+       return showToast("Guruhlarga bo'linganda ikkala o'qituvchini ham tanlash shart!", "error");
+    }
+
     let updated = [...workloads];
     workloadForm.class_names.forEach(cls => {
-       updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: workloadForm.group_type });
+       if (workloadForm.split_mode === "Barchasi") {
+           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "Barchasi" });
+       } else if (workloadForm.split_mode === "1 va 2-guruhlarga bo'lish") {
+           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "1-guruh" });
+           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id_2, hours: workloadForm.hours, group_type: "2-guruh" });
+       } else if (workloadForm.split_mode === "O'g'il va Qiz bolalarga bo'lish") {
+           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "O'g'il bolalar" });
+           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id_2, hours: workloadForm.hours, group_type: "Qizlar" });
+       }
     });
+
     setWorkloads(updated); 
     localStorage.setItem('elita_workloads', JSON.stringify(updated));
-    setWorkloadForm({...workloadForm, class_names: [], teacher_id: "", subject: "", hours: 2, group_type: "Barchasi"}); 
+    setWorkloadForm({...workloadForm, class_names: [], teacher_id: "", teacher_id_2: "", subject: "", hours: 2, split_mode: "Barchasi"}); 
     showToast("Yuklamalar muvaffaqiyatli qo'shildi!"); 
     setShowClassDropdown(false);
   };
@@ -148,24 +169,30 @@ export default function DirectorDashboard() {
   };
 
   // ==========================================
-  // AVTOMATIK ALGORITM ISHGA TUSHIRISH
+  // AVTOMATIK ALGORITM (XATOLARNI USHLASH BILAN)
   // ==========================================
   const handleAutoGenerate = async () => {
+    if (workloads.length === 0) {
+      showToast("Jadval tuzish uchun avval 'Dars Yuklamalari' bo'limidan dars soatlarini kiritib chiqing!", "error");
+      setShowWorkloadModal(true); return;
+    }
+
     setConfirmDialog({
       message: "Diqqat! Eski jadvallar o'chib, 'Kelajak soati' va kiritilgan yuklamalar asosida yangi jadval tuziladi. Davom etasizmi?",
       onConfirm: async () => {
         setConfirmDialog(null); 
         setIsGenerating(true);
+        
         await supabase.from('timetable').delete().eq('term', selectedTerm);
 
         let requests: any[] = [];
         
-        // 1. Oddiy yuklamalarni qo'shish
+        // 1. Yuklamalarni yig'ish
         workloads.forEach(w => {
            requests.push({ className: w.class_name, subject: w.subject, teacherId: w.teacher_id, hoursPerWeek: w.hours, groupType: w.group_type || "Barchasi" });
         });
 
-        // 2. KELAJAK SOATINI AVTOMAT QO'SHISH (Sinf rahbarlariga)
+        // 2. KELAJAK SOATINI qo'shish
         classes.forEach(cls => {
            const hrTeacher = teachers.find(t => t.homeroom === cls.name);
            if (hrTeacher) {
@@ -173,6 +200,7 @@ export default function DirectorDashboard() {
            }
         });
 
+        // ALGORITMNI ISHGA TUSHIRISH
         const newSchedule = generateTimetable(requests);
 
         const insertData = newSchedule.map(s => ({
@@ -181,10 +209,14 @@ export default function DirectorDashboard() {
         }));
 
         if(insertData.length > 0) {
-          await supabase.from('timetable').insert(insertData); 
-          showToast("Algoritm jadvalni muvaffaqiyatli tuzdi!", "success");
+          const { error } = await supabase.from('timetable').insert(insertData); 
+          if (error) {
+            showToast("BAZA XATOSI: SQL'da 'group_type' ustuni yo'q! " + error.message, "error");
+          } else {
+            showToast(`Algoritm jadvalni muvaffaqiyatli tuzdi! ${insertData.length} ta dars joylandi.`, "success");
+          }
         } else { 
-          showToast("Xatolik! Jadval tuza olmadim.", "error"); 
+          showToast("XATOLIK! Darslarni joylashning umuman imkoni bo'lmadi.", "error"); 
         }
         
         setIsGenerating(false); 
@@ -193,9 +225,7 @@ export default function DirectorDashboard() {
     });
   };
 
-  // ==========================================
   // QO'LDA DARS QO'SHISH
-  // ==========================================
   const currentCellLessons = currentCell ? timetableData.filter(t => t.class_name === selectedClassForTimetable && t.day_of_week === currentCell.day && t.lesson_number === currentCell.lesson && t.term === selectedTerm) : [];
 
   const handleSaveLesson = async () => {
@@ -232,89 +262,49 @@ export default function DirectorDashboard() {
 
   const deleteLessonItem = async (id: string) => {
     await supabase.from('timetable').delete().eq('id', id); 
-    showToast("Dars o'chirildi!"); 
-    fetchData();
+    showToast("Dars o'chirildi!"); fetchData();
   };
 
-  // ==========================================
-  // BOSHQA CRUD AMALLAR
-  // ==========================================
   const handleAddClass = async () => {
     if(!newClassInfo.name) return showToast("Sinf nomini kiriting!", "error");
     const { error } = await supabase.from('classes').insert([{ name: newClassInfo.name.toUpperCase(), max_limit: newClassInfo.limit }]);
-    if(!error) { 
-      showToast("Sinf yaratildi!"); setShowClassModal(false); setNewClassInfo({name: "", limit: 24}); fetchData(); 
-    } else {
-      showToast(error.message, "error");
-    }
+    if(!error) { showToast("Sinf yaratildi!"); setShowClassModal(false); setNewClassInfo({name: "", limit: 24}); fetchData(); } else showToast(error.message, "error");
   };
 
   const handleAddTeacher = async () => {
     if(!newPerson.fullName || !newPerson.subject) return showToast("To'ldiring!", "error");
-    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`; 
-    const pass = generatePassword();
+    const uniqueId = `T-${Math.floor(1000 + Math.random() * 9000)}`; const pass = generatePassword();
     const { error } = await supabase.from('profiles').insert([{ id: uniqueId, role: 'teacher', full_name: newPerson.fullName, bio: newPerson.subject, password: pass, homeroom: newPerson.homeroom || null }]);
-    if (!error) { 
-      showToast(`Qo'shildi! ID: ${uniqueId}`); setShowTeacherModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); 
-    }
+    if (!error) { showToast(`Qo'shildi! ID: ${uniqueId}`); setShowTeacherModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); } else showToast(error.message, "error");
   };
 
   const handleUpdateTeacher = async () => {
     const { error } = await supabase.from('profiles').update({ full_name: editingTeacher.full_name, bio: editingTeacher.bio, homeroom: editingTeacher.homeroom || null }).eq('id', editingTeacher.id);
-    if(!error) { 
-      showToast("Saqlandi!"); setShowEditTeacherModal(false); fetchData(); 
-    }
+    if(!error) { showToast("Saqlandi!"); setShowEditTeacherModal(false); fetchData(); } else showToast(error.message, "error");
   };
 
   const handleDeleteTeacher = (id: string) => {
-    setConfirmDialog({ 
-      message: "O'qituvchini o'chirasizmi?", 
-      onConfirm: async () => { 
-        setConfirmDialog(null); 
-        await supabase.from('profiles').delete().eq('id', id); 
-        fetchData(); 
-      }
-    });
+    setConfirmDialog({ message: "O'qituvchini o'chirasizmi?", onConfirm: async () => { setConfirmDialog(null); await supabase.from('profiles').delete().eq('id', id); fetchData(); }});
   };
 
   const handleAddStudent = async () => {
     if(!newPerson.fullName || !newPerson.className) return showToast("To'ldiring!", "error");
-    const pass = generatePassword(); 
-    const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
+    const pass = generatePassword(); const id = `S-${Math.floor(1000 + Math.random() * 9000)}`;
     const { error } = await supabase.from('profiles').insert([{ id, role: 'student', full_name: newPerson.fullName, class_name: newPerson.className, password: pass }]);
-    if(!error) {
-      showToast(`Qo'shildi! ID: ${id}`); setShowStudentModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData();
-    }
+    if(!error) { showToast(`Qo'shildi! ID: ${id}`); setShowStudentModal(false); setNewPerson({ fullName: "", subject: "", homeroom: "", className: "" }); fetchData(); } else showToast(error.message, "error");
   };
 
   const handleUpdateStudent = async () => {
     const { error } = await supabase.from('profiles').update({ full_name: editingStudent.full_name, class_name: editingStudent.class_name }).eq('id', editingStudent.id);
-    if(!error) {
-      showToast("Saqlandi!"); setShowEditStudentModal(false); fetchData(); 
-    }
+    if(!error) { showToast("Saqlandi!"); setShowEditStudentModal(false); fetchData(); } else showToast(error.message, "error");
   };
 
-  // ✅ XATOLIK BERGAN QISM TO'G'RILANDI: (id: string, name: string) 
   const handleDeleteStudent = (id: string, name: string) => { 
-    setConfirmDialog({ 
-      message: `Diqqat! O'quvchi ${name} maktabdan o'chiriladi. Davom etamizmi?`, 
-      onConfirm: async () => { 
-        setConfirmDialog(null); 
-        await supabase.from('profiles').delete().eq('id', id); 
-        fetchData(); 
-      }
-    }); 
+    setConfirmDialog({ message: `Diqqat! O'quvchi ${name} maktabdan o'chiriladi. Davom etamizmi?`, onConfirm: async () => { setConfirmDialog(null); await supabase.from('profiles').delete().eq('id', id); fetchData(); }}); 
   };
 
   const handleDeleteFeedback = (id: string) => { 
-    setConfirmDialog({ 
-      message: "Murojaatni o'chirasizmi?", 
-      onConfirm: async () => { 
-        setConfirmDialog(null); 
-        await supabase.from('feedbacks').delete().eq('id', id); 
-        fetchData(); 
-      }
-    }); 
+    setConfirmDialog({ message: "Murojaatni o'chirasizmi?", onConfirm: async () => { setConfirmDialog(null); await supabase.from('feedbacks').delete().eq('id', id); fetchData(); }}); 
   };
 
   const handleSendReply = async () => {
@@ -322,11 +312,7 @@ export default function DirectorDashboard() {
     setIsReplying(true);
     await supabase.from('feedbacks').update({ status: 'javob_berildi', answer: replyText }).eq('id', replyModal.id);
     if (replyModal.sender_id) await supabase.from('notifications').insert([{ user_id: replyModal.sender_id, title: "Direktordan javob keldi", message: replyText }]);
-    showToast("Javob yuborildi!"); 
-    setReplyModal(null); 
-    setReplyText(""); 
-    setIsReplying(false); 
-    fetchData(); 
+    showToast("Javob yuborildi!"); setReplyModal(null); setReplyText(""); setIsReplying(false); fetchData(); 
   };
 
   return (
@@ -386,7 +372,6 @@ export default function DirectorDashboard() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             
-            {/* BOSHQARUV MENU */}
             {activeMenu === "boshqaruv" && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -444,7 +429,6 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* O'QITUVCHILAR MENU */}
             {activeMenu === "teachers" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
@@ -488,7 +472,6 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* O'QUVCHILAR MENU */}
             {activeMenu === "students" && (
               <div className="space-y-8 animate-in slide-in-from-bottom-4">
                 {selectedClassView ? (
@@ -525,7 +508,6 @@ export default function DirectorDashboard() {
                                   <button onClick={() => { setEditingStudent(student); setShowEditStudentModal(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all mr-1">
                                     <Edit className="w-5 h-5"/>
                                   </button>
-                                  {/* ✅ XATOLIK BERGAN QISM TO'G'RILANDI: (id, full_name) */}
                                   <button onClick={() => handleDeleteStudent(student.id, student.full_name)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all">
                                     <Trash2 className="w-5 h-5"/>
                                   </button>
@@ -590,9 +572,9 @@ export default function DirectorDashboard() {
                      <button onClick={handleAutoGenerate} disabled={isGenerating} className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-black rounded-2xl shadow-lg hover:scale-105 transition-transform flex items-center gap-2 disabled:opacity-50">
                        <Wand2 className="w-5 h-5"/> {isGenerating ? "Jadval tuzilmoqda..." : "Avtomatik Tuzish"}
                      </button>
-                     <div className="flex bg-slate-100 p-1.5 rounded-2xl">
+                     <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto max-w-sm hide-scrollbar">
                        {classes.map(c => (
-                         <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-5 py-2.5 rounded-xl font-black text-sm transition-all ${selectedClassForTimetable === c.name ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                         <button key={c.name} onClick={() => setSelectedClassForTimetable(c.name)} className={`px-5 py-2.5 rounded-xl font-black text-sm whitespace-nowrap transition-all ${selectedClassForTimetable === c.name ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                            {c.name}
                          </button>
                        ))}
@@ -686,7 +668,7 @@ export default function DirectorDashboard() {
               <div className="p-8 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
                  <div>
                    <h3 className="text-2xl font-black text-indigo-900">O'quv Rejasi (Yuklamalar)</h3>
-                   <p className="text-indigo-600 font-bold text-sm mt-1">Ko'p sinf tanlash imkoniyati bilan.</p>
+                   <p className="text-indigo-600 font-bold text-sm mt-1">Sinf va guruhlarga o'qituvchilarni biriktiring.</p>
                  </div>
                  <button onClick={() => setShowWorkloadModal(false)} className="bg-white p-2 rounded-full text-indigo-400 hover:text-indigo-600">
                    <X/>
@@ -694,7 +676,7 @@ export default function DirectorDashboard() {
               </div>
               <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4 items-end">
                 
-                <div className="relative flex-1 min-w-[150px]" onClick={e => e.stopPropagation()}>
+                <div className="relative flex-[1.5] min-w-[200px]" onClick={e => e.stopPropagation()}>
                   <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Sinflarni Tanlang</label>
                   <div className="w-full p-3 rounded-xl border border-slate-200 bg-white cursor-pointer font-bold flex justify-between items-center text-sm" onClick={() => setShowClassDropdown(!showClassDropdown)}>
                     <span className="truncate pr-2">{workloadForm.class_names.length > 0 ? `${workloadForm.class_names.length} ta sinf tanlandi` : "Sinf..."}</span>
@@ -714,26 +696,45 @@ export default function DirectorDashboard() {
 
                 <div className="flex-[1.5] min-w-[150px]">
                   <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Fan</label>
-                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.subject} onChange={e=>setWorkloadForm({...workloadForm, subject: e.target.value, teacher_id: ""})}>
+                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.subject} onChange={e=>setWorkloadForm({...workloadForm, subject: e.target.value, teacher_id: "", teacher_id_2: ""})}>
                     <option value="">Fan...</option>
                     {subjectsBase.map(s=><option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 
-                <div className="flex-1 min-w-[140px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Guruh</label>
-                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.group_type} onChange={e=>setWorkloadForm({...workloadForm, group_type: e.target.value})}>
-                    {groupTypes.map(g=><option key={g} value={g}>{g}</option>)}
+                <div className="flex-[1.5] min-w-[150px]">
+                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Qanday o'tiladi?</label>
+                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.split_mode} onChange={e=>setWorkloadForm({...workloadForm, split_mode: e.target.value})}>
+                    {splitModes.map(g=><option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
 
-                <div className="flex-[2] min-w-[180px]">
-                  <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">O'qituvchi</label>
-                  <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.teacher_id} onChange={e=>setWorkloadForm({...workloadForm, teacher_id: e.target.value})}>
-                    <option value="">Kim o'tadi...</option>
-                    {teachers.filter(t => !workloadForm.subject || t.bio === workloadForm.subject).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}
-                  </select>
-                </div>
+                {workloadForm.split_mode === "Barchasi" ? (
+                  <div className="flex-[2] min-w-[180px]">
+                    <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">O'qituvchi</label>
+                    <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.teacher_id} onChange={e=>setWorkloadForm({...workloadForm, teacher_id: e.target.value})}>
+                      <option value="">Kim o'tadi...</option>
+                      {teachers.filter(t => !workloadForm.subject || t.bio === workloadForm.subject).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-[1.5] min-w-[150px]">
+                      <label className="text-[10px] font-black text-indigo-500 uppercase mb-1 block">1-chi O'qituvchi</label>
+                      <select className="w-full p-3 rounded-xl border border-indigo-200 bg-indigo-50 outline-none font-bold text-sm" value={workloadForm.teacher_id} onChange={e=>setWorkloadForm({...workloadForm, teacher_id: e.target.value})}>
+                        <option value="">Tanlang...</option>
+                        {teachers.filter(t => !workloadForm.subject || t.bio === workloadForm.subject).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex-[1.5] min-w-[150px]">
+                      <label className="text-[10px] font-black text-pink-500 uppercase mb-1 block">2-chi O'qituvchi</label>
+                      <select className="w-full p-3 rounded-xl border border-pink-200 bg-pink-50 outline-none font-bold text-sm" value={workloadForm.teacher_id_2} onChange={e=>setWorkloadForm({...workloadForm, teacher_id_2: e.target.value})}>
+                        <option value="">Tanlang...</option>
+                        {teachers.filter(t => !workloadForm.subject || t.bio === workloadForm.subject).map(t=><option key={t.id} value={t.id}>{t.full_name}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
                 
                 <div className="w-24">
                   <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Soat</label>
@@ -741,7 +742,7 @@ export default function DirectorDashboard() {
                 </div>
                 
                 <button onClick={handleAddWorkload} className="p-3 px-6 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md font-black flex items-center justify-center gap-2">
-                  <PlusCircle className="w-5 h-5"/>
+                  QO'SHISH
                 </button>
               </div>
 
@@ -852,8 +853,8 @@ export default function DirectorDashboard() {
         <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4" onClick={() => setShowClassModal(false)}>
           <div className="bg-white rounded-[3rem] w-full max-w-sm shadow-2xl p-8" onClick={e=>e.stopPropagation()}>
             <h3 className="text-xl font-black mb-6">Yangi Sinf</h3>
-            <input type="text" placeholder="Nomi (9-A)" className="w-full p-4 bg-slate-100 rounded-2xl font-black text-center mb-4" value={newClassInfo.name} onChange={e=>setNewClassInfo({...newClassInfo, name: e.target.value})} />
-            <input type="number" placeholder="Limit" className="w-full p-4 bg-slate-100 rounded-2xl font-bold text-center mb-6" value={newClassInfo.limit} onChange={e=>setNewClassInfo({...newClassInfo, limit: Number(e.target.value)})} />
+            <input type="text" placeholder="Nomi (Masalan: 9-A)" className="w-full p-4 bg-slate-100 rounded-2xl font-black text-center mb-4" value={newClassInfo.name} onChange={e=>setNewClassInfo({...newClassInfo, name: e.target.value})} />
+            <input type="number" placeholder="O'quvchilar Limiti" className="w-full p-4 bg-slate-100 rounded-2xl font-bold text-center mb-6" value={newClassInfo.limit} onChange={e=>setNewClassInfo({...newClassInfo, limit: Number(e.target.value)})} />
             <button onClick={handleAddClass} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black">YARATISH</button>
           </div>
         </div>
