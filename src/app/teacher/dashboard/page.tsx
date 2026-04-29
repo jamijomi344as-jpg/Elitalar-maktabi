@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
-  Clock, ShieldCheck, Key, CheckCircle, LogOut, Settings, Eye, EyeOff, 
-  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, Edit, MessageSquare, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown, Loader2
+  Clock, ShieldCheck, CheckCircle, LogOut, Settings, 
+  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Edit, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -45,11 +45,6 @@ export default function TeacherDashboard() {
   const [newPassword, setNewPassword] = useState("");
   const [isChanging, setIsChanging] = useState(false);
 
-  // MUROJAAT (FEEDBACK)
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackForm, setFeedbackForm] = useState({ message: "", isAnonymous: false });
-  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
-
   // MESSENGER
   const [contacts, setContacts] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<any>(null);
@@ -88,14 +83,7 @@ export default function TeacherDashboard() {
 
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
   const lessonNumbers = [1, 2, 3, 4, 5, 6];
-  const groupTypes = ["Barchasi", "1-guruh", "2-guruh", "O'g'il bolalar", "Qizlar"];
-  const subjectsBase = [
-    "Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Rus tili", 
-    "Kimyo", "Biologiya", "Fizika", "Informatika", "O'zbekiston tarixi", "Jahon tarixi", 
-    "Geografiya", "Tarbiya", "Davlat va huquq asoslari", "Iqtisodiyot", 
-    "Jismoniy tarbiya", "Chizmachilik", "Texnologiya"
-  ].sort(); 
-
+  
   const todayNameString = "Ch"; 
   const journalColumns = [
     { label: "04.09", sub: "Dj", type: "past" }, 
@@ -107,33 +95,31 @@ export default function TeacherDashboard() {
   ];
 
   // ==========================================
-  // XAVFSIZ VA TO'G'RIDAN-TO'G'RI YUKLASH TIZIMI
+  // XAVFSIZ KIRISH (LOGIN OYNASIZ)
   // ==========================================
   useEffect(() => { 
-    // Xotiradan faqat ID ni olamiz
+    // Faqat xotirani tekshiramiz. Agar odam umuman tizimga kirmagan bo'lsa, asosiy sahifaga tepib yuboramiz!
     const tId = localStorage.getItem('teacher_id') || localStorage.getItem('user_id'); 
     if (!tId) {
-      // Agar ID bo'lmasa, uni to'g'ri bosh sahifaga (loginga) qaytaramiz
       router.push('/'); 
       return;
     }
     fetchTeacherData(tId);
-  }, []);
+  }, [router]);
 
   const fetchTeacherData = async (tId: string) => {
     setIsLoading(true);
     try {
-      // Bazadan profilni qidiramiz
       const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', tId).single();
       
-      // Agar bunday profil yo'q bo'lsa yoki xatolik bo'lsa
+      // Bazada bunday odam yo'q bo'lsa
       if (error || !profile) {
          localStorage.clear();
          router.push('/');
          return;
       }
 
-      // Agar boshqa rol egasi ustozlar paneliga adashib kirib qolgan bo'lsa
+      // Agar adashib direktor yoki o'quvchi kirib qolgan bo'lsa
       if (profile.role !== 'teacher') {
          if (profile.role === 'director' || profile.role === 'admin') router.push('/director/dashboard');
          else if (profile.role === 'student') router.push('/student/dashboard');
@@ -141,9 +127,9 @@ export default function TeacherDashboard() {
          return;
       }
 
-      setCurrentTeacher(profile); // Profil to'g'ri bo'lsa uni state'ga yozamiz
+      // Hamma narsa to'g'ri bo'lsa, ma'lumotlarni o'rnatamiz
+      setCurrentTeacher(profile); 
       
-      // Endi qolgan ma'lumotlarni yuklaymiz
       if (profile.homeroom) {
         const { data: students } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', profile.homeroom).order('full_name');
         setMyStudents(students || []);
@@ -421,21 +407,6 @@ export default function TeacherDashboard() {
     setIsGrading(false);
   };
 
-  const handleSendFeedback = async () => {
-    if (!feedbackForm.message) return alert("Xabar yozing!");
-    setIsSendingFeedback(true);
-    await supabase.from('feedbacks').insert([{ 
-      sender_id: currentTeacher.id, 
-      sender_name: currentTeacher.full_name, 
-      message: feedbackForm.message, 
-      is_anonymous: feedbackForm.isAnonymous 
-    }]);
-    alert("Murojaat ketdi!"); 
-    setShowFeedbackModal(false); 
-    setFeedbackForm({ message: "", isAnonymous: false });
-    setIsSendingFeedback(false);
-  };
-
   const handleChangePassword = async () => {
     if (newPassword.length < 4) return alert("Parol qisqa!");
     setIsChanging(true);
@@ -455,13 +426,14 @@ export default function TeacherDashboard() {
     return <div className="w-5 h-5 bg-red-500 text-white rounded-[4px] flex items-center justify-center font-bold text-[11px] shadow-sm">{num}</div>;
   };
 
-  // ✅ BU YERDA IKKINCHI LOGIN OYNA BUTUNLAY OLIB TASHLANDI. FAQAT LOADING CHIQADI.
+  // ✅ LOADING OYNASI (Ikkinchi login oyna butunlay olib tashlandi!)
   if (isLoading || !currentTeacher) {
     return (
-      <div className="flex flex-col h-screen items-center justify-center bg-slate-50 font-sans p-6">
-         <Loader2 className="w-16 h-16 text-indigo-600 animate-spin mb-4" />
-         <h2 className="text-2xl font-black text-slate-800">Ma'lumotlaringiz yuklanmoqda...</h2>
-         <p className="text-slate-500 font-medium mt-2">Iltimos, kuting</p>
+      <div className="flex h-screen items-center justify-center bg-slate-50 font-sans p-6">
+        <div className="flex flex-col items-center">
+           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4 shadow-lg"></div>
+           <h2 className="text-2xl font-black text-slate-800 tracking-tight">Ma'lumotlar yuklanmoqda...</h2>
+        </div>
       </div>
     );
   }
@@ -1062,57 +1034,6 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* KONTAKT QO'SHISH MODALI */}
-      {showAddContact && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowAddContact(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden" onClick={e=>e.stopPropagation()}>
-             <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center"><h3 className="font-black text-indigo-900">Yangi Kontakt</h3></div>
-             <div className="p-6 space-y-4">
-               <input type="text" placeholder="ID (S-8392 yoki T-1122)" className="w-full p-4 bg-slate-50 rounded-xl outline-none font-mono uppercase" value={contactForm.id} onChange={e=>setContactForm({...contactForm, id: e.target.value})} />
-               <input type="text" placeholder="Ism qo'ying" className="w-full p-4 bg-slate-50 rounded-xl outline-none font-bold" value={contactForm.name} onChange={e=>setContactForm({...contactForm, name: e.target.value})} />
-               <button onClick={handleAddContact} className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700">SAQLASH</button>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {/* BULK KISITISH MODALI */}
-      {showBulkModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowBulkModal(false)}>
-           <div className="bg-white rounded-[3rem] w-full max-w-xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="p-8 bg-indigo-50 flex justify-between items-center border-b border-indigo-100">
-                <h3 className="text-xl font-black text-indigo-900 flex items-center"><DownloadCloud className="w-6 h-6 mr-3"/> Ommaviy Kiritish</h3>
-                <button onClick={() => setShowBulkModal(false)} className="text-indigo-400 hover:text-indigo-700"><X/></button>
-              </div>
-              <div className="p-8 space-y-4">
-                 <textarea rows={10} className="w-full p-5 bg-slate-50 border-2 border-slate-200 focus:border-indigo-500 rounded-2xl font-medium outline-none resize-none leading-relaxed" placeholder="1. Mavzu&#10;2. Keyingi mavzu" value={bulkTopicsText} onChange={e => setBulkTopicsText(e.target.value)}></textarea>
-                 <button onClick={handleBulkInsert} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-700 mt-4">TIZIMGA JOYLASHTIRISH</button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* SINXRONLASH MODALI */}
-      {showSyncModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSyncModal(false)}>
-           <div className="bg-white rounded-[3rem] w-full max-w-sm overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-              <div className="p-8 bg-emerald-50 flex justify-between items-center border-b border-emerald-100">
-                <h3 className="text-xl font-black text-emerald-900 flex items-center"><Copy className="w-5 h-5 mr-3"/> Sinxronlash</h3>
-                <button onClick={() => setShowSyncModal(false)} className="text-emerald-400 hover:text-emerald-700"><X/></button>
-              </div>
-              <div className="p-8 space-y-4">
-                 <p className="text-sm font-bold text-slate-600 mb-2">Qaysi parallel sinfga dars mavzularini ko'chirmoqchisiz?</p>
-                 <select value={targetClassForSync} onChange={e => setTargetClassForSync(e.target.value)} className="w-full p-4 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-bold text-slate-700 shadow-sm">
-                    <option value="">Sinfni tanlang</option>
-                    {allClasses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                 </select>
-                 <button onClick={handleSyncToClass} disabled={isLoading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-xl hover:bg-emerald-700 disabled:opacity-50 mt-4">
-                   {isLoading ? "KO'CHIRILMOQDA..." : "NUSXA OLISH"}
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
     </div>
   );
 }
