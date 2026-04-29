@@ -13,7 +13,7 @@ export default function MainLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Agar foydalanuvchi oldin kirgan bo'lsa, yana login so'ramasdan o'zining paneliga o'tkazib yuborish
+  // Agar odam oldin kirgan bo'lsa, loginda ushlab turmasdan to'g'ri paneliga o'tkazish
   useEffect(() => {
     const role = localStorage.getItem('user_role');
     if (role === 'director' || role === 'admin') router.push('/director/dashboard');
@@ -32,11 +32,11 @@ export default function MainLogin() {
     setErrorMsg("");
 
     try {
-      // Bazadan ID va Parol bo'yicha odamni qidirish
+      // 1. Bazadan ID va Parol bo'yicha qidiramiz (KIM bo'lishidan qat'i nazar)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', id.toUpperCase().trim()) // Katta harfga o'tkazib, bo'shliqlarni olib tashlaymiz
+        .eq('id', id.toUpperCase().trim())
         .eq('password', password.trim())
         .single();
 
@@ -46,16 +46,16 @@ export default function MainLogin() {
         return;
       }
 
-      // XOTIRAGA SAQLASH (Boshqa sahifalar ham bu odamni tanishi uchun)
+      // 2. Tizimga kirdi! Xotiraga saqlab qo'yamiz.
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', data.role);
 
-      // ✅ ROLGA QARAB TO'G'RI SAHIFAGA YO'NALTIRISH
+      // 3. Roliga qarab o'z paneliga yuboramiz
       if (data.role === 'director' || data.role === 'admin') {
         router.push('/director/dashboard');
       } 
       else if (data.role === 'teacher') {
-        localStorage.setItem('teacher_id', data.id); // Teacher sahifasi uchun maxsus kalit
+        localStorage.setItem('teacher_id', data.id); // Ustoz paneli uchun maxsus kalit
         router.push('/teacher/dashboard');
       } 
       else if (data.role === 'student') {
@@ -75,7 +75,7 @@ export default function MainLogin() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
       
-      {/* Orqa fondagi chiroyli effektlar */}
+      {/* Orqa fon effektlari */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
@@ -92,7 +92,7 @@ export default function MainLogin() {
         </div>
 
         {errorMsg && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl font-bold text-sm flex items-center">
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl font-bold text-sm flex items-center animate-in slide-in-from-top-2">
             {errorMsg}
           </div>
         )}
@@ -137,11 +137,6 @@ export default function MainLogin() {
           </button>
         </form>
       </div>
-      
-      <p className="mt-8 text-slate-500 font-medium text-sm z-10 text-center">
-        Parolingizni unutdingizmi? <br className="md:hidden"/>
-        <span className="text-indigo-400 font-bold ml-1">Direktorga murojaat qiling.</span>
-      </p>
     </div>
   );
 }
