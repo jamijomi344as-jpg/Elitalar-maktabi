@@ -26,15 +26,22 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     }
   }
 
-  // Darslarni aralashtirish va KELAJAK SOATI ni eng birinchiga o'tkazish (To'qnashuv bo'lmasligi uchun)
+  // Darslarni aralashtirish, lekin KELAJAK SOATI va GURUHLI darslarni oldinga o'tkazish (To'qnashuv bo'lmasligi uchun)
   allLessons = allLessons.sort(() => Math.random() - 0.5);
-  allLessons.sort((a, b) => (a.subject === "Kelajak soati" ? -1 : (b.subject === "Kelajak soati" ? 1 : 0)));
+  allLessons.sort((a, b) => {
+    if (a.subject === "Kelajak soati") return -1;
+    if (b.subject === "Kelajak soati") return 1;
+    if (a.groupType !== "Barchasi" && b.groupType === "Barchasi") return -1;
+    if (b.groupType !== "Barchasi" && a.groupType === "Barchasi") return 1;
+    return 0;
+  });
 
   const finalSchedule: any[] = [];
 
   for (const lesson of allLessons) {
     let placed = false;
 
+    // Darslarni kunlarga tekis taqsimlash
     const sortedDays = [...DAYS].sort((dayA, dayB) => {
       let subjCountA = 0; let subjCountB = 0;
       let totalCountA = 0; let totalCountB = 0;
@@ -51,7 +58,6 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     for (const day of sortedDays) {
       if (placed) break;
 
-      // 1. KELAJAK SOATI QOIDASI (Faqat Dushanba, 1-soat)
       if (lesson.subject === "Kelajak soati" && day !== "Du") continue;
 
       let existingPeriodsWithSubject: number[] = [];
@@ -61,9 +67,10 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         }
       }
 
+      // Bir kunda 2 tadan ortiq bir xil fan bo'lmasin
       const isMath = lesson.subject.toLowerCase().includes("algebra") || lesson.subject.toLowerCase().includes("geometriya");
-      if (isMath && existingPeriodsWithSubject.length >= 1) continue;
-      if (!isMath && existingPeriodsWithSubject.length >= 2) continue;
+      if (isMath && existingPeriodsWithSubject.length >= 1) continue; // Matematika faqat 1 soat
+      if (!isMath && existingPeriodsWithSubject.length >= 2) continue; // Boshqalari maks 2 soat
 
       let teacherDailyHours = 0;
       for (const p of PERIODS) {
@@ -71,21 +78,18 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
           if (timetable[day][p][cls]?.some(c => c.teacherId === lesson.teacherId)) teacherDailyHours++;
         }
       }
-      if (teacherDailyHours >= 4) continue;
+      if (teacherDailyHours >= 4) continue; // Ustoz kuniga maks 4 soat dars o'tadi
 
       for (const period of PERIODS) {
         if (placed) break;
 
-        // KELAJAK SOATI faqat 1-soatga tushadi
         if (lesson.subject === "Kelajak soati" && period !== 1) continue;
 
         if (existingPeriodsWithSubject.length === 1) {
           if (Math.abs(existingPeriodsWithSubject[0] - period) !== 1) continue;
         }
 
-        // =====================================
-        // SINF GURUHLARIGA BO'LINISHINI NAZORAT QILISH
-        // =====================================
+        // GURUHLARGA BO'LINIShNI TEKSHIRISH
         if (!timetable[day][period][lesson.className]) timetable[day][period][lesson.className] = [];
         const currentCell = timetable[day][period][lesson.className];
         
@@ -109,7 +113,6 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         }
         if (isClassBusy) continue;
 
-        // O'QITUVCHI BO'SHMI?
         let teacherBusy = false;
         for (const cls in timetable[day][period]) {
           if (timetable[day][period][cls]?.some(c => c.teacherId === lesson.teacherId)) {
@@ -118,10 +121,9 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
         }
         if (teacherBusy) continue;
 
-        // OYNA QOIDASI (2 soatdan oshmasligi)
+        // OYNA QOIDASI (2 soatdan oshmasligi kerak)
         if (!isTeacherGapValid(timetable, day, period, lesson.teacherId)) continue;
 
-        // HAMMASI YAXSHI -> JADVALGA JOYLAYMIZ!
         timetable[day][period][lesson.className].push({ subject: lesson.subject, teacherId: lesson.teacherId, groupType: lesson.groupType });
         finalSchedule.push({
           class_name: lesson.className,
