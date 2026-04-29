@@ -1,117 +1,140 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, GraduationCap, Award, TrendingUp, BellRing, Trophy } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { 
+  LayoutDashboard, Calendar, Award, BookOpen, 
+  Clock, LogOut, ShieldCheck, Star, Loader2 
+} from "lucide-react";
 
-export default function DashboardPage() {
-  const [student, setStudent] = useState<any>(null);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [classRank, setClassRank] = useState(0);
-  const [schoolRank, setSchoolRank] = useState(0);
-  const [cpNeeded, setCpNeeded] = useState(0);
+export default function StudentDashboard() {
+  const router = useRouter();
+  const [currentStudent, setCurrentStudent] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "homeworks">("boshqaruv");
 
+  // ==========================================
+  // XAVFSIZLIK: FAQAT ASOSIY LOGINDAN KIRGANLAR UCHUN
+  // ==========================================
   useEffect(() => {
-    const studentId = localStorage.getItem('student_id');
-    if (studentId) {
-      // O'quvchi ma'lumotlarini yuklash
-      supabase.from('profiles').select('*').eq('id', studentId).single().then(({data}) => {
-        setStudent(data);
-        if (data) calculateRanks(data);
-      });
-      
-      // Muhim e'lonlarni yuklash (so'nggi 3 tasi)
-      supabase.from('notifications').select('*').eq('user_id', studentId).order('created_at', { ascending: false }).limit(3).then(({data}) => {
-         setNotifications(data || []);
-      });
-    }
-  }, []);
+    // 1. Brauzer xotirasidan ID va Rolni olamiz
+    const sId = localStorage.getItem('user_id');
+    const role = localStorage.getItem('user_role');
 
-  const calculateRanks = async (me: any) => {
-     // Sinf reytingi
-     const {data: classmates} = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', me.class_name);
-     if (classmates) {
-        const sorted = [...classmates].sort((a,b) => (b.cp_score || 0) - (a.cp_score || 0));
-        const rank = sorted.findIndex(c => c.id === me.id) + 1;
-        setClassRank(rank);
-        if (rank > 1) setCpNeeded(sorted[rank-2].cp_score - (me.cp_score || 0) + 1);
-     }
-     
-     // Maktab reytingi
-     const {data: classes} = await supabase.from('classes').select('*');
-     if (classes) {
-        const sortedC = [...classes].sort((a,b) => (b.total_cp || 0) - (a.total_cp || 0));
-        const cRank = sortedC.findIndex(c => c.name === me.class_name) + 1;
-        setSchoolRank(cRank);
-     }
+    // 2. Agar umuman kirmagan bo'lsa yoki roli 'student' bo'lmasa -> Orqaga (Asosiy loginga) haydaymiz!
+    if (!sId || role !== 'student') {
+      localStorage.clear();
+      router.push('/');
+      return;
+    }
+
+    // 3. Hamma narsa to'g'ri bo'lsa, bazadan o'quvchini yuklaymiz
+    fetchStudentData(sId);
+  }, [router]);
+
+  const fetchStudentData = async (sId: string) => {
+    setIsLoading(true);
+    try {
+      const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
+      
+      // Bazada bunday o'quvchi topilmasa
+      if (error || !profile) {
+         localStorage.clear();
+         router.push('/');
+         return;
+      }
+
+      setCurrentStudent(profile);
+      // Qolgan ma'lumotlarni (jadval, baholar) shu yerda yuklaysiz...
+
+    } catch (error) {
+      console.error("Xatolik:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  if (!student) return <div className="p-10 text-center text-slate-500 dark:text-slate-400">Yuklanmoqda...</div>;
+  // TIZIMDAN CHIQISH (LogOut)
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/'); // Asosiy loginga qaytaradi
+  };
+
+  // ✅ LOADING OYNASI (Ichki login oynasi butunlay yo'q qilingan!)
+  if (isLoading || !currentStudent) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 font-sans p-6">
+        <div className="flex flex-col items-center">
+           <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4 shadow-lg rounded-full" />
+           <h2 className="text-2xl font-black text-slate-800 tracking-tight">O'quvchi paneli ochilmoqda...</h2>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-      {/* TEPADAGI KARTA */}
-      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden mb-8 border border-blue-500/20 w-full">
-        <div className="absolute top-0 right-0 p-8 opacity-10"><User className="w-32 h-32" /></div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 w-full">
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      
+      {/* SIDEBAR */}
+      <aside className="w-72 bg-blue-950 border-r border-blue-900 flex flex-col h-screen flex-shrink-0 z-20 text-blue-100 hidden md:flex p-6">
+        <div className="flex items-center gap-3 mb-10 px-2">
+          <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-emerald-500/20">
+            {currentStudent.full_name?.charAt(0) || "S"}
+          </div>
           <div>
-            <p className="text-blue-200 text-sm mb-1 uppercase tracking-wider font-bold">Xush kelibsiz</p>
-            <h1 className="text-3xl md:text-4xl font-black mb-2 tracking-tight">{student.full_name}</h1>
-            <p className="text-white font-bold flex items-center bg-black/20 w-fit px-4 py-2 rounded-xl backdrop-blur-md shadow-inner">
-              <GraduationCap className="w-5 h-5 mr-2 text-amber-300" /> {student.class_name} sinf
-            </p>
+            <h2 className="text-xl font-black text-white truncate w-40">{currentTeacher?.full_name || currentStudent.full_name}</h2>
+            <p className="text-xs font-bold text-blue-400">O'quvchi • {currentStudent.class_name}</p>
           </div>
-          <div className="flex gap-4">
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10 min-w-[120px] text-center shadow-inner">
-              <p className="text-blue-200 text-[10px] mb-1 font-bold uppercase">Balans (PP)</p>
-              <div className="text-2xl font-black text-amber-400 flex items-center justify-center"><Award className="w-5 h-5 mr-1"/> {student.pp_balance || 0}</div>
-            </div>
-            <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10 min-w-[120px] text-center shadow-inner">
-              <p className="text-blue-200 text-[10px] mb-1 font-bold uppercase">Reyting (CP)</p>
-              <div className="text-2xl font-black text-emerald-400 flex items-center justify-center"><TrendingUp className="w-5 h-5 mr-1" /> {student.cp_score || 0}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* E'LONLAR */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#17212b] rounded-3xl p-6 border border-slate-200 dark:border-slate-800/50 shadow-sm">
-           <h3 className="flex items-center text-slate-900 dark:text-blue-400 font-bold mb-4"><BellRing className="w-5 h-5 mr-2 text-blue-500"/> Muhim E'lonlar</h3>
-           <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl p-5 relative overflow-hidden">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
-              <h4 className="text-slate-900 dark:text-white font-bold text-lg mb-1">Maktab do'koni yaqinda ochiladi!</h4>
-              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">Yig'ilgan PP ballaringiz evaziga qimmatbaho sovg'alar va xizmatlarni xarid qilishingiz mumkin bo'ladi.</p>
-           </div>
-           
-           <div className="mt-4 space-y-3">
-             {notifications.length === 0 ? <p className="text-slate-500 text-sm">Hozircha xabarlar yo'q</p> : notifications.map(notif => (
-               <div key={notif.id} className="bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-700/50 rounded-2xl p-4">
-                  <h4 className="text-slate-800 dark:text-slate-200 font-bold text-sm mb-1">{notif.title}</h4>
-                  <p className="text-slate-500 dark:text-slate-400 text-xs">{notif.message}</p>
-               </div>
-             ))}
-           </div>
         </div>
         
-        {/* REYTING */}
-        <div className="bg-emerald-500 dark:bg-[#0f8b65] rounded-3xl p-6 relative overflow-hidden flex flex-col justify-center shadow-sm">
-           <TrendingUp className="absolute -right-6 -bottom-6 w-40 h-40 text-black/10"/>
-           <h3 className="flex items-center text-emerald-100 font-bold mb-2 relative z-10"><TrendingUp className="w-5 h-5 mr-2"/> O'zlashtirish</h3>
-           <p className="text-emerald-100 text-xs mb-4 relative z-10">Sinfdagi umumiy o'rningiz</p>
-           <div className="text-5xl font-black text-white relative z-10 mb-2">{classRank}-o'rin</div>
-           {cpNeeded > 0 ? (
-             <p className="text-emerald-100 text-sm relative z-10 font-medium">{classRank - 1}-o'ringa chiqish uchun <b className="text-white">{cpNeeded} CP</b> kerak.</p>
-           ) : (
-             <p className="text-emerald-100 text-sm relative z-10 font-medium">Siz peshqadamsiz! 🔥</p>
-           )}
-           
-           <div className="mt-6 pt-6 border-t border-emerald-400/30 relative z-10">
-              <p className="text-emerald-100 text-xs mb-2">Maktab bo'yicha sinfingiz o'rni:</p>
-              <div className="flex items-center text-white font-bold"><Trophy className="w-4 h-4 mr-2"/> Maktabda {schoolRank}-o'rinda</div>
-           </div>
+        <nav className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <button onClick={() => setActiveMenu("boshqaruv")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'boshqaruv' ? 'bg-blue-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
+            <LayoutDashboard className="w-5 h-5 mr-3" /> Asosiy Panel
+          </button>
+          <button onClick={() => setActiveMenu("timetable")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'timetable' ? 'bg-blue-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
+            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvalim
+          </button>
+          <button onClick={() => setActiveMenu("homeworks")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'homeworks' ? 'bg-blue-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
+            <BookOpen className="w-5 h-5 mr-3" /> Uy Vazifalari
+          </button>
+        </nav>
+        
+        <button onClick={handleLogout} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4 transition-all">
+          <LogOut className="w-5 h-5 mr-2" /> Tizimdan Chiqish
+        </button>
+      </aside>
+
+      {/* CONTENT */}
+      <main className="flex-1 h-full overflow-y-auto p-8 lg:p-12 relative pb-24">
+        
+        {/* HEADER HERO */}
+        <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[3rem] p-10 text-white shadow-xl relative overflow-hidden mb-10">
+          <div className="absolute top-0 right-0 p-8 opacity-10"><Award className="w-48 h-48" /></div>
+          <div className="relative z-10">
+            <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {currentStudent.full_name}! 🚀</h1>
+            <div className="flex gap-4 mt-6">
+              <span className="bg-white/20 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center">
+                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-300" /> {currentStudent.class_name} sinfi
+              </span>
+              <span className="bg-amber-500/90 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center shadow-inner">
+                <Star className="w-4 h-4 mr-2" /> Balans: {currentStudent.pp_balance || 0} PP
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+
+        {/* DASHBOARD KONTENTI */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeMenu === "boshqaruv" && (
+            <div className="bg-white p-12 rounded-[3rem] shadow-sm border-2 border-dashed border-slate-200 text-center">
+               <Clock className="w-16 h-16 text-slate-300 mx-auto mb-4"/>
+               <h3 className="text-xl font-bold text-slate-400">Tez orada bu yerda kunlik darslaringiz chiqadi!</h3>
+            </div>
+          )}
+        </div>
+
+      </main>
     </div>
   );
 }
