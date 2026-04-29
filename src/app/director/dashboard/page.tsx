@@ -19,23 +19,18 @@ export default function DirectorDashboard() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ==========================================
-  // XAVFSIZLIK: ASOSIY LOGINDAN O'TGANINI TEKSHIRISH
-  // ==========================================
   useEffect(() => {
     const verifyAdmin = async () => {
       const uid = localStorage.getItem('user_id');
       const role = localStorage.getItem('user_role');
       
-      // Agar tizimga umuman kirmagan bo'lsa yoki roli direktor bo'lmasa -> Loginga qaytar!
       if (!uid || (role !== 'director' && role !== 'admin')) {
         localStorage.clear();
         router.push('/');
         return;
       }
-      
       setIsAuthLoading(false);
-      fetchData(); // Ma'lumotlarni yuklash
+      fetchData(); 
     };
 
     verifyAdmin();
@@ -49,7 +44,6 @@ export default function DirectorDashboard() {
     router.push('/');
   };
 
-  // MAXSUS BILDIRISHNOMALAR (TOAST / CONFIRM)
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string, onConfirm: () => void } | null>(null);
 
@@ -58,7 +52,6 @@ export default function DirectorDashboard() {
     setTimeout(() => setToast(null), 5000); 
   };
 
-  // ALGORITM VA YUKLAMALAR
   const [isGenerating, setIsGenerating] = useState(false);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   
@@ -69,7 +62,6 @@ export default function DirectorDashboard() {
   });
   const [showClassDropdown, setShowClassDropdown] = useState(false);
 
-  // MODALLAR
   const [showTeacherModal, setShowTeacherModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [showClassModal, setShowClassModal] = useState(false);
@@ -80,7 +72,6 @@ export default function DirectorDashboard() {
   const [replyText, setReplyText] = useState("");
   const [isReplying, setIsReplying] = useState(false);
 
-  // BAZA
   const [teachers, setTeachers] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]); 
@@ -108,7 +99,13 @@ export default function DirectorDashboard() {
     "Jismoniy tarbiya", "Chizmachilik", "Texnologiya"
   ].sort(); 
 
+  // ✅ HAFTA KUNLARI TARJIMASI TO'G'RILANDI
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+  const fullDayNames: Record<string, string> = { 
+    "Du": "Dushanba", "Se": "Seshanba", "Ch": "Chorshanba", 
+    "Pa": "Payshanba", "Ju": "Juma", "Sh": "Shanba" 
+  };
+  
   const lessonNumbers = [1, 2, 3, 4, 5, 6]; 
   const groupTypes = ["Barchasi", "1-guruh", "2-guruh", "O'g'il bolalar", "Qizlar"];
   const splitModes = ["Barchasi", "1 va 2-guruhlarga bo'lish", "O'g'il va Qiz bolalarga bo'lish"];
@@ -144,9 +141,6 @@ export default function DirectorDashboard() {
     else if(selectedTerm === '4-chorak') { setTermStartDate("28.03.2026"); setTermEndDate("25.05.2026"); }
   }, [selectedTerm]);
 
-  // ==========================================
-  // YUKLAMA QO'SHISH (MULTI-SELECT VA 2 TA USTOZ)
-  // ==========================================
   const toggleClassInWorkload = (cName: string) => {
      const exists = workloadForm.class_names.includes(cName);
      if (exists) setWorkloadForm({...workloadForm, class_names: workloadForm.class_names.filter(n => n !== cName)});
@@ -193,9 +187,6 @@ export default function DirectorDashboard() {
     showToast("Yuklama o'chirildi!");
   };
 
-  // ==========================================
-  // AVTOMATIK ALGORITM
-  // ==========================================
   const handleAutoGenerate = async () => {
     if (workloads.length === 0) {
       showToast("Jadval tuzish uchun avval 'Dars Yuklamalari' bo'limidan dars soatlarini kiritib chiqing!", "error");
@@ -203,7 +194,7 @@ export default function DirectorDashboard() {
     }
 
     setConfirmDialog({
-      message: "Diqqat! Eski jadvallar o'chib, yangi jadval tuziladi. Davom etasizmi?",
+      message: "Diqqat! Eski jadvallar o'chib, 'Kelajak soati' qoidalari asosida yangi jadval tuziladi. Davom etasizmi?",
       onConfirm: async () => {
         setConfirmDialog(null); 
         setIsGenerating(true);
@@ -216,6 +207,7 @@ export default function DirectorDashboard() {
            requests.push({ className: w.class_name, subject: w.subject, teacherId: w.teacher_id, hoursPerWeek: w.hours, groupType: w.group_type || "Barchasi" });
         });
 
+        // KELAJAK SOATI QO'SHISH
         classes.forEach(cls => {
            const hrTeacher = teachers.find(t => t.homeroom === cls.name);
            if (hrTeacher) {
@@ -336,7 +328,6 @@ export default function DirectorDashboard() {
     showToast("Javob yuborildi!"); setReplyModal(null); setReplyText(""); setIsReplying(false); fetchData(); 
   };
 
-  // ✅ LOADING OYNASI (Lekin qachonki isAuthLoading true bo'lsa)
   if (isAuthLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 font-sans p-6">
@@ -351,7 +342,6 @@ export default function DirectorDashboard() {
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden relative">
       
-      {/* Toast Bildirishnomasi */}
       {toast && (
         <div className={`fixed top-6 right-6 z-[100] px-6 py-4 rounded-2xl font-bold text-white shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-8 ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}>
           {toast.type === 'success' ? <CheckCircle2 className="w-6 h-6"/> : <AlertTriangle className="w-6 h-6"/>}
@@ -359,7 +349,6 @@ export default function DirectorDashboard() {
         </div>
       )}
 
-      {/* Confirm Tasdiqlash oynasi */}
       {confirmDialog && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center animate-in zoom-in-95">
@@ -389,7 +378,6 @@ export default function DirectorDashboard() {
           <button onClick={() => setActiveMenu("timetable")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'timetable' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><Calendar className="w-5 h-5 mr-3"/> Dars Jadvali</button>
           <button onClick={() => setActiveMenu("algorithm")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'algorithm' ? 'bg-indigo-600 text-white shadow-xl' : 'hover:bg-slate-900 hover:text-white'}`}><Calculator className="w-5 h-5 mr-3"/> Algoritm & Moliya</button>
         </nav>
-        {/* LOGOUT TUGMASI */}
         <button onClick={handleLogout} className="mt-auto w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4 transition-all">
           <LogOut className="w-5 h-5 mr-2" /> Tizimdan Chiqish
         </button>
@@ -409,7 +397,6 @@ export default function DirectorDashboard() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             
-            {/* BOSHQARUV MENU */}
             {activeMenu === "boshqaruv" && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -467,7 +454,6 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* O'QITUVCHILAR MENU */}
             {activeMenu === "teachers" && (
               <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
@@ -511,7 +497,6 @@ export default function DirectorDashboard() {
               </div>
             )}
 
-            {/* O'QUVCHILAR MENU */}
             {activeMenu === "students" && (
               <div className="space-y-8 animate-in slide-in-from-bottom-4">
                 {selectedClassView ? (
@@ -641,7 +626,8 @@ export default function DirectorDashboard() {
                       <thead>
                         <tr>
                           <th className="p-4 bg-slate-50 border-b border-r border-slate-100 w-20"><Clock className="w-5 h-5 mx-auto text-slate-300"/></th>
-                          {days.map(d => <th key={d} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-400 font-black uppercase text-xs tracking-widest">{d}shanba</th>)}
+                          {/* ✅ HAFTA KUNLARI TARJIMASI ISHLATILDI */}
+                          {days.map(d => <th key={d} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-400 font-black uppercase text-xs tracking-widest">{fullDayNames[d]}</th>)}
                         </tr>
                       </thead>
                       <tbody>
