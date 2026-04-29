@@ -33,7 +33,6 @@ function getDatesInRange(startDate: string, endDate: string) {
 export default function TeacherDashboard() {
   const router = useRouter();
   const [currentTeacher, setCurrentTeacher] = useState<any>(null);
-  // ✅ FIXED: Added "timetable" to the allowed types
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "jurnal" | "ish_reja" | "homeroom" | "settings" | "messenger">("boshqaruv");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -43,7 +42,7 @@ export default function TeacherDashboard() {
   const [myStudents, setMyStudents] = useState<any[]>([]); 
   const [myTimetable, setMyTimetable] = useState<any[]>([]); 
   const [allClasses, setAllClasses] = useState<any[]>([]); 
-  const [myClasses, setMyClasses] = useState<string[]>([]); // Faqat ustoz kiradigan sinflar ro'yxati
+  const [myClasses, setMyClasses] = useState<string[]>([]);
 
   // SOZLAMALAR
   const [newPassword, setNewPassword] = useState("");
@@ -63,9 +62,14 @@ export default function TeacherDashboard() {
   const [contactForm, setContactForm] = useState({ id: "", name: "" });
   const [showChatMenu, setShowChatMenu] = useState(false);
 
+  // ==========================================
+  // CHORAK VA JADVAL STATE'LARI (Xato shu yerda edi, to'g'rilandi ✅)
+  // ==========================================
+  const [selectedTerm, setSelectedTerm] = useState("1-chorak"); // Dars jadvali choragini tanlash uchun
+  const [selectedTermPlan, setSelectedTermPlan] = useState("1-chorak"); // Ish reja choragini tanlash uchun
+
   // ISH REJA
   const [selectedClassForPlan, setSelectedClassForPlan] = useState("");
-  const [selectedTermPlan, setSelectedTermPlan] = useState("1-chorak");
   const [generatedDates, setGeneratedDates] = useState<any[]>([]);
   const [planForm, setPlanForm] = useState<{ [key: string]: { topic: string, homework: string, deadline: string } }>({});
   
@@ -761,9 +765,6 @@ export default function TeacherDashboard() {
                  </div>
                  
                  <div className="flex gap-4">
-                   {/* ============================================================== */}
-                   {/* FAQAT O'QITUVCHI DARS O'TADIGAN SINFLAR RO'YXATI (MY CLASSES) */}
-                   {/* ============================================================== */}
                    <div className="bg-white p-1.5 rounded-2xl flex border border-slate-200 shadow-sm">
                      {myClasses.length === 0 ? (
                        <div className="px-5 py-2.5 text-sm font-bold text-slate-400">Sizga hech qanday sinf biriktirilmagan</div>
