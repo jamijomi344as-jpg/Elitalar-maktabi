@@ -83,7 +83,7 @@ export default function StudentDashboard() {
             {currentStudent.full_name?.charAt(0) || "S"}
           </div>
           <div>
-            <h2 className="text-xl font-black text-white truncate w-40">{currentTeacher?.full_name || currentStudent.full_name}</h2>
+            <h2 className="text-xl font-black text-white truncate w-40">{currentStudent.full_name}</h2>
             <p className="text-xs font-bold text-blue-400">O'quvchi • {currentStudent.class_name}</p>
           </div>
         </div>
