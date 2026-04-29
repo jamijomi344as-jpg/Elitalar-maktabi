@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
   Clock, ShieldCheck, Key, CheckCircle, LogOut, Settings, Eye, EyeOff, 
-  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, Edit, MessageSquare, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy
+  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Video, Edit, MessageSquare, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -62,11 +62,9 @@ export default function TeacherDashboard() {
   const [contactForm, setContactForm] = useState({ id: "", name: "" });
   const [showChatMenu, setShowChatMenu] = useState(false);
 
-  // ==========================================
-  // CHORAK VA JADVAL STATE'LARI (Xato shu yerda edi, to'g'rilandi ✅)
-  // ==========================================
-  const [selectedTerm, setSelectedTerm] = useState("1-chorak"); // Dars jadvali choragini tanlash uchun
-  const [selectedTermPlan, setSelectedTermPlan] = useState("1-chorak"); // Ish reja choragini tanlash uchun
+  // CHORAK VA JADVAL STATE'LARI
+  const [selectedTerm, setSelectedTerm] = useState("1-chorak"); 
+  const [selectedTermPlan, setSelectedTermPlan] = useState("1-chorak"); 
 
   // ISH REJA
   const [selectedClassForPlan, setSelectedClassForPlan] = useState("");
@@ -90,6 +88,17 @@ export default function TeacherDashboard() {
   const [gradeInput, setGradeInput] = useState({ classwork: "", homework: "" });
   const [ppRequestType, setPpRequestType] = useState("+1"); 
   const [isGrading, setIsGrading] = useState(false);
+
+  // ✅ MOVED INSIDE COMPONENT: These arrays are now accessible everywhere in the JSX
+  const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+  const lessonNumbers = [1, 2, 3, 4, 5, 6];
+  const groupTypes = ["Barchasi", "1-guruh", "2-guruh", "O'g'il bolalar", "Qizlar"];
+  const subjectsBase = [
+    "Algebra", "Geometriya", "Ona tili", "Adabiyot", "Ingliz tili", "Rus tili", 
+    "Kimyo", "Biologiya", "Fizika", "Informatika", "O'zbekiston tarixi", "Jahon tarixi", 
+    "Geografiya", "Tarbiya", "Davlat va huquq asoslari", "Iqtisodiyot", 
+    "Jismoniy tarbiya", "Chizmachilik", "Texnologiya"
+  ].sort(); 
 
   const todayNameString = "Ch"; 
   const journalColumns = [
@@ -182,9 +191,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  // ==========================================
   // ISH REJA ALGORITMI
-  // ==========================================
   const generateLessonDates = () => {
     if (!selectedClassForPlan) return;
     const classSchedule = myTimetable.filter(t => t.class_name === selectedClassForPlan && t.term === selectedTermPlan);
@@ -299,10 +306,7 @@ export default function TeacherDashboard() {
     setIsLoading(false);
   };
 
-
-  // ==========================================
   // JURNAL LOGIKASI
-  // ==========================================
   const handleSelectClassJournal = async (className: string) => {
     setSelectedClassToGrade(className);
     const { data } = await supabase.from('profiles').select('*').eq('role', 'student').eq('class_name', className).order('full_name');
@@ -607,7 +611,6 @@ export default function TeacherDashboard() {
                  <div className="flex flex-wrap gap-3">
                    <select value={selectedClassForPlan} onChange={e => setSelectedClassForPlan(e.target.value)} className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-bold text-slate-700 shadow-sm">
                       <option value="">Sinfni tanlang</option>
-                      {/* Ish rejada ustoz o'zi dars o'tadigan sinflar chiqishi kerak */}
                       {myClasses.map(c => <option key={c} value={c}>{c}</option>)}
                    </select>
                    <select value={selectedTermPlan} onChange={e => setSelectedTermPlan(e.target.value)} className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl outline-none focus:border-indigo-500 font-black text-indigo-700 shadow-sm">
