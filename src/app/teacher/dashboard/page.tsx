@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
   Clock, ShieldCheck, CheckCircle, LogOut, Settings, 
-  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Edit, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown, Loader2
+  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Edit, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown, Loader2, MessageSquare
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -45,7 +45,7 @@ export default function TeacherDashboard() {
   const [newPassword, setNewPassword] = useState("");
   const [isChanging, setIsChanging] = useState(false);
 
-  // MUROJAAT (FEEDBACK) - Xato shu yerda edi, qaytadan qo'shildi! ✅
+  // MUROJAAT (FEEDBACK)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackForm, setFeedbackForm] = useState({ message: "", isAnonymous: false });
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
@@ -168,7 +168,7 @@ export default function TeacherDashboard() {
     router.push('/');
   };
 
-  // MUROJAATNI YUBORISH FUNKSIYASI ✅
+  // MUROJAATNI YUBORISH FUNKSIYASI
   const handleSendFeedback = async () => {
     if (!feedbackForm.message) return alert("Xabar yozing!");
     setIsSendingFeedback(true);
