@@ -19,37 +19,69 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     for (const period of PERIODS) { timetable[day][period] = {}; }
   }
 
-  let allLessons: { className: string; subject: string; teacherId: string; groupType: string }[] = [];
+  // 1. Darslarni "Blok"larga birlashtirish (Bir xil sinf va bir xil fanni biriktirish)
+  // Bu guruhlarga bo'lingan darslarni (masalan: 1-guruh va 2-guruh) bir soatda bo'lishini kafolatlaydi!
+  type LessonBlock = { className: string; subject: string; hours: number; parts: { teacherId: string, groupType: string }[] };
+  const blocksMap = new Map<string, LessonBlock>();
+  
   for (const req of lessonRequests) {
-    for (let i = 0; i < req.hoursPerWeek; i++) {
-      allLessons.push({ className: req.className, subject: req.subject, teacherId: req.teacherId, groupType: req.groupType });
+    const key = `${req.className}-${req.subject}`;
+    if (!blocksMap.has(key)) {
+        blocksMap.set(key, { className: req.className, subject: req.subject, hours: req.hoursPerWeek, parts: [] });
+    }
+    blocksMap.get(key)!.parts.push({ teacherId: req.teacherId, groupType: req.groupType });
+  }
+
+  let allSlots: LessonBlock[] = [];
+  for (const block of blocksMap.values()) {
+    for (let i = 0; i < block.hours; i++) {
+        allSlots.push({ ...block }); // Soatiga qarab ko'paytirish
     }
   }
 
-  // Darslarni aralashtirish, lekin KELAJAK SOATI va GURUHLI darslarni oldinga o'tkazish (To'qnashuv bo'lmasligi uchun)
-  allLessons = allLessons.sort(() => Math.random() - 0.5);
-  allLessons.sort((a, b) => {
-    if (a.subject === "Kelajak soati") return -1;
-    if (b.subject === "Kelajak soati") return 1;
-    if (a.groupType !== "Barchasi" && b.groupType === "Barchasi") return -1;
-    if (b.groupType !== "Barchasi" && a.groupType === "Barchasi") return 1;
-    return 0;
-  });
+  // Kelajak soati va odatiy darslarni alohida ajratib olamiz
+  const kelajakSlots = allSlots.filter(s => s.subject === "Kelajak soati");
+  const normalSlots = allSlots.filter(s => s.subject !== "Kelajak soati");
 
   const finalSchedule: any[] = [];
 
-  for (const lesson of allLessons) {
+  // ==========================================
+  // 1-QADAM: KELAJAK SOATINI DUSHANBA 1-SOATGA QAT'IY JOYLASHTIRISH
+  // ==========================================
+  for (const slot of kelajakSlots) {
+    if (!timetable["Du"][1][slot.className]) timetable["Du"][1][slot.className] = [];
+    for (const part of slot.parts) {
+        timetable["Du"][1][slot.className].push({ subject: slot.subject, teacherId: part.teacherId, groupType: part.groupType });
+        finalSchedule.push({
+          class_name: slot.className,
+          day_of_week: "Du",
+          lesson_number: 1,
+          subject: slot.subject,
+          teacher_id: part.teacherId,
+          group_type: part.groupType,
+          room: "Belgilanmagan"
+        });
+    }
+  }
+
+  // ==========================================
+  // 2-QADAM: QOLGAN DARSLARNI JOYLASHTIRISH
+  // ==========================================
+  // Guruhga bo'lingan darslarni birinchi joylashtirish (chunki ular ko'proq ustozni band qiladi)
+  normalSlots.sort((a, b) => b.parts.length - a.parts.length);
+
+  for (const slot of normalSlots) {
     let placed = false;
 
-    // Darslarni kunlarga tekis taqsimlash
+    // Kunlarni teng taqsimlash uchun saralash
     const sortedDays = [...DAYS].sort((dayA, dayB) => {
       let subjCountA = 0; let subjCountB = 0;
       let totalCountA = 0; let totalCountB = 0;
       for (const p of PERIODS) {
-        if (timetable[dayA][p][lesson.className]) totalCountA += timetable[dayA][p][lesson.className].length;
-        if (timetable[dayB][p][lesson.className]) totalCountB += timetable[dayB][p][lesson.className].length;
-        if (timetable[dayA][p][lesson.className]?.some(c => c.subject === lesson.subject)) subjCountA++;
-        if (timetable[dayB][p][lesson.className]?.some(c => c.subject === lesson.subject)) subjCountB++;
+        if (timetable[dayA][p][slot.className]) totalCountA += timetable[dayA][p][slot.className].length;
+        if (timetable[dayB][p][slot.className]) totalCountB += timetable[dayB][p][slot.className].length;
+        if (timetable[dayA][p][slot.className]?.some(c => c.subject === slot.subject)) subjCountA++;
+        if (timetable[dayB][p][slot.className]?.some(c => c.subject === slot.subject)) subjCountB++;
       }
       if (subjCountA !== subjCountB) return subjCountA - subjCountB; 
       return totalCountA - totalCountB;
@@ -58,82 +90,72 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
     for (const day of sortedDays) {
       if (placed) break;
 
-      if (lesson.subject === "Kelajak soati" && day !== "Du") continue;
-
       let existingPeriodsWithSubject: number[] = [];
       for (const p of PERIODS) {
-        if (timetable[day][p][lesson.className]?.some(c => c.subject === lesson.subject && c.groupType === lesson.groupType)) {
+        if (timetable[day][p][slot.className]?.some(c => c.subject === slot.subject)) {
           existingPeriodsWithSubject.push(p);
         }
       }
 
-      // Bir kunda 2 tadan ortiq bir xil fan bo'lmasin
-      const isMath = lesson.subject.toLowerCase().includes("algebra") || lesson.subject.toLowerCase().includes("geometriya");
-      if (isMath && existingPeriodsWithSubject.length >= 1) continue; // Matematika faqat 1 soat
-      if (!isMath && existingPeriodsWithSubject.length >= 2) continue; // Boshqalari maks 2 soat
-
-      let teacherDailyHours = 0;
-      for (const p of PERIODS) {
-        for (const cls in timetable[day][p]) {
-          if (timetable[day][p][cls]?.some(c => c.teacherId === lesson.teacherId)) teacherDailyHours++;
-        }
-      }
-      if (teacherDailyHours >= 4) continue; // Ustoz kuniga maks 4 soat dars o'tadi
+      // Aniq fanlar bir kunda 1 martadan oshmasligi, qolganlar 2 martadan oshmasligi kerak
+      const isMath = slot.subject.toLowerCase().includes("algebra") || slot.subject.toLowerCase().includes("geometriya");
+      if (isMath && existingPeriodsWithSubject.length >= 1) continue; 
+      if (!isMath && existingPeriodsWithSubject.length >= 2) continue;
 
       for (const period of PERIODS) {
         if (placed) break;
 
-        if (lesson.subject === "Kelajak soati" && period !== 1) continue;
+        // Dushanba 1-soatga umuman tegilmaydi!
+        if (day === "Du" && period === 1) continue;
 
+        // Ikkita ketma-ket fan bo'lsa, yonma-yon bo'lishi shart
         if (existingPeriodsWithSubject.length === 1) {
           if (Math.abs(existingPeriodsWithSubject[0] - period) !== 1) continue;
         }
 
-        // GURUHLARGA BO'LINIShNI TEKSHIRISH
-        if (!timetable[day][period][lesson.className]) timetable[day][period][lesson.className] = [];
-        const currentCell = timetable[day][period][lesson.className];
-        
-        let isClassBusy = false;
-        if (currentCell.length > 0) {
-            if (lesson.groupType === 'Barchasi' || currentCell.some(c => c.groupType === 'Barchasi')) {
-                isClassBusy = true; 
-            } else {
-                const hasSameGroup = currentCell.some(c => c.groupType === lesson.groupType);
-                const hasGroup1 = currentCell.some(c => c.groupType === '1-guruh');
-                const hasGroup2 = currentCell.some(c => c.groupType === '2-guruh');
-                const hasBoys = currentCell.some(c => c.groupType === 'O\'g\'il bolalar');
-                const hasGirls = currentCell.some(c => c.groupType === 'Qizlar');
+        // Agar bu soatda sinf band bo'lsa, joylash mumkin emas
+        const classCell = timetable[day][period][slot.className] || [];
+        if (classCell.length > 0) continue; 
 
-                if (hasSameGroup) isClassBusy = true;
-                else if (lesson.groupType === '1-guruh' && (hasBoys || hasGirls)) isClassBusy = true;
-                else if (lesson.groupType === '2-guruh' && (hasBoys || hasGirls)) isClassBusy = true;
-                else if (lesson.groupType === 'O\'g\'il bolalar' && (hasGroup1 || hasGroup2)) isClassBusy = true;
-                else if (lesson.groupType === 'Qizlar' && (hasGroup1 || hasGroup2)) isClassBusy = true;
+        // IKKALA O'QITUVCHI HAM BO'SHLIGINI TEKSHIRISH
+        let teachersBusy = false;
+        for (const part of slot.parts) {
+            for (const cls in timetable[day][period]) {
+                if (timetable[day][period][cls]?.some(c => c.teacherId === part.teacherId)) {
+                    teachersBusy = true;
+                    break;
+                }
             }
+            if (teachersBusy) break;
+
+            let teacherDailyHours = 0;
+            for (const p of PERIODS) {
+              for (const cls in timetable[day][p]) {
+                if (timetable[day][p][cls]?.some(c => c.teacherId === part.teacherId)) teacherDailyHours++;
+              }
+            }
+            if (teacherDailyHours >= 5) { teachersBusy = true; break; } // Kunlik 5 soat limit
+
+            if (!isTeacherGapValid(timetable, day, period, part.teacherId)) { teachersBusy = true; break; }
         }
-        if (isClassBusy) continue;
 
-        let teacherBusy = false;
-        for (const cls in timetable[day][period]) {
-          if (timetable[day][period][cls]?.some(c => c.teacherId === lesson.teacherId)) {
-            teacherBusy = true; break;
-          }
+        if (teachersBusy) continue;
+
+        // Agar hamma shartlardan o'tsa -> BUTUN BLOKNI (ikkala ustozni ham) bitta soatga yozamiz
+        if (!timetable[day][period][slot.className]) timetable[day][period][slot.className] = [];
+        
+        for (const part of slot.parts) {
+            timetable[day][period][slot.className].push({ subject: slot.subject, teacherId: part.teacherId, groupType: part.groupType });
+            finalSchedule.push({
+              class_name: slot.className,
+              day_of_week: day,
+              lesson_number: period,
+              subject: slot.subject,
+              teacher_id: part.teacherId,
+              group_type: part.groupType,
+              room: "Belgilanmagan"
+            });
         }
-        if (teacherBusy) continue;
-
-        // OYNA QOIDASI (2 soatdan oshmasligi kerak)
-        if (!isTeacherGapValid(timetable, day, period, lesson.teacherId)) continue;
-
-        timetable[day][period][lesson.className].push({ subject: lesson.subject, teacherId: lesson.teacherId, groupType: lesson.groupType });
-        finalSchedule.push({
-          class_name: lesson.className,
-          day_of_week: day,
-          lesson_number: period,
-          subject: lesson.subject,
-          teacher_id: lesson.teacherId,
-          group_type: lesson.groupType,
-          room: "Belgilanmagan"
-        });
         placed = true;
       }
     }
@@ -144,6 +166,7 @@ export function generateTimetable(lessonRequests: LessonRequest[]): any[] {
 
 function isTeacherGapValid(timetable: Timetable, targetDay: string, targetPeriod: number, teacherId: string): boolean {
   const teacherPeriods: number[] = [];
+  const PERIODS = [1, 2, 3, 4, 5, 6];
   for (const p of PERIODS) {
     let hasLesson = false;
     for (const cls in timetable[targetDay][p]) {
