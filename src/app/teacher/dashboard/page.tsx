@@ -33,7 +33,8 @@ function getDatesInRange(startDate: string, endDate: string) {
 export default function TeacherDashboard() {
   const router = useRouter();
   const [currentTeacher, setCurrentTeacher] = useState<any>(null);
-  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "jurnal" | "ish_reja" | "homeroom" | "settings" | "messenger">("boshqaruv");
+  // ✅ FIXED: Added "timetable" to the allowed types
+  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "jurnal" | "ish_reja" | "homeroom" | "settings" | "messenger">("boshqaruv");
   const [isLoading, setIsLoading] = useState(false);
 
   const [loginForm, setLoginForm] = useState({ id: "", password: "" });
@@ -124,7 +125,6 @@ export default function TeacherDashboard() {
       const { data: schedule } = await supabase.from('timetable').select('*').eq('teacher_id', currentTeacher.id);
       setMyTimetable(schedule || []);
       
-      // ✅ YANGILIK: Ustoz kiradigan sinflarni ajratib olish (Jurnal uchun)
       if (schedule) {
         const uniqueClasses = Array.from(new Set(schedule.map((s: any) => s.class_name))).sort() as string[];
         setMyClasses(uniqueClasses);
@@ -462,12 +462,20 @@ export default function TeacherDashboard() {
       {/* SIDEBAR */}
       <aside className="w-72 bg-indigo-950 border-r border-indigo-900 flex flex-col h-screen flex-shrink-0 z-20 text-indigo-100 hidden md:flex p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
-          <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/20">E</div>
-          <span className="text-2xl font-black text-white tracking-tighter italic">TEACHER</span>
+          <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/20">
+            {currentTeacher.full_name?.charAt(0) || "T"}
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white truncate w-40">{currentTeacher.full_name}</h2>
+            <p className="text-xs font-bold text-indigo-400">{currentTeacher.bio} fani o'qituvchisi</p>
+          </div>
         </div>
         <nav className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
           <button onClick={() => setActiveMenu("boshqaruv")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'boshqaruv' ? 'bg-indigo-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
             <LayoutDashboard className="w-5 h-5 mr-3" /> Asosiy Panel
+          </button>
+          <button onClick={() => setActiveMenu("timetable")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'timetable' ? 'bg-indigo-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
+            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvalim
           </button>
           <button onClick={() => setActiveMenu("jurnal")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'jurnal' ? 'bg-indigo-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
             <TableProperties className="w-5 h-5 mr-3" /> Jurnal & Baholash
@@ -974,7 +982,7 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* BAHOLASH MODALI (Sizning kodingizdagi) */}
+      {/* BAHOLASH MODALI */}
       {gradeModal && gradeModal.isOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setGradeModal(null)}>
            <div className="bg-white rounded-[3rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 border border-slate-100" onClick={e => e.stopPropagation()}>
