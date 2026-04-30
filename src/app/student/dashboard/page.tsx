@@ -10,22 +10,28 @@ import {
 
 export default function StudentDashboard() {
   const router = useRouter();
-  const [isMounted, setIsMounted] = useState(false); // ✅ HYDRATION HIMOYASI
+  
+  // Xavfsiz yuklash (Hydration Error va Client Error oldini olish)
+  const [isMounted, setIsMounted] = useState(false);
   const [currentStudent, setCurrentStudent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true); 
-  const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "homeworks">("boshqaruv");
+  const [activeMenu, setActiveMenu] = useState<string>("boshqaruv");
 
   useEffect(() => {
-    setIsMounted(true); // Tizim brauzerda ochildi
-    
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return; // Brauzer to'liq tayyor bo'lmaguncha kutamiz
+
     const init = async () => {
       try {
+        setIsLoading(true);
         const sId = localStorage.getItem('user_id');
         const role = localStorage.getItem('user_role');
 
         if (!sId || role !== 'student') {
-          localStorage.clear();
-          router.push('/');
+          router.replace('/'); // replace() xavfsizroq qaytarish usuli
           return;
         }
 
@@ -33,38 +39,47 @@ export default function StudentDashboard() {
         
         if (error || !data) {
           localStorage.clear();
-          router.push('/');
+          router.replace('/');
           return;
         }
 
         setCurrentStudent(data);
       } catch (err) {
         console.error("Tarmoq xatosi:", err);
+        router.replace('/');
       } finally {
         setIsLoading(false);
       }
     };
 
     init();
-  }, [router]);
+  }, [isMounted, router]);
 
   const handleLogout = () => {
     localStorage.clear();
-    router.push('/'); 
+    router.replace('/'); 
   };
 
-  if (!isMounted) return null; // ✅ HYDRATION HIMOYASI (Server bilan to'qnashmaydi)
-
-  if (isLoading || !currentStudent) {
+  // ✅ LOADING EKRANI
+  if (!isMounted || isLoading || !currentStudent) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 font-sans p-6">
-        <div className="flex flex-col items-center">
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50 font-sans p-6">
+         <div className="flex flex-col items-center">
            <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4 shadow-lg rounded-full" />
            <h2 className="text-2xl font-black text-slate-800 tracking-tight">O'quvchi paneli ochilmoqda...</h2>
-        </div>
+         </div>
       </div>
     );
   }
+
+  // ========================================================
+  // ✅ 100% XAVFSIZ O'ZGARUVCHILAR (Xato chiqishining oldi olindi)
+  // ========================================================
+  const fullName = currentStudent.full_name || "O'quvchi Noma'lum";
+  const initial = fullName.charAt(0).toUpperCase();
+  const firstName = fullName.split(" ")[0] || "O'quvchi";
+  const className = currentStudent.class_name || "Sinf belgilanmagan";
+  const ppBalance = currentStudent.pp_balance || 0;
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
@@ -73,11 +88,11 @@ export default function StudentDashboard() {
       <aside className="w-72 bg-blue-950 border-r border-blue-900 flex flex-col h-screen flex-shrink-0 z-20 text-blue-100 hidden md:flex p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
           <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-emerald-500/20">
-            {currentStudent?.full_name ? currentStudent.full_name.charAt(0) : "S"}
+            {initial}
           </div>
           <div>
-            <h2 className="text-xl font-black text-white truncate w-40">{currentStudent?.full_name || "O'quvchi"}</h2>
-            <p className="text-xs font-bold text-blue-400">O'quvchi • {currentStudent?.class_name || "Sinf yo'q"}</p>
+            <h2 className="text-xl font-black text-white truncate w-40">{fullName}</h2>
+            <p className="text-xs font-bold text-blue-400">O'quvchi • {className}</p>
           </div>
         </div>
         
@@ -105,13 +120,13 @@ export default function StudentDashboard() {
         <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[3rem] p-10 text-white shadow-xl relative overflow-hidden mb-10">
           <div className="absolute top-0 right-0 p-8 opacity-10"><Award className="w-48 h-48" /></div>
           <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {currentStudent?.full_name?.split(' ')[0] || "O'quvchi"}! 🚀</h1>
+            <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {firstName}! 🚀</h1>
             <div className="flex gap-4 mt-6">
               <span className="bg-white/20 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center">
-                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-300" /> {currentStudent?.class_name || "Yo'q"} sinfi
+                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-300" /> {className} sinfi
               </span>
               <span className="bg-amber-500/90 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center shadow-inner">
-                <Star className="w-4 h-4 mr-2" /> Balans: {currentStudent?.pp_balance || 0} PP
+                <Star className="w-4 h-4 mr-2" /> Balans: {ppBalance} PP
               </span>
             </div>
           </div>
