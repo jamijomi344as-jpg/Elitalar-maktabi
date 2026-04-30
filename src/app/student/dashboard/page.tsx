@@ -11,10 +11,10 @@ import {
 export default function StudentDashboard() {
   const router = useRouter();
   
-  // Xavfsiz yuklash (Hydration Error va Client Error oldini olish)
+  // ✅ ENg kuchli Hydration (Server-Client) himoyasi
   const [isMounted, setIsMounted] = useState(false);
   const [currentStudent, setCurrentStudent] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
   const [activeMenu, setActiveMenu] = useState<string>("boshqaruv");
 
   useEffect(() => {
@@ -22,61 +22,69 @@ export default function StudentDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!isMounted) return; // Brauzer to'liq tayyor bo'lmaguncha kutamiz
+    if (!isMounted) return;
 
-    const init = async () => {
+    const loadData = async () => {
       try {
-        setIsLoading(true);
-        const sId = localStorage.getItem('user_id');
-        const role = localStorage.getItem('user_role');
+        const sId = localStorage.getItem("user_id");
+        const role = localStorage.getItem("user_role");
 
-        if (!sId || role !== 'student') {
-          router.replace('/'); // replace() xavfsizroq qaytarish usuli
+        // Agar begona kishi bo'lsa darhol orqaga qaytaramiz
+        if (!sId || role !== "student") {
+          router.replace("/");
           return;
         }
 
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
-        
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", sId)
+          .single();
+
         if (error || !data) {
           localStorage.clear();
-          router.replace('/');
+          router.replace("/");
           return;
         }
 
         setCurrentStudent(data);
       } catch (err) {
-        console.error("Tarmoq xatosi:", err);
-        router.replace('/');
+        console.error("Xatolik:", err);
+        router.replace("/");
       } finally {
         setIsLoading(false);
       }
     };
 
-    init();
+    loadData();
   }, [isMounted, router]);
 
   const handleLogout = () => {
     localStorage.clear();
-    router.replace('/'); 
+    router.replace("/"); 
   };
 
-  // ✅ LOADING EKRANI
-  if (!isMounted || isLoading || !currentStudent) {
+  // ✅ 1. Server bilan to'qnashmaslik uchun:
+  if (!isMounted) return null;
+
+  // ✅ 2. Yuklanish ekrani:
+  if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-50 font-sans p-6">
-         <div className="flex flex-col items-center">
-           <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4 shadow-lg rounded-full" />
-           <h2 className="text-2xl font-black text-slate-800 tracking-tight">O'quvchi paneli ochilmoqda...</h2>
-         </div>
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50 p-6">
+        <div className="flex flex-col items-center">
+          <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4" />
+          <h2 className="text-2xl font-black text-slate-800">Yuklanmoqda...</h2>
+        </div>
       </div>
     );
   }
 
-  // ========================================================
-  // ✅ 100% XAVFSIZ O'ZGARUVCHILAR (Xato chiqishining oldi olindi)
-  // ========================================================
+  // ✅ 3. Mabodo ma'lumot kelmay qolsa, oq ekran bermasligi uchun:
+  if (!currentStudent) return null;
+
+  // Xavfsiz o'zgaruvchilar (Undefined xatosi bermasligi uchun)
   const fullName = currentStudent.full_name || "O'quvchi Noma'lum";
-  const initial = fullName.charAt(0).toUpperCase();
+  const initial = fullName.charAt(0).toUpperCase() || "O";
   const firstName = fullName.split(" ")[0] || "O'quvchi";
   const className = currentStudent.class_name || "Sinf belgilanmagan";
   const ppBalance = currentStudent.pp_balance || 0;
@@ -123,7 +131,7 @@ export default function StudentDashboard() {
             <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {firstName}! 🚀</h1>
             <div className="flex gap-4 mt-6">
               <span className="bg-white/20 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center">
-                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-300" /> {className} sinfi
+                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-300" /> {className}
               </span>
               <span className="bg-amber-500/90 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center shadow-inner">
                 <Star className="w-4 h-4 mr-2" /> Balans: {ppBalance} PP
