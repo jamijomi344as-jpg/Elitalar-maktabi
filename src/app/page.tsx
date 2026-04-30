@@ -7,14 +7,15 @@ import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function MainLogin() {
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false); // ✅ HYDRATION HIMOYASI
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Agar odam oldin kirgan bo'lsa, loginda ushlab turmasdan to'g'ri paneliga o'tkazish
   useEffect(() => {
+    setIsMounted(true); // Sahifa brauzerda ochilganini tasdiqlash
     const role = localStorage.getItem('user_role');
     if (role === 'director' || role === 'admin') router.push('/director/dashboard');
     else if (role === 'teacher') router.push('/teacher/dashboard');
@@ -32,7 +33,6 @@ export default function MainLogin() {
     setErrorMsg("");
 
     try {
-      // 1. Bazadan ID va Parol bo'yicha qidiramiz (KIM bo'lishidan qat'i nazar)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -46,16 +46,14 @@ export default function MainLogin() {
         return;
       }
 
-      // 2. Tizimga kirdi! Xotiraga saqlab qo'yamiz.
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', data.role);
 
-      // 3. Roliga qarab o'z paneliga yuboramiz
       if (data.role === 'director' || data.role === 'admin') {
         router.push('/director/dashboard');
       } 
       else if (data.role === 'teacher') {
-        localStorage.setItem('teacher_id', data.id); // Ustoz paneli uchun maxsus kalit
+        localStorage.setItem('teacher_id', data.id);
         router.push('/teacher/dashboard');
       } 
       else if (data.role === 'student') {
@@ -65,17 +63,17 @@ export default function MainLogin() {
         setErrorMsg("Sizning rolingiz tizimda aniqlanmadi.");
         setIsLoading(false);
       }
-
     } catch (err: any) {
       setErrorMsg("Tarmoqda xatolik yuz berdi. Internetni tekshiring.");
       setIsLoading(false);
     }
   };
 
+  // ✅ Server va Client o'rtasida to'qnashuv bo'lmasligi uchun
+  if (!isMounted) return null; 
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      
-      {/* Orqa fon effektlari */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
