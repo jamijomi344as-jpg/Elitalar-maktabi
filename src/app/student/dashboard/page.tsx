@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { 
   LayoutDashboard, MessageCircle, Wallet, GraduationCap, 
   Trophy, Settings, LogOut, Calendar, BookOpen, 
-  Loader2, AlertTriangle, ShieldCheck, Star
+  Loader2, AlertTriangle, ShieldCheck, Star, Award 
 } from "lucide-react";
 
 // ========================================================
