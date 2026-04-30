@@ -1,88 +1,102 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   LayoutDashboard, Calendar, Award, BookOpen, 
-  Clock, LogOut, ShieldCheck, Star, Loader2 
+  Clock, LogOut, ShieldCheck, Star, Loader2, AlertTriangle 
 } from "lucide-react";
 
-export default function StudentDashboard() {
-  const router = useRouter();
-  
-  // ✅ ENg kuchli Hydration (Server-Client) himoyasi
-  const [isMounted, setIsMounted] = useState(false);
+// ========================================================
+// 🚨 XATO USHLAGICH (Qizil ekranni yo'q qiluvchi tizim)
+// ========================================================
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, errorMsg: string}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, errorMsg: "" };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, errorMsg: error.message || "Noma'lum xatolik" };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-red-50 p-6">
+           <div className="bg-white p-8 rounded-3xl shadow-xl max-w-lg text-center border-2 border-red-200">
+              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-black text-red-700 mb-2">Tizimda xatolik yuz berdi!</h1>
+              <div className="bg-slate-100 p-4 rounded-xl text-left text-sm font-mono text-slate-800 overflow-auto">
+                {this.state.errorMsg}
+              </div>
+              <button onClick={() => window.location.href = '/'} className="mt-6 px-6 py-3 bg-red-600 text-white rounded-xl font-bold">Loginga qaytish</button>
+           </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ========================================================
+// ASOSIY O'QUVCHI KONTENTI
+// ========================================================
+function StudentDashboardContent() {
   const [currentStudent, setCurrentStudent] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); 
   const [activeMenu, setActiveMenu] = useState<string>("boshqaruv");
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted) return;
-
-    const loadData = async () => {
+    const init = async () => {
       try {
-        const sId = localStorage.getItem("user_id");
-        const role = localStorage.getItem("user_role");
+        setIsLoading(true);
+        const sId = localStorage.getItem('user_id');
+        const role = localStorage.getItem('user_role');
 
-        // Agar begona kishi bo'lsa darhol orqaga qaytaramiz
-        if (!sId || role !== "student") {
-          router.replace("/");
+        // Xavfsiz qaytarish (Router o'rniga window.location ishlatildi)
+        if (!sId || role !== 'student') {
+          localStorage.clear();
+          window.location.href = '/'; 
           return;
         }
 
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", sId)
-          .single();
-
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
+        
         if (error || !data) {
           localStorage.clear();
-          router.replace("/");
+          window.location.href = '/';
           return;
         }
 
         setCurrentStudent(data);
       } catch (err) {
-        console.error("Xatolik:", err);
-        router.replace("/");
+        console.error("Tarmoq xatosi:", err);
+        window.location.href = '/';
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadData();
-  }, [isMounted, router]);
+    init();
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
-    router.replace("/"); 
+    window.location.href = '/'; 
   };
 
-  // ✅ 1. Server bilan to'qnashmaslik uchun:
-  if (!isMounted) return null;
-
-  // ✅ 2. Yuklanish ekrani:
-  if (isLoading) {
+  // ✅ LOADING EKRANI
+  if (isLoading || !currentStudent) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-50 p-6">
-        <div className="flex flex-col items-center">
-          <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4" />
-          <h2 className="text-2xl font-black text-slate-800">Yuklanmoqda...</h2>
-        </div>
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50 font-sans p-6">
+         <div className="flex flex-col items-center">
+           <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4 shadow-lg rounded-full" />
+           <h2 className="text-2xl font-black text-slate-800 tracking-tight">O'quvchi paneli ochilmoqda...</h2>
+         </div>
       </div>
     );
   }
 
-  // ✅ 3. Mabodo ma'lumot kelmay qolsa, oq ekran bermasligi uchun:
-  if (!currentStudent) return null;
-
-  // Xavfsiz o'zgaruvchilar (Undefined xatosi bermasligi uchun)
+  // ✅ XAVFSIZ O'ZGARUVCHILAR
   const fullName = currentStudent.full_name || "O'quvchi Noma'lum";
   const initial = fullName.charAt(0).toUpperCase() || "O";
   const firstName = fullName.split(" ")[0] || "O'quvchi";
@@ -124,7 +138,6 @@ export default function StudentDashboard() {
       {/* CONTENT */}
       <main className="flex-1 h-full overflow-y-auto p-8 lg:p-12 relative pb-24">
         
-        {/* HEADER HERO */}
         <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[3rem] p-10 text-white shadow-xl relative overflow-hidden mb-10">
           <div className="absolute top-0 right-0 p-8 opacity-10"><Award className="w-48 h-48" /></div>
           <div className="relative z-10">
@@ -140,7 +153,6 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* DASHBOARD KONTENTI */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {activeMenu === "boshqaruv" && (
             <div className="bg-white p-12 rounded-[3rem] shadow-sm border-2 border-dashed border-slate-200 text-center">
@@ -164,5 +176,14 @@ export default function StudentDashboard() {
 
       </main>
     </div>
+  );
+}
+
+// ASOSIY SAHIFA COMPONENTI (Xato ushlagichga o'ralgan)
+export default function StudentDashboard() {
+  return (
+    <ErrorBoundary>
+      <StudentDashboardContent />
+    </ErrorBoundary>
   );
 }
