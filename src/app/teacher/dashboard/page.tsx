@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { 
   LayoutDashboard, Users, Calendar, Award, Star, BookOpen, 
   Clock, ShieldCheck, CheckCircle, LogOut, Settings, 
-  TableProperties, Send, AlertCircle, FileText, X, PlusCircle, Edit, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown, Loader2, MessageSquare
+  TableProperties, Send, AlertCircle, X, PlusCircle, Edit, ListTodo, DownloadCloud, MessageCircle, MoreVertical, Search, BellOff, Trash2, Ban, Copy, ChevronDown, Loader2, MessageSquare, FileText
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
-// Kalendar yordamchi funksiyalari (Ish reja uchun)
+// Kalendar yordamchi funksiyalari
 const HOLIDAYS = ["01.10.2025", "08.12.2025", "01.01.2026", "08.03.2026", "21.03.2026", "22.03.2026", "09.05.2026"];
 function formatDate(dateStr: string) { 
   const [y, m, d] = dateStr.split('-'); 
@@ -32,6 +32,7 @@ function getDatesInRange(startDate: string, endDate: string) {
 
 export default function TeacherDashboard() {
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false); // ✅ HYDRATION HIMOYASI
   const [currentTeacher, setCurrentTeacher] = useState<any>(null);
   const [activeMenu, setActiveMenu] = useState<"boshqaruv" | "timetable" | "jurnal" | "ish_reja" | "homeroom" | "settings" | "messenger">("boshqaruv");
   const [isLoading, setIsLoading] = useState(true);
@@ -86,25 +87,26 @@ export default function TeacherDashboard() {
   const [ppRequestType, setPpRequestType] = useState("+1"); 
   const [isGrading, setIsGrading] = useState(false);
 
+  // ✅ HAFTA KUNLARI TARJIMASI
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
+  const fullDayNames: Record<string, string> = { 
+    "Du": "Dushanba", "Se": "Seshanba", "Ch": "Chorshanba", 
+    "Pa": "Payshanba", "Ju": "Juma", "Sh": "Shanba" 
+  };
   const lessonNumbers = [1, 2, 3, 4, 5, 6];
   
   const todayNameString = "Ch"; 
-  const journalColumns = [
-    { label: "04.09", sub: "Dj", type: "past" }, 
-    { label: "11.09", sub: "Dj", type: "past" }, 
-    { label: "18.09", sub: "bugun", isToday: true, type: "today" }, 
-    { label: "25.09", sub: "Dj", type: "future" }, 
-    { label: "BSB", sub: "Dj", type: "bsb" }, 
-    { label: "CHSB", sub: "Dj", type: "bsb" }
-  ];
 
   // ==========================================
-  // XAVFSIZ VA TO'G'RIDAN-TO'G'RI YUKLASH TIZIMI
+  // XAVFSIZ YUKLASH TIZIMI
   // ==========================================
   useEffect(() => { 
+    setIsMounted(true);
     const tId = localStorage.getItem('teacher_id') || localStorage.getItem('user_id'); 
-    if (!tId) {
+    const role = localStorage.getItem('user_role');
+    
+    if (!tId || role !== 'teacher') {
+      localStorage.clear();
       router.push('/'); 
       return;
     }
@@ -115,17 +117,9 @@ export default function TeacherDashboard() {
     setIsLoading(true);
     try {
       const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', tId).single();
-      
       if (error || !profile) {
          localStorage.clear();
          router.push('/');
-         return;
-      }
-
-      if (profile.role !== 'teacher') {
-         if (profile.role === 'director' || profile.role === 'admin') router.push('/director/dashboard');
-         else if (profile.role === 'student') router.push('/student/dashboard');
-         else router.push('/');
          return;
       }
 
@@ -168,7 +162,7 @@ export default function TeacherDashboard() {
     router.push('/');
   };
 
-  // MUROJAATNI YUBORISH FUNKSIYASI
+  // MUROJAATNI YUBORISH
   const handleSendFeedback = async () => {
     if (!feedbackForm.message) return alert("Xabar yozing!");
     setIsSendingFeedback(true);
@@ -217,7 +211,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  // ISH REJA ALGORITMI
+  // ISH REJA
   const generateLessonDates = () => {
     if (!selectedClassForPlan) return;
     const classSchedule = myTimetable.filter(t => t.class_name === selectedClassForPlan && t.term === selectedTermPlan);
@@ -434,14 +428,7 @@ export default function TeacherDashboard() {
     setIsChanging(false);
   };
 
-  const renderGradeBadge = (val: string) => {
-    if (!val) return null; 
-    if (val === 'K' || val === 'DQ') return <div className="text-red-500 font-bold text-xs">{val}</div>;
-    const num = parseInt(val);
-    if (num >= 9) return <div className="w-5 h-5 bg-emerald-500 text-white rounded-[4px] flex items-center justify-center font-bold text-[11px] shadow-sm">{num}</div>;
-    if (num >= 7) return <div className="w-5 h-5 bg-amber-500 text-white rounded-[4px] flex items-center justify-center font-bold text-[11px] shadow-sm">{num}</div>;
-    return <div className="w-5 h-5 bg-red-500 text-white rounded-[4px] flex items-center justify-center font-bold text-[11px] shadow-sm">{num}</div>;
-  };
+  if (!isMounted) return null; // ✅ HYDRATION HIMOYASI
 
   if (isLoading || !currentTeacher) {
     return (
@@ -461,11 +448,11 @@ export default function TeacherDashboard() {
       <aside className="w-72 bg-indigo-950 border-r border-indigo-900 flex flex-col h-screen flex-shrink-0 z-20 text-indigo-100 hidden md:flex p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
           <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-amber-500/20">
-            {currentTeacher.full_name?.charAt(0) || "T"}
+            {currentTeacher?.full_name?.charAt(0) || "T"}
           </div>
           <div>
-            <h2 className="text-xl font-black text-white truncate w-40">{currentTeacher.full_name}</h2>
-            <p className="text-xs font-bold text-indigo-400">{currentTeacher.bio} fani o'qituvchisi</p>
+            <h2 className="text-xl font-black text-white truncate w-40">{currentTeacher?.full_name || "O'qituvchi"}</h2>
+            <p className="text-xs font-bold text-indigo-400">{currentTeacher?.bio || ""} fani o'qituvchisi</p>
           </div>
         </div>
         <nav className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -484,7 +471,7 @@ export default function TeacherDashboard() {
           <button onClick={() => setActiveMenu("messenger")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'messenger' ? 'bg-indigo-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
             <MessageCircle className="w-5 h-5 mr-3" /> Messenger
           </button>
-          {currentTeacher.homeroom && (
+          {currentTeacher?.homeroom && (
             <button onClick={() => setActiveMenu("homeroom")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all mt-4 ${activeMenu === 'homeroom' ? 'bg-amber-500 text-white' : 'text-amber-300 hover:bg-white/5 hover:text-white'}`}>
               <Users className="w-5 h-5 mr-3" /> Mening Sinfim
             </button>
@@ -493,7 +480,7 @@ export default function TeacherDashboard() {
             <Settings className="w-5 h-5 mr-3" /> Sozlamalar
           </button>
         </nav>
-        <button onClick={handleLogout} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4">
+        <button onClick={handleLogout} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4 transition-all">
           <LogOut className="w-5 h-5 mr-2" /> Chiqish
         </button>
       </aside>
@@ -504,12 +491,12 @@ export default function TeacherDashboard() {
         <div className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 rounded-[3rem] p-10 text-white shadow-xl relative overflow-hidden mb-10">
           <div className="absolute top-0 right-0 p-8 opacity-10"><BookOpen className="w-48 h-48" /></div>
           <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {currentTeacher.full_name} 👋</h1>
+            <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {currentTeacher?.full_name} 👋</h1>
             <div className="flex gap-4 mt-6">
               <span className="bg-white/20 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center">
-                <Star className="w-4 h-4 mr-2 text-amber-300" /> {currentTeacher.bio} Fani
+                <Star className="w-4 h-4 mr-2 text-amber-300" /> {currentTeacher?.bio} Fani
               </span>
-              {currentTeacher.homeroom && (
+              {currentTeacher?.homeroom && (
                 <span className="bg-amber-500/90 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center shadow-inner">
                   <ShieldCheck className="w-4 h-4 mr-2" /> {currentTeacher.homeroom} Rahbari
                 </span>
@@ -524,7 +511,7 @@ export default function TeacherDashboard() {
           {activeMenu === "boshqaruv" && (
             <div className="space-y-6">
               <h2 className="text-2xl font-black text-slate-900 flex items-center">
-                <Clock className="w-6 h-6 mr-3 text-indigo-500"/> Bugungi Darslaringiz ({todayNameString}shanba)
+                <Clock className="w-6 h-6 mr-3 text-indigo-500"/> Bugungi Darslaringiz ({fullDayNames[todayNameString]})
               </h2>
               {todayClasses.length === 0 ? (
                 <div className="bg-white p-12 rounded-[3rem] shadow-sm border-2 border-dashed border-slate-200 text-center">
@@ -651,7 +638,7 @@ export default function TeacherDashboard() {
                               <td className="p-4 text-center font-bold text-slate-400">{index + 1}</td>
                               <td className="p-4 border-l border-slate-100">
                                 <span className="text-indigo-600 font-black text-base">{gDate.date}</span>
-                                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{gDate.dayName}shanba</span>
+                                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{fullDayNames[gDate.dayName]}</span>
                               </td>
                               <td className="p-2 border-l border-slate-100">
                                 <input type="text" placeholder="Mavzu..." className="w-full p-3 bg-transparent outline-none font-medium text-slate-800" value={pData.topic} onChange={(e) => handlePlanChange(dateKey, 'topic', e.target.value)} />
@@ -704,7 +691,8 @@ export default function TeacherDashboard() {
                   <thead>
                     <tr>
                       <th className="p-4 bg-slate-50 border-b border-r border-slate-100 w-20"><Clock className="w-5 h-5 mx-auto text-slate-300"/></th>
-                      {days.map(d => <th key={d} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-400 font-black uppercase text-xs tracking-widest">{d}shanba</th>)}
+                      {/* ✅ HAFTA KUNLARI */}
+                      {days.map(d => <th key={d} className="p-4 bg-slate-50 border-b border-slate-100 text-slate-400 font-black uppercase text-xs tracking-widest">{fullDayNames[d]}</th>)}
                     </tr>
                   </thead>
                   <tbody>
