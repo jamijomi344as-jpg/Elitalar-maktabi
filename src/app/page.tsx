@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function MainLogin() {
-  const router = useRouter();
+  const router = useRouter(); // Silliq o'tish uchun
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -41,16 +41,16 @@ export default function MainLogin() {
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', data.role);
 
-      // Roliga qarab yo'naltirish
+      // Silliq router orqali yo'naltirish
       if (data.role === 'director' || data.role === 'admin') {
-        window.location.href = '/director/dashboard';
+        router.push('/director/dashboard');
       } 
       else if (data.role === 'teacher') {
         localStorage.setItem('teacher_id', data.id);
-        window.location.href = '/teacher/dashboard';
+        router.push('/teacher/dashboard');
       } 
       else if (data.role === 'student') {
-        window.location.href = '/student/dashboard';
+        router.push('/student/dashboard');
       } 
       else {
         setErrorMsg("Sizning rolingiz tizimda aniqlanmadi.");
