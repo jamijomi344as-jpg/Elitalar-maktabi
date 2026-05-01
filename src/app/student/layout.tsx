@@ -29,9 +29,12 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
 
   useEffect(() => {
-    const studentId = localStorage.getItem('student_id');
-    if (!studentId) {
-      router.push('/'); 
+    // 🔴 XATO SHU YERDA EDI: student_id o'rniga user_id qilinishi kerak edi!
+    const studentId = localStorage.getItem('user_id');
+    const role = localStorage.getItem('user_role');
+
+    if (!studentId || role !== 'student') {
+      window.location.replace('/'); 
       return;
     }
 
@@ -73,8 +76,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('student_id');
-    router.push('/');
+    // 🔴 TO'LIQ TOZALASH: Hammasini o'chirib, aniq loginga yo'naltirish
+    localStorage.clear();
+    window.location.replace('/');
   };
 
   const markAsRead = async (notifId: string) => {
@@ -136,7 +140,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all"><Menu className="w-5 h-5" /></button>
              <h2 className="font-black text-xl text-slate-900 dark:text-white hidden sm:block">{isMessenger ? "Messenger" : "O'quvchi Paneli"}</h2>
            </div>
-           
+          
            <div className="flex items-center gap-3">
              <button onClick={toggleTheme} className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all">
                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -171,7 +175,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                  </div>
                )}
              </div>
-             
+            
              <div className="pl-4 border-l border-slate-200 dark:border-slate-800 ml-1">
                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-600 rounded-full flex items-center justify-center text-blue-600 dark:text-white font-black text-lg">{student.full_name.charAt(0)}</div>
              </div>
