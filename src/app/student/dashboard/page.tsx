@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
-  LayoutDashboard, MessageCircle, Wallet, 
+  LayoutDashboard, MessageCircle, Wallet, GraduationCap, 
   Trophy, Settings, LogOut, Calendar, BookOpen, 
   Loader2, ShieldCheck, Star, Award, Search, Sun, Bell, Clock, AlertTriangle, Menu
 } from "lucide-react";
@@ -39,7 +39,7 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 // ========================================================
-// ASOSIY O'QUVCHI KONTENTI (Qora dizayn qaytarildi)
+// ASOSIY O'QUVCHI KONTENTI (Qora dizayn, 100% ishlaydi)
 // ========================================================
 function StudentDashboardContent() {
   const [isMounted, setIsMounted] = useState(false);
@@ -53,6 +53,7 @@ function StudentDashboardContent() {
 
   useEffect(() => {
     setIsMounted(true);
+    
     const init = async () => {
       try {
         const sId = localStorage.getItem('user_id');
@@ -95,9 +96,18 @@ function StudentDashboardContent() {
   if (isLoading || !currentStudent) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#0f172a] font-sans p-6">
-         <div className="flex flex-col items-center">
-           <Loader2 className="w-16 h-16 text-blue-500 animate-spin mb-4" />
-           <h2 className="text-2xl font-black text-slate-200 tracking-tight">O'quvchi paneli ochilmoqda...</h2>
+         <div className="flex flex-col items-center text-center">
+           <Loader2 className="w-16 h-16 text-blue-500 animate-spin mb-6" />
+           <h2 className="text-2xl font-black text-slate-200 tracking-tight mb-2">O'quvchi paneli ochilmoqda...</h2>
+           <p className="text-slate-500 text-sm mb-10">Ma'lumotlar bazadan yuklanmoqda</p>
+           
+           {/* Qutqaruvchi tugma */}
+           <button 
+             onClick={handleLogout}
+             className="px-6 py-3 bg-[#0B1121] border border-slate-700/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl text-sm font-bold transition-all"
+           >
+             Tizim qotib qoldimi? Buni bosing
+           </button>
          </div>
       </div>
     );
@@ -110,34 +120,12 @@ function StudentDashboardContent() {
   const ppBalance = currentStudent.pp_balance || 0;
   const initial = firstName.charAt(0).toUpperCase() || "O";
 
-  // Sidenar tugmasi komponenti
-  const MenuButton = ({ id, icon, label }: { id: string, icon: React.ReactNode, label: string }) => {
-    const isActive = activeMenu === id;
-    return (
-      <button 
-        onClick={() => setActiveMenu(id)} 
-        className={`w-full flex items-center p-3.5 rounded-xl font-bold transition-all ${
-          isActive 
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-            : 'text-slate-400 hover:text-slate-100 hover:bg-white/5'
-        }`}
-      >
-        <span className="w-5 h-5 mr-3 flex items-center justify-center">{icon}</span>
-        {label}
-      </button>
-    );
-  };
-
-  const getMenuTitle = () => {
-    switch (activeMenu) {
-      case "asosiy": return "Asosiy";
-      case "messenger": return "Messenger";
-      case "hamyon": return "Hamyon (PP)";
-      case "talim": return "Ta'lim";
-      case "reyting": return "Reyting";
-      case "sozlamalar": return "Sozlamalar";
-      default: return "Elita";
-    }
+  const getNavClass = (id: string) => {
+    return `w-full flex items-center p-3.5 rounded-xl font-bold transition-all ${
+      activeMenu === id 
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+        : 'text-slate-400 hover:text-slate-100 hover:bg-white/5'
+    }`;
   };
 
   return (
@@ -156,16 +144,28 @@ function StudentDashboardContent() {
         
         {/* MENYULAR */}
         <nav className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-2">
-          <MenuButton id="asosiy" icon={<LayoutDashboard />} label="Asosiy" />
-          <MenuButton id="messenger" icon={<MessageCircle />} label="Messenger" />
-          <MenuButton id="hamyon" icon={<Wallet />} label="Hamyon (PP)" />
-          <MenuButton id="talim" icon={<BookOpen />} label="Ta'lim" />
-          <MenuButton id="reyting" icon={<Trophy />} label="Reyting" />
+          <button onClick={() => setActiveMenu("asosiy")} className={getNavClass("asosiy")}>
+            <LayoutDashboard className="w-5 h-5 mr-3" /> Asosiy
+          </button>
+          <button onClick={() => setActiveMenu("messenger")} className={getNavClass("messenger")}>
+            <MessageCircle className="w-5 h-5 mr-3" /> Messenger
+          </button>
+          <button onClick={() => setActiveMenu("hamyon")} className={getNavClass("hamyon")}>
+            <Wallet className="w-5 h-5 mr-3" /> Hamyon (PP)
+          </button>
+          <button onClick={() => setActiveMenu("talim")} className={getNavClass("talim")}>
+            <GraduationCap className="w-5 h-5 mr-3" /> Ta'lim
+          </button>
+          <button onClick={() => setActiveMenu("reyting")} className={getNavClass("reyting")}>
+            <Trophy className="w-5 h-5 mr-3" /> Reyting
+          </button>
         </nav>
         
         {/* SOZLAMALAR VA CHIQISH */}
         <div className="mt-auto space-y-1.5 pt-4 border-t border-slate-800/50">
-          <MenuButton id="sozlamalar" icon={<Settings />} label="Sozlamalar" />
+          <button onClick={() => setActiveMenu("sozlamalar")} className={getNavClass("sozlamalar")}>
+            <Settings className="w-5 h-5 mr-3" /> Sozlamalar
+          </button>
           <button 
             onClick={handleLogout} 
             className="w-full flex items-center p-3.5 rounded-xl font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all mt-2"
@@ -182,7 +182,15 @@ function StudentDashboardContent() {
         <header className="h-16 border-b border-slate-800/50 flex items-center justify-between px-6 bg-[#0B1121] z-10 flex-shrink-0">
            <div className="flex items-center gap-4">
              <Menu className="w-5 h-5 text-slate-400 hidden lg:block cursor-pointer hover:text-white" />
-             <h1 className="text-xl font-black text-white capitalize">{getMenuTitle()}</h1>
+             <h1 className="text-xl font-black text-white capitalize flex items-center gap-3">
+               {activeMenu === 'asosiy' && <LayoutDashboard className="w-6 h-6 text-blue-500" />}
+               {activeMenu === 'messenger' && <MessageCircle className="w-6 h-6 text-blue-500" />}
+               {activeMenu === 'hamyon' && <Wallet className="w-6 h-6 text-blue-500" />}
+               {activeMenu === 'talim' && <GraduationCap className="w-6 h-6 text-blue-500" />}
+               {activeMenu === 'reyting' && <Trophy className="w-6 h-6 text-blue-500" />}
+               {activeMenu === 'sozlamalar' && <Settings className="w-6 h-6 text-blue-500" />}
+               {activeMenu === 'talim' ? "Ta'lim bo'limi" : activeMenu}
+             </h1>
            </div>
            
            <div className="flex items-center gap-4">
@@ -204,7 +212,6 @@ function StudentDashboardContent() {
             <div className="animate-in fade-in slide-in-from-bottom-4">
               
               <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-8 md:p-10 text-white shadow-xl relative overflow-hidden mb-8">
-                {/* 🔴 Xato bergan "Award" mana shu yerda, endi muammosiz ishlaydi */}
                 <div className="absolute top-0 right-0 p-8 opacity-10"><Award className="w-48 h-48" /></div>
                 <div className="relative z-10">
                   <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {firstName}! 🚀</h1>
