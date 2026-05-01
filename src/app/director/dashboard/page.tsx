@@ -99,7 +99,6 @@ export default function DirectorDashboard() {
     "Jismoniy tarbiya", "Chizmachilik", "Texnologiya"
   ].sort(); 
 
-  // ✅ HAFTA KUNLARI TARJIMASI TO'G'RILANDI
   const days = ["Du", "Se", "Ch", "Pa", "Ju", "Sh"];
   const fullDayNames: Record<string, string> = { 
     "Du": "Dushanba", "Se": "Seshanba", "Ch": "Chorshanba", 
@@ -163,13 +162,13 @@ export default function DirectorDashboard() {
     let updated = [...workloads];
     workloadForm.class_names.forEach(cls => {
        if (workloadForm.split_mode === "Barchasi") {
-           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "Barchasi" });
+          updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "Barchasi" });
        } else if (workloadForm.split_mode === "1 va 2-guruhlarga bo'lish") {
-           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "1-guruh" });
-           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id_2, hours: workloadForm.hours, group_type: "2-guruh" });
+          updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "1-guruh" });
+          updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id_2, hours: workloadForm.hours, group_type: "2-guruh" });
        } else if (workloadForm.split_mode === "O'g'il va Qiz bolalarga bo'lish") {
-           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "O'g'il bolalar" });
-           updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id_2, hours: workloadForm.hours, group_type: "Qizlar" });
+          updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id, hours: workloadForm.hours, group_type: "O'g'il bolalar" });
+          updated.push({ id: Math.random().toString(), class_name: cls, subject: workloadForm.subject, teacher_id: workloadForm.teacher_id_2, hours: workloadForm.hours, group_type: "Qizlar" });
        }
     });
 
@@ -187,6 +186,7 @@ export default function DirectorDashboard() {
     showToast("Yuklama o'chirildi!");
   };
 
+  // ✅ BAZA XATOSI TO'LIQ TUZATILGAN JOY
   const handleAutoGenerate = async () => {
     if (workloads.length === 0) {
       showToast("Jadval tuzish uchun avval 'Dars Yuklamalari' bo'limidan dars soatlarini kiritib chiqing!", "error");
@@ -215,19 +215,40 @@ export default function DirectorDashboard() {
            }
         });
 
+        // Algoritm orqali jadval yaratiladi
         const newSchedule = generateTimetable(requests);
 
-        const insertData = newSchedule.map(s => ({
-           class_name: s.class_name, day_of_week: s.day_of_week, lesson_number: s.lesson_number,
-           subject: s.subject, teacher_id: s.teacher_id, group_type: s.group_type, room: s.room, term: selectedTerm, start_date: termStartDate, end_date: termEndDate
-        }));
+        // 🔥 FILTRLASH: Dublikatlarni ushlash va faqat tozasini saqlash
+        const uniqueInsertData: any[] = [];
+        const seenSlots = new Set();
 
-        if(insertData.length > 0) {
-          const { error } = await supabase.from('timetable').insert(insertData); 
+        newSchedule.forEach(s => {
+           // Bitta sinf, bitta kun, bitta soat, bitta guruh uchun YAGONA kalit
+           const uniqueKey = `${s.class_name}_${s.day_of_week}_${s.lesson_number}_${s.group_type || "Barchasi"}`;
+           
+           if (!seenSlots.has(uniqueKey)) {
+              seenSlots.add(uniqueKey);
+              uniqueInsertData.push({
+                 class_name: s.class_name, 
+                 day_of_week: s.day_of_week, 
+                 lesson_number: s.lesson_number,
+                 subject: s.subject, 
+                 teacher_id: s.teacher_id, 
+                 group_type: s.group_type || "Barchasi", 
+                 room: s.room || null, 
+                 term: selectedTerm, 
+                 start_date: termStartDate, 
+                 end_date: termEndDate
+              });
+           }
+        });
+
+        if(uniqueInsertData.length > 0) {
+          const { error } = await supabase.from('timetable').insert(uniqueInsertData); 
           if (error) {
             showToast("BAZA XATOSI: " + error.message, "error");
           } else {
-            showToast(`Algoritm jadvalni muvaffaqiyatli tuzdi! ${insertData.length} ta dars joylandi.`, "success");
+            showToast(`Algoritm jadvalni muvaffaqiyatli tuzdi! ${uniqueInsertData.length} ta dars joylandi.`, "success");
           }
         } else { 
           showToast("XATOLIK! Darslarni joylashning umuman imkoni bo'lmadi.", "error"); 
@@ -589,7 +610,7 @@ export default function DirectorDashboard() {
                      <h2 className="text-2xl font-black text-slate-900">Dars Jadvali Konstruktori</h2>
                      <p className="text-slate-400 font-medium">O'quv rejasi asosida jadval tuzing yoki tahrirlang.</p>
                    </div>
-                   
+                  
                    <div className="flex flex-wrap gap-4 items-center">
                      <button onClick={() => setShowWorkloadModal(true)} className="px-6 py-3 border border-indigo-100 text-indigo-700 bg-indigo-50 font-black rounded-2xl shadow-sm hover:bg-indigo-100 transition-all flex items-center gap-2">
                        <FileText className="w-5 h-5"/> Yuklamalarni Kiritish
@@ -701,7 +722,7 @@ export default function DirectorDashboard() {
                  </button>
               </div>
               <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4 items-end">
-                
+               
                 <div className="relative flex-[1.5] min-w-[200px]" onClick={e => e.stopPropagation()}>
                   <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Sinflarni Tanlang</label>
                   <div className="w-full p-3 rounded-xl border border-slate-200 bg-white cursor-pointer font-bold flex justify-between items-center text-sm" onClick={() => setShowClassDropdown(!showClassDropdown)}>
@@ -727,7 +748,7 @@ export default function DirectorDashboard() {
                     {subjectsBase.map(s=><option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                
+               
                 <div className="flex-[1.5] min-w-[150px]">
                   <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Qanday o'tiladi?</label>
                   <select className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-sm" value={workloadForm.split_mode} onChange={e=>setWorkloadForm({...workloadForm, split_mode: e.target.value})}>
@@ -761,12 +782,12 @@ export default function DirectorDashboard() {
                     </div>
                   </>
                 )}
-                
+               
                 <div className="w-24">
                   <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Soat</label>
                   <input type="number" min="1" max="6" className="w-full p-3 rounded-xl border border-slate-200 outline-none font-bold text-center text-sm" value={workloadForm.hours} onChange={e=>setWorkloadForm({...workloadForm, hours: Number(e.target.value)})} />
                 </div>
-                
+               
                 <button onClick={handleAddWorkload} className="p-3 px-6 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md font-black flex items-center justify-center gap-2">
                   QO'SHISH
                 </button>
@@ -816,7 +837,7 @@ export default function DirectorDashboard() {
                      <div>{conflictWarning}</div>
                    </div>
                  )}
-                 
+                
                  <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none focus:border-indigo-500" value={lessonForm.group_type} onChange={e => setLessonForm({...lessonForm, group_type: e.target.value})}>
                    {groupTypes.map(g => <option key={g} value={g}>{g}</option>)}
                  </select>
