@@ -9,9 +9,6 @@ import {
   Loader2, ShieldCheck, Star, Award, Search, Sun, Moon, Bell, Clock, Menu, CheckCircle2, AlertTriangle
 } from "lucide-react";
 
-// ========================================================
-// 🚨 XATO USHLAGICH 
-// ========================================================
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, errorMsg: string}> {
   constructor(props: {children: React.ReactNode}) {
     super(props);
@@ -39,20 +36,18 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-// ========================================================
-// ASOSIY O'QUVCHI KONTENTI
-// ========================================================
 function StudentDashboardContent() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [currentStudent, setCurrentStudent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true); 
+  const [loadError, setLoadError] = useState("");
   
   // TUGMALAR HOLATI (Fon va Bildirishnoma)
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   
-  // Menyular holati
+  // Menyular
   const [activeMenu, setActiveMenu] = useState<string>("asosiy");
   const [talimTab, setTalimTab] = useState<"jadval" | "vazifa">("jadval");
 
@@ -62,27 +57,26 @@ function StudentDashboardContent() {
     const init = async () => {
       try {
         const sId = localStorage.getItem('user_id');
-        const role = localStorage.getItem('user_role');
+        const role = localStorage.getItem('user_role')?.toLowerCase();
 
         if (!sId || role !== 'student') {
-          router.replace('/'); 
+          setLoadError(`Xatolik: Sizning rolingiz 'student' emas, balki '${role}' ga teng.`);
+          setIsLoading(false);
           return;
         }
 
         const { data, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
         
-        if (error) {
-          console.error("Baza xatosi:", error);
-          alert("Bazadan yuklashda tarmoq xatosi bo'ldi!");
+        if (error || !data) {
+          setLoadError("Profilingizni bazadan yuklashda xatolik yuz berdi. Internetni tekshiring.");
           setIsLoading(false);
-          return; // 🔴 ORQAGA HAYDAMAYMIZ! Tizim shu yerda kutib turadi.
+          return;
         }
 
-        if (data) {
-          setCurrentStudent(data);
-        }
+        setCurrentStudent(data);
       } catch (err) {
         console.error("Xatolik:", err);
+        setLoadError("Kutilmagan tarmoq xatosi yuz berdi.");
       } finally {
         setIsLoading(false);
       }
@@ -96,12 +90,11 @@ function StudentDashboardContent() {
     router.replace('/'); 
   };
 
-  // ✅ Xavfsiz yuklash (Hydration Error bermaydi)
   if (!isMounted) return null;
 
   if (isLoading) {
     return (
-      <div className={`flex h-screen w-full items-center justify-center ${isDarkMode ? 'bg-[#0B1121] text-white' : 'bg-slate-50 text-slate-800'}`}>
+      <div className={`flex h-screen w-full items-center justify-center ${isDarkMode ? 'bg-[#0f172a] text-white' : 'bg-slate-50 text-slate-800'}`}>
          <div className="flex flex-col items-center">
            <Loader2 className="w-16 h-16 text-blue-500 animate-spin mb-4" />
            <h2 className="text-2xl font-black tracking-tight">Profil ochilmoqda...</h2>
@@ -110,14 +103,14 @@ function StudentDashboardContent() {
     );
   }
 
-  // Mabodo data umuman kelmasa (Orqaga haydamaslik uchun maxsus oyna)
-  if (!currentStudent && !isLoading) {
+  // 🔴 AGAR XATOLIK BO'LSA, ORQAGA HAYDAMAYDI, XATONI EKRANDA KO'RSATADI!
+  if (loadError || !currentStudent) {
     return (
       <div className={`flex h-screen items-center justify-center ${isDarkMode ? 'bg-[#0f172a] text-white' : 'bg-slate-50 text-slate-900'} flex-col p-6`}>
-         <AlertTriangle className="w-20 h-20 text-amber-500 mb-6" />
-         <h2 className="text-3xl font-black mb-4 text-center">Ma'lumot topilmadi</h2>
+         <AlertTriangle className="w-20 h-20 text-red-500 mb-6" />
+         <h2 className="text-3xl font-black mb-4 text-center">Kirishda xatolik!</h2>
          <p className="text-center font-medium mb-8 max-w-md opacity-70">
-           Sizning profilingiz bazadan yuklanmadi. Bunga internet sekinligi sabab bo'lishi mumkin. Qaytadan urinib ko'ring.
+           {loadError || "Ma'lumotlar topilmadi."}
          </p>
          <button onClick={handleLogout} className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black shadow-xl transition-all">
            Loginga qaytish
@@ -126,14 +119,12 @@ function StudentDashboardContent() {
     );
   }
 
-  // XAVFSIZ O'ZGARUVCHILAR
   const fullName = currentStudent.full_name || "O'quvchi";
   const firstName = fullName.split(" ")[0] || "O'quvchi";
   const className = currentStudent.class_name || "Sinf yo'q";
   const ppBalance = currentStudent.pp_balance || 0;
   const initial = firstName.charAt(0).toUpperCase() || "O";
 
-  // MAVZU BO'YICHA RANGLAR (Dark/Light mode ishlaydi!)
   const themeStyles = {
     bgMain: isDarkMode ? "bg-[#0f172a]" : "bg-slate-50",
     bgSidebar: isDarkMode ? "bg-[#0B1121]" : "bg-white",
@@ -161,14 +152,11 @@ function StudentDashboardContent() {
       
       {/* SIDEBAR */}
       <aside className={`w-64 ${themeStyles.bgSidebar} border-r ${themeStyles.border} flex flex-col h-screen flex-shrink-0 z-20 p-4 transition-colors duration-300`}>
-        
-        {/* LOGO */}
         <div className="flex items-center gap-3 mb-8 px-2 mt-2">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-blue-600/30">E</div>
           <span className={`text-2xl font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>ELITA</span>
         </div>
         
-        {/* MENYULAR */}
         <nav className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar pr-2">
           {[
             { id: "asosiy", icon: <LayoutDashboard className="w-5 h-5"/>, label: "Asosiy" },
@@ -191,7 +179,6 @@ function StudentDashboardContent() {
           ))}
         </nav>
         
-        {/* SOZLAMALAR VA CHIQISH */}
         <div className={`mt-auto space-y-1.5 pt-4 border-t ${themeStyles.border}`}>
           <button 
             onClick={() => setActiveMenu("sozlamalar")} 
@@ -214,8 +201,6 @@ function StudentDashboardContent() {
 
       {/* ASOSIY CONTENT QISMI */}
       <main className="flex-1 h-full flex flex-col relative">
-        
-        {/* Yuqori Header Qismi */}
         <header className={`h-16 border-b ${themeStyles.border} flex items-center justify-between px-6 ${themeStyles.bgSidebar} z-10 flex-shrink-0 transition-colors duration-300`}>
            <div className="flex items-center gap-4">
              <Menu className={`w-5 h-5 ${themeStyles.textMuted} hidden lg:block cursor-pointer`} />
@@ -223,18 +208,15 @@ function StudentDashboardContent() {
            </div>
            
            <div className="flex items-center gap-4 relative">
-             {/* 🌞 FONNI O'ZGARTIRISH TUGMASI (To'liq ishlaydi) */}
              <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full ${themeStyles.menuHover} ${themeStyles.textMuted} transition-colors outline-none`}>
                 {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-500" />}
              </button>
              
-             {/* 🔔 BILDIRISHNOMA TUGMASI (To'liq ishlaydi) */}
              <button onClick={() => setShowNotifications(!showNotifications)} className={`p-2 rounded-full relative ${themeStyles.menuHover} ${themeStyles.textMuted} transition-colors outline-none`}>
                 <Bell className={`w-5 h-5 ${showNotifications ? 'text-blue-500' : ''}`} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
              </button>
 
-             {/* BILDIRISHNOMA OYNASI (Dropdown) */}
              {showNotifications && (
                <div className={`absolute top-12 right-12 w-80 rounded-2xl shadow-2xl border ${themeStyles.border} ${themeStyles.cardBg} p-4 z-50 animate-in fade-in zoom-in-95`}>
                   <h3 className={`font-black mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Bildirishnomalar</h3>
@@ -264,13 +246,9 @@ function StudentDashboardContent() {
            </div>
         </header>
 
-        {/* OYNA KONTENTI */}
         <div className="flex-1 overflow-y-auto p-6 md:p-10">
-          
-          {/* ASOSIY OYNA */}
           {activeMenu === "asosiy" && (
             <div className="animate-in fade-in slide-in-from-bottom-4">
-              
               <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] p-8 md:p-10 text-white shadow-xl relative overflow-hidden mb-8">
                 <div className="absolute top-0 right-0 p-8 opacity-10"><Award className="w-48 h-48" /></div>
                 <div className="relative z-10">
@@ -293,10 +271,8 @@ function StudentDashboardContent() {
             </div>
           )}
 
-          {/* TA'LIM BO'LIMI */}
           {activeMenu === "talim" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-               
                <div className={`flex ${themeStyles.cardBg} p-1.5 rounded-2xl w-fit border ${themeStyles.border} transition-colors`}>
                   <button 
                     onClick={() => setTalimTab("jadval")} 
@@ -328,7 +304,6 @@ function StudentDashboardContent() {
             </div>
           )}
 
-          {/* MESSENGER BO'LIMI */}
           {activeMenu === "messenger" && (
             <div className={`animate-in fade-in slide-in-from-bottom-4 ${themeStyles.cardBg} rounded-[2rem] border ${themeStyles.border} flex h-[600px] overflow-hidden transition-colors`}>
                <div className={`w-80 border-r ${themeStyles.border} flex flex-col`}>
@@ -351,7 +326,6 @@ function StudentDashboardContent() {
             </div>
           )}
 
-          {/* BOSHQA BO'LIMLAR UCHUN ZAXIRA */}
           {["hamyon", "reyting", "sozlamalar"].includes(activeMenu) && (
             <div className={`animate-in fade-in slide-in-from-bottom-4 ${themeStyles.cardBg} rounded-[2rem] border ${themeStyles.border} p-12 text-center flex flex-col items-center justify-center min-h-[400px] transition-colors`}>
                <div className={`w-20 h-20 rounded-full ${themeStyles.bgMain} border ${themeStyles.border} flex items-center justify-center mb-4 text-blue-500`}>
@@ -369,7 +343,6 @@ function StudentDashboardContent() {
   );
 }
 
-// ASOSIY SAHIFA COMPONENTI
 export default function StudentDashboard() {
   return (
     <ErrorBoundary>
