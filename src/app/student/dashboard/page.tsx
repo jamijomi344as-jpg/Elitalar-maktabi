@@ -1,77 +1,139 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { 
   LayoutDashboard, MessageCircle, Wallet, GraduationCap, 
   Trophy, Settings, LogOut, Calendar, BookOpen, 
-  Loader2, ShieldCheck, Star, Award, Search, Sun, Moon, Bell, Clock, Menu, CheckCircle2
+  Loader2, ShieldCheck, Star, Award, Search, Sun, Moon, Bell, Clock, Menu, CheckCircle2, AlertTriangle
 } from "lucide-react";
 
-export default function StudentDashboard() {
+// ========================================================
+// 🚨 XATO USHLAGICH 
+// ========================================================
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, errorMsg: string}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, errorMsg: "" };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, errorMsg: error.message || "Noma'lum xatolik" };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-screen items-center justify-center bg-[#0f172a] p-6">
+           <div className="bg-[#0B1121] p-8 rounded-3xl shadow-xl max-w-lg text-center border border-red-500/30">
+              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-black text-red-400 mb-2">Tizimda xatolik yuz berdi!</h1>
+              <div className="bg-[#0f172a] p-4 rounded-xl text-left text-sm font-mono text-slate-400 overflow-auto">
+                {this.state.errorMsg}
+              </div>
+              <button onClick={() => window.location.href = '/'} className="mt-6 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all">Loginga qaytish</button>
+           </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ========================================================
+// ASOSIY O'QUVCHI KONTENTI
+// ========================================================
+function StudentDashboardContent() {
+  const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const [currentStudent, setCurrentStudent] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); 
   
-  // Fonni o'zgartirish (Dark / Light)
+  // TUGMALAR HOLATI (Fon va Bildirishnoma)
   const [isDarkMode, setIsDarkMode] = useState(true);
-  
-  // Bildirishnomalar oynasi
   const [showNotifications, setShowNotifications] = useState(false);
   
-  // Menyular
+  // Menyular holati
   const [activeMenu, setActiveMenu] = useState<string>("asosiy");
   const [talimTab, setTalimTab] = useState<"jadval" | "vazifa">("jadval");
 
   useEffect(() => {
+    setIsMounted(true);
+    
     const init = async () => {
       try {
         const sId = localStorage.getItem('user_id');
         const role = localStorage.getItem('user_role');
 
         if (!sId || role !== 'student') {
-          window.location.href = '/'; 
+          router.replace('/'); 
           return;
         }
 
         const { data, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
         
-        if (error || !data) {
-          window.location.href = '/';
-          return;
+        if (error) {
+          console.error("Baza xatosi:", error);
+          alert("Bazadan yuklashda tarmoq xatosi bo'ldi!");
+          setIsLoading(false);
+          return; // 🔴 ORQAGA HAYDAMAYMIZ! Tizim shu yerda kutib turadi.
         }
-        setCurrentStudent(data);
+
+        if (data) {
+          setCurrentStudent(data);
+        }
       } catch (err) {
-        console.error("Tarmoq xatosi:", err);
+        console.error("Xatolik:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
     init();
-  }, []);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = '/'; 
+    router.replace('/'); 
   };
 
-  // 100% Xavfsiz yuklanish ekrani (Xato bermaydi)
-  if (isLoading || !currentStudent) {
+  // ✅ Xavfsiz yuklash (Hydration Error bermaydi)
+  if (!isMounted) return null;
+
+  if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#0B1121] text-white">
-         <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+      <div className={`flex h-screen w-full items-center justify-center ${isDarkMode ? 'bg-[#0B1121] text-white' : 'bg-slate-50 text-slate-800'}`}>
+         <div className="flex flex-col items-center">
+           <Loader2 className="w-16 h-16 text-blue-500 animate-spin mb-4" />
+           <h2 className="text-2xl font-black tracking-tight">Profil ochilmoqda...</h2>
+         </div>
       </div>
     );
   }
 
-  // O'zgaruvchilar
+  // Mabodo data umuman kelmasa (Orqaga haydamaslik uchun maxsus oyna)
+  if (!currentStudent && !isLoading) {
+    return (
+      <div className={`flex h-screen items-center justify-center ${isDarkMode ? 'bg-[#0f172a] text-white' : 'bg-slate-50 text-slate-900'} flex-col p-6`}>
+         <AlertTriangle className="w-20 h-20 text-amber-500 mb-6" />
+         <h2 className="text-3xl font-black mb-4 text-center">Ma'lumot topilmadi</h2>
+         <p className="text-center font-medium mb-8 max-w-md opacity-70">
+           Sizning profilingiz bazadan yuklanmadi. Bunga internet sekinligi sabab bo'lishi mumkin. Qaytadan urinib ko'ring.
+         </p>
+         <button onClick={handleLogout} className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black shadow-xl transition-all">
+           Loginga qaytish
+         </button>
+      </div>
+    );
+  }
+
+  // XAVFSIZ O'ZGARUVCHILAR
   const fullName = currentStudent.full_name || "O'quvchi";
   const firstName = fullName.split(" ")[0] || "O'quvchi";
   const className = currentStudent.class_name || "Sinf yo'q";
   const ppBalance = currentStudent.pp_balance || 0;
   const initial = firstName.charAt(0).toUpperCase() || "O";
 
-  // Mavzu bo'yicha ranglar
+  // MAVZU BO'YICHA RANGLAR (Dark/Light mode ishlaydi!)
   const themeStyles = {
     bgMain: isDarkMode ? "bg-[#0f172a]" : "bg-slate-50",
     bgSidebar: isDarkMode ? "bg-[#0B1121]" : "bg-white",
@@ -161,15 +223,15 @@ export default function StudentDashboard() {
            </div>
            
            <div className="flex items-center gap-4 relative">
-             {/* 🌞 FONNI O'ZGARTIRISH TUGMASI */}
-             <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full ${themeStyles.menuHover} ${themeStyles.textMuted} transition-colors`}>
-                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+             {/* 🌞 FONNI O'ZGARTIRISH TUGMASI (To'liq ishlaydi) */}
+             <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-2 rounded-full ${themeStyles.menuHover} ${themeStyles.textMuted} transition-colors outline-none`}>
+                {isDarkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-500" />}
              </button>
              
-             {/* 🔔 BILDIRISHNOMA TUGMASI */}
-             <button onClick={() => setShowNotifications(!showNotifications)} className={`p-2 rounded-full relative ${themeStyles.menuHover} ${themeStyles.textMuted} transition-colors`}>
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+             {/* 🔔 BILDIRISHNOMA TUGMASI (To'liq ishlaydi) */}
+             <button onClick={() => setShowNotifications(!showNotifications)} className={`p-2 rounded-full relative ${themeStyles.menuHover} ${themeStyles.textMuted} transition-colors outline-none`}>
+                <Bell className={`w-5 h-5 ${showNotifications ? 'text-blue-500' : ''}`} />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
              </button>
 
              {/* BILDIRISHNOMA OYNASI (Dropdown) */}
@@ -182,7 +244,7 @@ export default function StudentDashboard() {
                            <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5" />
                            <div>
                              <p className={`text-sm font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>Tizimga xush kelibsiz!</p>
-                             <p className="text-xs text-slate-500 mt-1">Elita maktabi tizimi muvaffaqiyatli ishga tushdi.</p>
+                             <p className={`text-xs ${themeStyles.textMuted} mt-1`}>Elita maktabi tizimi muvaffaqiyatli ishga tushdi.</p>
                            </div>
                         </div>
                      </div>
@@ -190,7 +252,7 @@ export default function StudentDashboard() {
                </div>
              )}
              
-             <div className={`w-px h-8 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'} mx-2`}></div>
+             <div className={`w-px h-8 ${isDarkMode ? 'bg-slate-800' : 'bg-slate-300'} mx-2`}></div>
              
              <div className="text-right hidden md:block">
                 <p className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{fullName}</p>
@@ -231,7 +293,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* TA'LIM BO'LIMI (Jadval va Vazifalar) */}
+          {/* TA'LIM BO'LIMI */}
           {activeMenu === "talim" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                
@@ -304,5 +366,14 @@ export default function StudentDashboard() {
         </div>
       </main>
     </div>
+  );
+}
+
+// ASOSIY SAHIFA COMPONENTI
+export default function StudentDashboard() {
+  return (
+    <ErrorBoundary>
+      <StudentDashboardContent />
+    </ErrorBoundary>
   );
 }
