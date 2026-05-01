@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+// Next.js routeridan voz kechamiz, chunki u keshda qotib qolyapti
 import { supabase } from "@/lib/supabase";
-import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
+// 🔴 XATONING SABABI: AlertTriangle import qilinmagan edi, qo'shildi!
+import { ShieldCheck, Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
 
 export default function MainLogin() {
-  const router = useRouter();
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -37,21 +37,21 @@ export default function MainLogin() {
         return;
       }
 
-      // Xotiraga saqlash va Rolni har doim kichik harfga o'tkazish (Xato bermasligi uchun)
-      const userRole = data.role?.toLowerCase() || '';
+      // Xotiraga saqlash va roldagi bo'shliqlarni olib tashlash (.trim)
+      const userRole = data.role?.toLowerCase().trim() || '';
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', userRole);
 
-      // Silliq router orqali yo'naltirish
+      // 🔴 QATTIQ VA ISHONCHLI YO'NALTIRISH (Brauzerni toza yangilaydi)
       if (userRole === 'director' || userRole === 'admin') {
-        router.push('/director/dashboard');
+        window.location.replace('/director/dashboard');
       } 
       else if (userRole === 'teacher') {
         localStorage.setItem('teacher_id', data.id);
-        router.push('/teacher/dashboard');
+        window.location.replace('/teacher/dashboard');
       } 
       else if (userRole === 'student') {
-        router.push('/student/dashboard');
+        window.location.replace('/student/dashboard');
       } 
       else {
         setErrorMsg(`Tizimda rolingiz noaniq: ${data.role}`);
@@ -63,10 +63,8 @@ export default function MainLogin() {
     }
   };
 
-  // 🔴 DIQQAT: Hech qanday "return null" yoki "isMounted" yo'q! Shu sabab xato chiqmaydi.
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Orqa fon effektlari */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
