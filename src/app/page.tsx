@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-// Next.js routeridan voz kechamiz, chunki u keshda qotib qolyapti
 import { supabase } from "@/lib/supabase";
-// 🔴 XATONING SABABI: AlertTriangle import qilinmagan edi, qo'shildi!
 import { ShieldCheck, Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
 
 export default function MainLogin() {
@@ -37,17 +35,25 @@ export default function MainLogin() {
         return;
       }
 
-      // Xotiraga saqlash va roldagi bo'shliqlarni olib tashlash (.trim)
+      // 🔴 ROLNI XAVFSIZ SAQLASH
       const userRole = data.role?.toLowerCase().trim() || '';
+      
+      // Yangi tizim uchun kalitlar
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', userRole);
 
-      // 🔴 QATTIQ VA ISHONCHLI YO'NALTIRISH (Brauzerni toza yangilaydi)
+      // 🔥 BARCHA ESKI SAHIFALAR ISHLASHI UCHUN YECHIM (Ular shu kalitlarni qidiradi):
+      if (userRole === 'student') {
+        localStorage.setItem('student_id', data.id);
+      } else if (userRole === 'teacher') {
+        localStorage.setItem('teacher_id', data.id);
+      }
+
+      // Qattiq va aniq yo'naltirish
       if (userRole === 'director' || userRole === 'admin') {
         window.location.replace('/director/dashboard');
       } 
       else if (userRole === 'teacher') {
-        localStorage.setItem('teacher_id', data.id);
         window.location.replace('/teacher/dashboard');
       } 
       else if (userRole === 'student') {
