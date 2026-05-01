@@ -1,157 +1,130 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { 
-  LayoutDashboard, Calendar, Award, BookOpen, 
-  Clock, LogOut, ShieldCheck, Star, Loader2 
-} from "lucide-react";
+import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 
-export default function StudentDashboard() {
+export default function MainLogin() {
   const router = useRouter();
-  const [currentStudent, setCurrentStudent] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeMenu, setActiveMenu] = useState<string>("boshqaruv");
+  const [id, setId] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const sId = localStorage.getItem('user_id');
-        const role = localStorage.getItem('user_role');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !password) {
+      setErrorMsg("Iltimos, ID va parolni to'liq kiriting.");
+      return;
+    }
 
-        if (!sId || role !== 'student') {
-          localStorage.clear();
-          router.replace('/');
-          return;
-        }
+    setIsLoading(true);
+    setErrorMsg("");
 
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', sId).single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id.toUpperCase().trim())
+        .eq('password', password.trim())
+        .single();
 
-        if (error || !data) {
-          localStorage.clear();
-          router.replace('/');
-          return;
-        }
+      if (error || !data) {
+        setErrorMsg("ID yoki Parol noto'g'ri. Qaytadan urinib ko'ring.");
+        setIsLoading(false);
+        return;
+      }
 
-        setCurrentStudent(data);
-      } catch (err) {
-        console.error("Xato:", err);
-        localStorage.clear();
-        router.replace('/');
-      } finally {
+      // Xotiraga saqlash
+      localStorage.setItem('user_id', data.id);
+      localStorage.setItem('user_role', data.role);
+
+      // Roliga qarab yo'naltirish
+      if (data.role === 'director' || data.role === 'admin') {
+        window.location.href = '/director/dashboard';
+      } 
+      else if (data.role === 'teacher') {
+        localStorage.setItem('teacher_id', data.id);
+        window.location.href = '/teacher/dashboard';
+      } 
+      else if (data.role === 'student') {
+        window.location.href = '/student/dashboard';
+      } 
+      else {
+        setErrorMsg("Sizning rolingiz tizimda aniqlanmadi.");
         setIsLoading(false);
       }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    router.replace('/'); 
+    } catch (err: any) {
+      setErrorMsg("Tarmoqda xatolik yuz berdi. Internetni tekshiring.");
+      setIsLoading(false);
+    }
   };
 
-  // ✅ ENG ZO'R YECHIM: Agar mabodo tsiklga tiqilib qolsangiz, qutqaruvchi tugma qo'shdik!
-  if (isLoading || !currentStudent) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 p-6">
-         <div className="flex flex-col items-center">
-           <Loader2 className="w-16 h-16 text-blue-600 animate-spin mb-4 shadow-lg rounded-full" />
-           <h2 className="text-2xl font-black text-slate-800">O'quvchi paneli ochilmoqda...</h2>
-           
-           <button 
-              onClick={() => { localStorage.clear(); window.location.href = '/'; }}
-              className="mt-10 px-6 py-3 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 transition-colors shadow-sm"
-           >
-              Tizim qotib qoldimi? Keshni tozalash va Loginga qaytish
-           </button>
-         </div>
-      </div>
-    );
-  }
-
-  // ✅ 100% Xavfsiz ma'lumotlar o'qilishi
-  const fullName = currentStudent.full_name || "O'quvchi";
-  const initial = fullName.charAt(0).toUpperCase() || "S";
-  const firstName = fullName.split(" ")[0] || "O'quvchi";
-  const className = currentStudent.class_name || "Sinf belgilanmagan";
-  const ppBalance = currentStudent.pp_balance || 0;
-
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      
-      {/* SIDEBAR */}
-      <aside className="w-72 bg-blue-950 border-r border-blue-900 flex flex-col h-screen flex-shrink-0 z-20 text-blue-100 hidden md:flex p-6">
-        <div className="flex items-center gap-3 mb-10 px-2">
-          <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white font-black shadow-lg shadow-emerald-500/20">
-            {initial}
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md z-10 border-4 border-white/10 relative">
+        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+           <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-blue-600 text-white rounded-[2rem] flex items-center justify-center shadow-xl rotate-12 hover:rotate-0 transition-all duration-300">
+             <ShieldCheck className="w-12 h-12"/>
+           </div>
+        </div>
+
+        <div className="mt-12 mb-8 text-center">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">ELITA META</h2>
+          <p className="text-slate-500 font-medium mt-2">Tizimga kirish uchun identifikatsiya</p>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl font-bold text-sm flex items-center">
+            {errorMsg}
           </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <h2 className="text-xl font-black text-white truncate w-40">{fullName}</h2>
-            <p className="text-xs font-bold text-blue-400">O'quvchi • {className}</p>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 pl-2">Shaxsiy ID Raqam</label>
+            <input 
+              type="text" 
+              placeholder="S-XXXX" 
+              className="w-full p-5 bg-slate-50 rounded-2xl outline-none border-2 border-slate-100 focus:border-indigo-500 font-black text-slate-800 text-lg uppercase transition-all" 
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+            />
           </div>
-        </div>
-        
-        <nav className="space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          <button onClick={() => setActiveMenu("boshqaruv")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'boshqaruv' ? 'bg-blue-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
-            <LayoutDashboard className="w-5 h-5 mr-3" /> Asosiy Panel
-          </button>
-          <button onClick={() => setActiveMenu("timetable")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'timetable' ? 'bg-blue-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
-            <Calendar className="w-5 h-5 mr-3" /> Dars Jadvalim
-          </button>
-          <button onClick={() => setActiveMenu("homeworks")} className={`w-full flex items-center p-4 rounded-2xl font-bold transition-all ${activeMenu === 'homeworks' ? 'bg-blue-600 text-white' : 'hover:bg-white/5 hover:text-white'}`}>
-            <BookOpen className="w-5 h-5 mr-3" /> Uy Vazifalari
-          </button>
-        </nav>
-        
-        <button onClick={handleLogout} className="w-full flex items-center justify-center p-4 rounded-2xl text-red-400 font-black hover:bg-red-500/10 mt-4 transition-all">
-          <LogOut className="w-5 h-5 mr-2" /> Tizimdan Chiqish
-        </button>
-      </aside>
 
-      {/* CONTENT */}
-      <main className="flex-1 h-full overflow-y-auto p-8 lg:p-12 relative pb-24">
-        
-        {/* HEADER HERO */}
-        <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[3rem] p-10 text-white shadow-xl relative overflow-hidden mb-10">
-          <div className="absolute top-0 right-0 p-8 opacity-10"><Award className="w-48 h-48" /></div>
-          <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-2 tracking-tighter">Salom, {firstName}! 🚀</h1>
-            <div className="flex gap-4 mt-6">
-              <span className="bg-white/20 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center">
-                <ShieldCheck className="w-4 h-4 mr-2 text-emerald-300" /> {className} sinfi
-              </span>
-              <span className="bg-amber-500/90 px-4 py-2 rounded-xl text-sm font-black uppercase tracking-widest backdrop-blur-md flex items-center shadow-inner">
-                <Star className="w-4 h-4 mr-2" /> Balans: {ppBalance} PP
-              </span>
+          <div>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 pl-2">Maxfiy Parol</label>
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="••••••••" 
+                className="w-full p-5 bg-slate-50 rounded-2xl outline-none border-2 border-slate-100 focus:border-indigo-500 font-black text-slate-800 text-lg pr-14 transition-all" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)} 
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-2 cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* DASHBOARD KONTENTI */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {activeMenu === "boshqaruv" && (
-            <div className="bg-white p-12 rounded-[3rem] shadow-sm border-2 border-dashed border-slate-200 text-center">
-               <Clock className="w-16 h-16 text-slate-300 mx-auto mb-4"/>
-               <h3 className="text-xl font-bold text-slate-400">Tez orada bu yerda kunlik darslaringiz chiqadi!</h3>
-            </div>
-          )}
-          {activeMenu === "timetable" && (
-            <div className="bg-white p-12 rounded-[3rem] shadow-sm border-2 border-dashed border-slate-200 text-center">
-               <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4"/>
-               <h3 className="text-xl font-bold text-slate-400">Dars jadvali moduli o'rnatilmoqda...</h3>
-            </div>
-          )}
-          {activeMenu === "homeworks" && (
-            <div className="bg-white p-12 rounded-[3rem] shadow-sm border-2 border-dashed border-slate-200 text-center">
-               <BookOpen className="w-16 h-16 text-slate-300 mx-auto mb-4"/>
-               <h3 className="text-xl font-bold text-slate-400">Uy vazifalari moduli o'rnatilmoqda...</h3>
-            </div>
-          )}
-        </div>
-
-      </main>
+          <button 
+            disabled={isLoading} 
+            className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-indigo-600 transition-all text-lg disabled:opacity-70 mt-4 flex items-center justify-center gap-3"
+          >
+            {isLoading ? <><Loader2 className="w-6 h-6 animate-spin"/> KIRILMOQDA...</> : "TIZIMGA KIRISH"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
