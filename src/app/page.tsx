@@ -1,17 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function MainLogin() {
-  const router = useRouter(); // Silliq o'tish uchun
+  const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    setIsMounted(true);
+    // Kichik harfga o'tkazib tekshiramiz
+    const role = localStorage.getItem('user_role')?.toLowerCase();
+    if (role === 'director' || role === 'admin') router.replace('/director/dashboard');
+    else if (role === 'teacher') router.replace('/teacher/dashboard');
+    else if (role === 'student') router.replace('/student/dashboard');
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,23 +47,25 @@ export default function MainLogin() {
         return;
       }
 
-      // Xotiraga saqlash
-      localStorage.setItem('user_id', data.id);
-      localStorage.setItem('user_role', data.role);
+      // XATONING ASOSIY SABABI SHU YERDA EDI: Rolni avtomatik kichik harfga o'giramiz!
+      const userRole = data.role?.toLowerCase() || '';
 
-      // Silliq router orqali yo'naltirish
-      if (data.role === 'director' || data.role === 'admin') {
+      localStorage.setItem('user_id', data.id);
+      localStorage.setItem('user_role', userRole);
+
+      // Silliq router orqali yo'naltiramiz (Sahifa qotib qayta yuklanmaydi)
+      if (userRole === 'director' || userRole === 'admin') {
         router.push('/director/dashboard');
       } 
-      else if (data.role === 'teacher') {
+      else if (userRole === 'teacher') {
         localStorage.setItem('teacher_id', data.id);
         router.push('/teacher/dashboard');
       } 
-      else if (data.role === 'student') {
+      else if (userRole === 'student') {
         router.push('/student/dashboard');
       } 
       else {
-        setErrorMsg("Sizning rolingiz tizimda aniqlanmadi.");
+        setErrorMsg(`Tizimda rolingiz noaniq: ${data.role}`);
         setIsLoading(false);
       }
     } catch (err: any) {
@@ -61,6 +73,8 @@ export default function MainLogin() {
       setIsLoading(false);
     }
   };
+
+  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -90,7 +104,7 @@ export default function MainLogin() {
             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 pl-2">Shaxsiy ID Raqam</label>
             <input 
               type="text" 
-              placeholder="S-XXXX" 
+              placeholder="Masalan: S-1234" 
               className="w-full p-5 bg-slate-50 rounded-2xl outline-none border-2 border-slate-100 focus:border-indigo-500 font-black text-slate-800 text-lg uppercase transition-all" 
               value={id}
               onChange={(e) => setId(e.target.value)}
