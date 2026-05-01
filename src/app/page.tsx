@@ -1,27 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function MainLogin() {
   const router = useRouter();
-  const [isMounted, setIsMounted] = useState(false);
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-
-  useEffect(() => {
-    setIsMounted(true);
-    // Kichik harfga o'tkazib tekshiramiz
-    const role = localStorage.getItem('user_role')?.toLowerCase();
-    if (role === 'director' || role === 'admin') router.replace('/director/dashboard');
-    else if (role === 'teacher') router.replace('/teacher/dashboard');
-    else if (role === 'student') router.replace('/student/dashboard');
-  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,13 +37,12 @@ export default function MainLogin() {
         return;
       }
 
-      // XATONING ASOSIY SABABI SHU YERDA EDI: Rolni avtomatik kichik harfga o'giramiz!
+      // Xotiraga saqlash va Rolni har doim kichik harfga o'tkazish (Xato bermasligi uchun)
       const userRole = data.role?.toLowerCase() || '';
-
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', userRole);
 
-      // Silliq router orqali yo'naltiramiz (Sahifa qotib qayta yuklanmaydi)
+      // Silliq router orqali yo'naltirish
       if (userRole === 'director' || userRole === 'admin') {
         router.push('/director/dashboard');
       } 
@@ -74,10 +63,10 @@ export default function MainLogin() {
     }
   };
 
-  if (!isMounted) return null;
-
+  // 🔴 DIQQAT: Hech qanday "return null" yoki "isMounted" yo'q! Shu sabab xato chiqmaydi.
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Orqa fon effektlari */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-30 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
@@ -95,6 +84,7 @@ export default function MainLogin() {
 
         {errorMsg && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-xl font-bold text-sm flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2 flex-shrink-0" />
             {errorMsg}
           </div>
         )}
