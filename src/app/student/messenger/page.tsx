@@ -17,7 +17,7 @@ export default function MessengerPage() {
 
   const [student, setStudent] = useState<any>(null);
   const [activeChat, setActiveChat] = useState<any>(null);
-  const activeChatRef = useRef<any>(null); // Real-time ichida aktiv chatni bilish uchun
+  const activeChatRef = useRef<any>(null);
 
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +62,7 @@ export default function MessengerPage() {
   const [profileName, setProfileName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
 
-  // Aktiv chatni ref ga yozish (Real-time funksiyasi ichida ko'rinishi uchun)
+  // Aktiv chatni ref ga doimiy yozib borish
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
@@ -92,48 +92,49 @@ export default function MessengerPage() {
     if (savedMuted) setMutedChats(JSON.parse(savedMuted));
 
     // ==========================================
-    // XABARLAR UCHUN JONLI (REAL-TIME) ULANISH
+    // XABARLAR UCHUN TO'G'IRLANGAN JONLI (REAL-TIME) ULANISH
     // ==========================================
     const msgSubscription = supabase.channel('realtime-messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload: any) => {
          const newMsg = payload.new;
          const currentChat = activeChatRef.current;
+         const myId = localStorage.getItem('student_id');
 
-         // 1. YANGI XABAR KELDI YOKI JO'NATILDI
          if (payload.eventType === 'INSERT') {
-            if (newMsg.receiver_id === studentId || newMsg.sender_id === studentId) {
-               // Agar shu chatning o'zida o'tirgan bo'lsak, xabarni ekranga qo'shamiz
+            // Xabar menga tegishlimi yoki men tomondan yuborildimi tekshirish
+            if (newMsg.receiver_id === myId || newMsg.sender_id === myId || (currentChat && (currentChat.type === 'group' || currentChat.type === 'channel') && newMsg.receiver_id === currentChat.id)) {
+               
+               // Hozirgi ochiq turgan chatga mosligini aniq tekshiramiz
                const isForCurrentChat = currentChat && (
-                   (newMsg.sender_id === currentChat.id && newMsg.receiver_id === studentId) || 
-                   (newMsg.receiver_id === currentChat.id && newMsg.sender_id === studentId) ||
-                   (currentChat.id === 'saved' && newMsg.sender_id === studentId && newMsg.receiver_id === studentId) ||
-                   (currentChat.type === 'group' && newMsg.receiver_id === currentChat.id) ||
-                   (currentChat.type === 'channel' && newMsg.receiver_id === currentChat.id)
+                   (currentChat.type === 'personal' && ((newMsg.sender_id === currentChat.id && newMsg.receiver_id === myId) || (newMsg.receiver_id === currentChat.id && newMsg.sender_id === myId))) ||
+                   (currentChat.id === 'saved' && newMsg.sender_id === myId && newMsg.receiver_id === myId) ||
+                   ((currentChat.type === 'group' || currentChat.type === 'channel') && newMsg.receiver_id === currentChat.id)
                );
 
                if (isForCurrentChat) {
                    setMessages((prev) => {
-                     // Agar oldin qo'shilgan bo'lsa (duplikat) qaytaramiz
                      if (prev.some(m => m.id === newMsg.id)) return prev;
                      return [...prev, newMsg];
                    });
 
-                   // Kiritilgan xabarni shu zahoti o'qilgan qilib belgilash
-                   if (newMsg.receiver_id === studentId && newMsg.sender_id !== studentId) {
+                   // Agar xabar qarshi tomondan kelgan bo'lsa, uni o'qilgan deb belgilaymiz
+                   if (newMsg.receiver_id === myId && newMsg.sender_id !== myId) {
                        supabase.from('messages').update({ is_read: true }).eq('id', newMsg.id).then();
                    }
                }
-               // Ekranda ro'yxatni ham yangilaymiz
-               fetchChats(studentId);
+               // Chat ro'yxatidagi oxirgi xabarlar yangilanishi uchun listni qayta tortamiz
+               if (myId) fetchChats(myId);
             }
          } 
-         // 2. XABAR O'QILDI (UPDATE)
          else if (payload.eventType === 'UPDATE') {
              setMessages((prev) => prev.map(m => m.id === newMsg.id ? newMsg : m));
          }
       }).subscribe();
 
-    return () => { supabase.removeChannel(msgSubscription); clearInterval(interval); }
+    return () => { 
+      supabase.removeChannel(msgSubscription); 
+      if (interval) clearInterval(interval); 
+    };
   }, [router]);
 
   let interval: any;
@@ -166,16 +167,29 @@ export default function MessengerPage() {
     setChats(allChats);
   };
 
+  // ==========================================
+  // XABARLARNI TO'G'RI VA XAFSIZ FILTRLAB YUKLASH (QAVSLAR BILAN)
+  // ==========================================
   const fetchMessages = async (chatId: string | number) => {
+    if (!student) return;
+    
     if (chatId === 'saved') {
        const { data } = await supabase.from('messages').select('*').eq('sender_id', student.id).eq('receiver_id', student.id).order('created_at', { ascending: true });
        setMessages(data || []); return;
     }
     
-    const { data } = await supabase.from('messages').select('*').or(`and(sender_id.eq.${student.id},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${student.id}),receiver_id.eq.${chatId}`).order('created_at', { ascending: true });
-    setMessages(data || []);
+    // Guruhlar va shaxsiy chatlarni to'g'ri ajratib olish uchun qavsli mantiqiy shart (or/and)
+    if (activeChat?.type === 'group' || activeChat?.type === 'channel' || chats.find(c => c.id === chatId)?.type === 'group' || chats.find(c => c.id === chatId)?.type === 'channel') {
+      const { data } = await supabase.from('messages').select('*').eq('receiver_id', chatId).order('created_at', { ascending: true });
+      setMessages(data || []);
+    } else {
+      const { data } = await supabase.from('messages').select('*')
+        .or(`and(sender_id.eq.${student.id},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${student.id})`)
+        .order('created_at', { ascending: true });
+      setMessages(data || []);
+    }
 
-    // Chat ochilganda o'qilmagan xabarlarni o'qilgan (is_read = true) ga aylantiramiz (✓✓ bo'lishi uchun)
+    // O'qilmagan xabarlarni o'qilgan qilish
     await supabase.from('messages').update({ is_read: true }).eq('sender_id', chatId).eq('receiver_id', student.id).eq('is_read', false);
   };
 
@@ -206,17 +220,30 @@ export default function MessengerPage() {
     return supabase.storage.from(bucket).getPublicUrl(fileName).data.publicUrl;
   };
 
+  // ==========================================
+  // XABAR JONATISH FUNKSIYASI
+  // ==========================================
   const handleSendMessage = async (e?: React.FormEvent, type: string = 'text', fileUrl: string = '') => {
     if (e) e.preventDefault();
-    if (!activeChat) return;
+    if (!activeChat || !student) return;
     if (type === 'text' && !messageInput.trim()) return;
 
     const receiver = activeChat.id === 'saved' ? student.id : activeChat.id;
-    const newMsg = { sender_id: student.id, receiver_id: receiver, text: messageInput, msg_type: type, file_url: fileUrl, is_read: false };
+    const newMsg = { 
+      sender_id: student.id, 
+      receiver_id: receiver, 
+      text: type === 'text' ? messageInput.trim() : '', 
+      msg_type: type, 
+      file_url: fileUrl, 
+      is_read: false 
+    };
     
     setMessageInput("");
-    // Xabar yozilishi bilan Real-time (tepadagi useEffect) o'zi ekranga qo'shadi. Shuning uchun bu yerda faqat insert qilamiz:
-    await supabase.from('messages').insert([newMsg]);
+    
+    const { error } = await supabase.from('messages').insert([newMsg]);
+    if (error) {
+      console.error("Xabar yuborishda xatolik:", error.message);
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -352,7 +379,7 @@ export default function MessengerPage() {
            <div onClick={() => {setShowCreateChannelModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Megaphone className="w-5 h-5" /> <span className="font-medium text-[15px]">Yangi Kanal</span></div>
            <div onClick={() => {setShowFolderModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><FolderPlus className="w-5 h-5" /> <span className="font-medium text-[15px]">Yangi Papka (Folder)</span></div>
            <div className="h-[1px] bg-[#0e1621] my-1 mx-2"></div>
-           <div onClick={() => {setActiveChat(chats.find(c => c.id === 'saved')); fetchMessages('saved'); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Bookmark className="w-5 h-5" /> <span className="font-medium text-[15px]">Saqlangan Xabarlar</span></div>
+           <div onClick={() => {const saved = chats.find(c => c.id === 'saved'); if(saved) { setActiveChat(saved); fetchMessages('saved'); } setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Bookmark className="w-5 h-5" /> <span className="font-medium text-[15px]">Saqlangan Xabarlar</span></div>
            <div onClick={() => {setSettingsView("main"); setShowSettingsModal(true); setIsDrawerOpen(false);}} className="flex items-center gap-4 px-5 py-3 hover:bg-[#202b36] cursor-pointer hover:text-white transition-colors"><Settings className="w-5 h-5" /> <span className="font-medium text-[15px]">Sozlamalar</span></div>
         </div>
       </div>
@@ -408,7 +435,7 @@ export default function MessengerPage() {
         </button>
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0 hidden md:flex relative bg-[#0e1621]">
+      <div className="flex-1 flex flex-col min-w-0 md:flex relative bg-[#0e1621]">
         {activeChat ? (
           <>
             <div className="h-[60px] bg-[#17212b] flex items-center justify-between px-4 z-10 border-b border-[#0e1621]">
@@ -461,9 +488,8 @@ export default function MessengerPage() {
                         {msg.msg_type === 'voice' && <div className="flex items-center gap-3 bg-black/20 p-2 rounded-full w-[200px] mb-1"><button className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center"><Play className="w-4 h-4 fill-white"/></button><div className="flex-1 h-1 bg-[#4a8ebf] rounded-full"></div><span className="text-[10px]">0:03</span></div>}
                         {msg.msg_type === 'round_video' && <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-[#4a8ebf] mb-2"><video src={msg.file_url} autoPlay loop muted playsInline className="w-full h-full object-cover"/></div>}
 
-                        {msg.text && <p className={`${textSizeClass} leading-relaxed`}>{msg.text}</p>}
+                        {msg.text && <p className={`${textSizeClass} leading-relaxed break-words`}>{msg.text}</p>}
                         
-                        {/* ✅ 1 ta yoki 2 ta pitichka funksiyasi shu yerda */}
                         <div className={`flex items-center justify-end gap-1 mt-1 ${isMe ? 'text-blue-200' : 'text-[#708499]'}`}>
                           <span className="text-[10px]">{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                           {isMe && (msg.is_read ? <CheckCheck className="w-4 h-4" /> : <Check className="w-4 h-4 opacity-70" />)}
@@ -602,7 +628,6 @@ export default function MessengerPage() {
                     <button onClick={handleUpdateProfile} disabled={isUploading} className="w-full py-3.5 bg-[#2b5278] text-white font-bold rounded-xl hover:bg-blue-600 mt-4 disabled:opacity-50">{isUploading ? "Saqlanmoqda..." : "Saqlash"}</button>
                   </div>
                 )}
-                {/* ... other settings views ... */}
              </div>
           </div>
         </div>
