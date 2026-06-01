@@ -62,7 +62,7 @@ export default function MessengerPage() {
   const [profileName, setProfileName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
 
-  // Aktiv chatni ref ga doimiy yozib borish
+  // Aktiv chatni doimiy eslab qolish uchun ref
   useEffect(() => {
     activeChatRef.current = activeChat;
   }, [activeChat]);
@@ -92,7 +92,7 @@ export default function MessengerPage() {
     if (savedMuted) setMutedChats(JSON.parse(savedMuted));
 
     // ==========================================
-    // XABARLAR UCHUN TO'G'IRLANGAN JONLI (REAL-TIME) ULANISH
+    // JONLI EFIR (REAL-TIME) MUTLAQ TUZATILDI
     // ==========================================
     const msgSubscription = supabase.channel('realtime-messages')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload: any) => {
@@ -101,10 +101,10 @@ export default function MessengerPage() {
          const myId = localStorage.getItem('student_id');
 
          if (payload.eventType === 'INSERT') {
-            // Xabar menga tegishlimi yoki men tomondan yuborildimi tekshirish
+            // Xabar menga tegishlimi yoki mendan ketdimi tekshiramiz
             if (newMsg.receiver_id === myId || newMsg.sender_id === myId || (currentChat && (currentChat.type === 'group' || currentChat.type === 'channel') && newMsg.receiver_id === currentChat.id)) {
                
-               // Hozirgi ochiq turgan chatga mosligini aniq tekshiramiz
+               // Hozirgi ochiq turgan chat oynasiga tegishliligini tekshirish
                const isForCurrentChat = currentChat && (
                    (currentChat.type === 'personal' && ((newMsg.sender_id === currentChat.id && newMsg.receiver_id === myId) || (newMsg.receiver_id === currentChat.id && newMsg.sender_id === myId))) ||
                    (currentChat.id === 'saved' && newMsg.sender_id === myId && newMsg.receiver_id === myId) ||
@@ -117,12 +117,12 @@ export default function MessengerPage() {
                      return [...prev, newMsg];
                    });
 
-                   // Agar xabar qarshi tomondan kelgan bo'lsa, uni o'qilgan deb belgilaymiz
                    if (newMsg.receiver_id === myId && newMsg.sender_id !== myId) {
                        supabase.from('messages').update({ is_read: true }).eq('id', newMsg.id).then();
                    }
                }
-               // Chat ro'yxatidagi oxirgi xabarlar yangilanishi uchun listni qayta tortamiz
+               
+               // Sidebar ro'yxatini ham srazu yangilash
                if (myId) fetchChats(myId);
             }
          } 
@@ -152,8 +152,16 @@ export default function MessengerPage() {
     else { document.documentElement.classList.add("dark"); localStorage.setItem("theme", "dark"); setIsDarkMode(true); }
   };
 
+  // ==========================================
+  // ISMLAR VA RASMLAR CHALKASHMASLIGI UCHUN CHATLARNI TO'G'RI YUKLASH
+  // ==========================================
   const fetchChats = async (userId: string) => {
-    const { data: contactsData } = await supabase.from('contacts').select('*').eq('owner_id', userId);
+    // Kontaktlarni profiles jadvali bilan bog'lab tortamiz (Suhbatdoshning haqiqiy ismi va rasmini olish uchun)
+    const { data: contactsData } = await supabase
+      .from('contacts')
+      .select('*, profiles:contact_id(full_name, avatar_url)')
+      .eq('owner_id', userId);
+
     const { data: groupChannels } = await supabase.from('chats').select('*').order('created_at', { ascending: false });
     
     let allChats: any[] = [];
@@ -161,36 +169,43 @@ export default function MessengerPage() {
 
     if (contactsData) {
       setContacts(contactsData);
-      contactsData.forEach(c => allChats.push({ id: c.contact_id, name: c.contact_name, type: "personal", avatar_url: null, isOnline: Math.random() > 0.5 }));
+      contactsData.forEach((c: any) => {
+        // Agar profiles'da ma'lumot bo'lsa o'shani rasmi va ismini oladi, aks holda siz saqlagan nomni
+        allChats.push({ 
+          id: c.contact_id, 
+          name: c.profiles?.full_name || c.contact_name, 
+          type: "personal", 
+          avatar_url: c.profiles?.avatar_url || null, 
+          isOnline: Math.random() > 0.5 
+        });
+      });
     }
     if (groupChannels) allChats = [...allChats, ...groupChannels];
     setChats(allChats);
   };
 
-  // ==========================================
-  // XABARLARNI TO'G'RI VA XAFSIZ FILTRLAB YUKLASH (QAVSLAR BILAN)
-  // ==========================================
   const fetchMessages = async (chatId: string | number) => {
-    if (!student) return;
+    const myId = localStorage.getItem('student_id');
+    if (!myId) return;
     
     if (chatId === 'saved') {
-       const { data } = await supabase.from('messages').select('*').eq('sender_id', student.id).eq('receiver_id', student.id).order('created_at', { ascending: true });
+       const { data } = await supabase.from('messages').select('*').eq('sender_id', myId).eq('receiver_id', myId).order('created_at', { ascending: true });
        setMessages(data || []); return;
     }
     
-    // Guruhlar va shaxsiy chatlarni to'g'ri ajratib olish uchun qavsli mantiqiy shart (or/and)
-    if (activeChat?.type === 'group' || activeChat?.type === 'channel' || chats.find(c => c.id === chatId)?.type === 'group' || chats.find(c => c.id === chatId)?.type === 'channel') {
+    const isGroupOrChannel = activeChat?.type === 'group' || activeChat?.type === 'channel' || chats.find(c => c.id === chatId)?.type === 'group' || chats.find(c => c.id === chatId)?.type === 'channel';
+
+    if (isGroupOrChannel) {
       const { data } = await supabase.from('messages').select('*').eq('receiver_id', chatId).order('created_at', { ascending: true });
       setMessages(data || []);
     } else {
       const { data } = await supabase.from('messages').select('*')
-        .or(`and(sender_id.eq.${student.id},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${student.id})`)
+        .or(`and(sender_id.eq.${myId},receiver_id.eq.${chatId}),and(sender_id.eq.${chatId},receiver_id.eq.${myId})`)
         .order('created_at', { ascending: true });
       setMessages(data || []);
     }
 
-    // O'qilmagan xabarlarni o'qilgan qilish
-    await supabase.from('messages').update({ is_read: true }).eq('sender_id', chatId).eq('receiver_id', student.id).eq('is_read', false);
+    await supabase.from('messages').update({ is_read: true }).eq('sender_id', chatId).eq('receiver_id', myId).eq('is_read', false);
   };
 
   const toggleChatSelectionForFolder = (chatId: string) => {
@@ -221,26 +236,30 @@ export default function MessengerPage() {
   };
 
   // ==========================================
-  // XABAR JONATISH FUNKSIYASI
+  // XABAR YUBORISHDAGI STATE CHALKASHLIGI TUZATILDI
   // ==========================================
   const handleSendMessage = async (e?: React.FormEvent, type: string = 'text', fileUrl: string = '') => {
     if (e) e.preventDefault();
-    if (!activeChat || !student) return;
+    const myId = localStorage.getItem('student_id');
+    if (!activeChat || !myId) return;
     if (type === 'text' && !messageInput.trim()) return;
 
-    const receiver = activeChat.id === 'saved' ? student.id : activeChat.id;
-    const newMsg = { 
-      sender_id: student.id, 
-      receiver_id: receiver, 
-      text: type === 'text' ? messageInput.trim() : '', 
-      msg_type: type, 
-      file_url: fileUrl, 
-      is_read: false 
-    };
+    const receiver = activeChat.id === 'saved' ? myId : activeChat.id;
+    const textToSend = type === 'text' ? messageInput.trim() : '';
     
-    setMessageInput("");
+    setMessageInput(""); // Avval input tozalanadi
     
-    const { error } = await supabase.from('messages').insert([newMsg]);
+    const { error } = await supabase.from('messages').insert([
+      { 
+        sender_id: myId, 
+        receiver_id: receiver, 
+        text: textToSend, 
+        msg_type: type, 
+        file_url: fileUrl, 
+        is_read: false 
+      }
+    ]);
+
     if (error) {
       console.error("Xabar yuborishda xatolik:", error.message);
     }
@@ -281,8 +300,9 @@ export default function MessengerPage() {
 
   const handleClearHistory = async () => {
     if(confirm("Tarixni butunlay o'chirib yuborasizmi?")) {
-      const receiver = activeChat.id === 'saved' ? student.id : activeChat.id;
-      await supabase.from('messages').delete().or(`and(sender_id.eq.${student.id},receiver_id.eq.${receiver}),and(sender_id.eq.${receiver},receiver_id.eq.${student.id})`);
+      const myId = localStorage.getItem('student_id');
+      const receiver = activeChat.id === 'saved' ? myId : activeChat.id;
+      await supabase.from('messages').delete().or(`and(sender_id.eq.${myId},receiver_id.eq.${receiver}),and(sender_id.eq.${receiver},receiver_id.eq.${myId})`);
       setMessages([]); setShowChatMenu(false);
     }
   };
@@ -440,6 +460,9 @@ export default function MessengerPage() {
           <>
             <div className="h-[60px] bg-[#17212b] flex items-center justify-between px-4 z-10 border-b border-[#0e1621]">
               <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-bold text-white overflow-hidden">
+                  {activeChat.id === 'saved' ? <Bookmark className="w-5 h-5"/> : activeChat.avatar_url ? <img src={activeChat.avatar_url} className="w-full h-full object-cover"/> : activeChat.name.charAt(0)}
+                </div>
                 <div>
                   <h2 className="font-bold text-[15px] text-white flex items-center">{activeChat.name} {mutedChats.includes(activeChat.id) && <BellOff className="w-3.5 h-3.5 ml-2 text-[#708499]"/>}</h2>
                   <p className="text-[13px] text-[#708499]">
