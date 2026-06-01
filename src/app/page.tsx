@@ -22,15 +22,23 @@ export default function MainLogin() {
     setErrorMsg("");
 
     try {
+      // 🌟 IDni katta-kichikligiga qaramasdan (ilike orqali) xavfsiz qidirish
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', id.toUpperCase().trim())
-        .eq('password', password.trim())
+        .ilike('id', id.trim()) // ilike harf kattaligini hisobga olmaydi (D-0001 va d-0001 bir xil o'qiladi)
         .single();
 
+      // Agar baza ulanishida xato bo'lsa yoki foydalanuvchi topilmasa
       if (error || !data) {
-        setErrorMsg("ID yoki Parol noto'g'ri. Qaytadan urinib ko'ring.");
+        setErrorMsg("Kiritilgan Shaxsiy ID raqam tizimda mavjud emas!");
+        setIsLoading(false);
+        return;
+      }
+
+      // 🌟 Parolni tekshirish (Bazadagi bilan kiritilganni solishtirish)
+      if (data.password.trim() !== password.trim()) {
+        setErrorMsg("Kiritilgan parol noto'g'ri. Qaytadan urinib ko'ring.");
         setIsLoading(false);
         return;
       }
@@ -42,14 +50,14 @@ export default function MainLogin() {
       localStorage.setItem('user_id', data.id);
       localStorage.setItem('user_role', userRole);
 
-      // 🔥 BARCHA ESKI SAHIFALAR ISHLASHI UCHUN YECHIM (Ular shu kalitlarni qidiradi):
+      // Eski sahifalar uchun moslashtirish:
       if (userRole === 'student') {
         localStorage.setItem('student_id', data.id);
       } else if (userRole === 'teacher') {
         localStorage.setItem('teacher_id', data.id);
       }
 
-      // Qattiq va aniq yo'naltirish
+      // 🔥 TO'G'RI VA QATTIQ YO'NALTIRISH (REDIRECT)
       if (userRole === 'director' || userRole === 'admin') {
         window.location.replace('/director/dashboard');
       } 
@@ -60,11 +68,12 @@ export default function MainLogin() {
         window.location.replace('/student/dashboard');
       } 
       else {
-        setErrorMsg(`Tizimda rolingiz noaniq: ${data.role}`);
+        setErrorMsg(`Tizimda rolingiz noaniq yoki ruxsat berilmagan: ${data.role}`);
         setIsLoading(false);
       }
     } catch (err: any) {
-      setErrorMsg("Tarmoqda xatolik yuz berdi. Internetni tekshiring.");
+      console.error("Login Error:", err);
+      setErrorMsg("Kutilmagan xatolik yuz berdi. Konsolni yoki internetni tekshiring.");
       setIsLoading(false);
     }
   };
